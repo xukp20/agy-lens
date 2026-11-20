@@ -1130,7 +1130,7 @@
 
     quotaForm: {
       pool: 'gemini',
-      windowType: '5h',
+      windowType: '7d',
       remainingPct: '',
       resetInput: '',
       captureOffsetMin: 0, // 0 = now, -5, -15, or 'custom'
@@ -2697,8 +2697,8 @@
             <div class="field">
               <label for="qa-window">${esc(t('quota.windowLabel'))}</label>
               <select id="qa-window" name="windowType">
-                <option value="5h" ${f.windowType === '5h' ? 'selected' : ''}>${esc(t('quota.win5h'))}</option>
                 <option value="7d" ${f.windowType === '7d' ? 'selected' : ''}>${esc(t('quota.win7d'))}</option>
+                <option value="5h" ${f.windowType === '5h' ? 'selected' : ''}>${esc(t('quota.win5h'))}</option>
               </select>
             </div>
             <div class="field full">

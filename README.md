@@ -109,17 +109,18 @@ Because Antigravity exposes no official Sidecar Quota API, AGY Lens keeps quota 
 
 ## Installation & Updates
 
-### Option A: Install via Antigravity CLI
+### Option A: Clone Directly into Antigravity Plugins (Recommended)
 
 ```bash
-agy plugin install https://github.com/your-org/agy-lens
+git clone https://github.com/xukp20/agy-lens.git ~/.gemini/config/plugins/agy-lens
+agy plugin validate --strict ~/.gemini/config/plugins/agy-lens
 ```
 
-Or install from a local clone:
+Or install from a local clone via CLI:
 
 ```bash
-git clone https://github.com/your-org/agy-lens.git ~/.gemini/config/plugins/agy-lens
-agy plugin validate --strict ~/.gemini/config/plugins/agy-lens
+git clone https://github.com/xukp20/agy-lens.git /tmp/agy-lens
+agy plugin install /tmp/agy-lens
 ```
 
 > **Note**: Requires Antigravity `2.22+` (Sidecar Web UI support) and Node.js `24+` (built-in `node:sqlite`). No `npm install` step is needed.

@@ -109,17 +109,18 @@ AGY Lens 内置 **7 个可独立开关与自由排序的模块**。你可以只�
 
 ## 安装与更新
 
-### 方式一：通过 Antigravity CLI 安装
+### 方式一：直接克隆到插件目录（推荐，方便后续一键更新）
 
 ```bash
-agy plugin install https://github.com/your-org/agy-lens
+git clone https://github.com/xukp20/agy-lens.git ~/.gemini/config/plugins/agy-lens
+agy plugin validate --strict ~/.gemini/config/plugins/agy-lens
 ```
 
-或通过 Git 克隆到插件目录并校验：
+或克隆后通过 CLI 安装：
 
 ```bash
-git clone https://github.com/your-org/agy-lens.git ~/.gemini/config/plugins/agy-lens
-agy plugin validate --strict ~/.gemini/config/plugins/agy-lens
+git clone https://github.com/xukp20/agy-lens.git /tmp/agy-lens
+agy plugin install /tmp/agy-lens
 ```
 
 > **环境要求**：Antigravity `2.22+`（支持 Sidecar Web UI）与 Node.js `24+`（内置 `node:sqlite`）。无需执行 `npm install`。
