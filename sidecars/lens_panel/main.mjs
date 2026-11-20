@@ -70,6 +70,7 @@ const DEFAULT_CONFIG = {
   quotaDisplayMode: 'remaining',
   quotaAnchorsByPool: {},
   quotaCalibMode: 'auto',
+  quotaManualFactors: { M: false, C: false, O: false },
   defaultRange: '7d',
 };
 
@@ -100,17 +101,70 @@ function sanitizeQuotaAnchorsByPool(baseMap, patchMap) {
   return out;
 }
 
-function normalizeQuotaCalibMode(val, fallback = 'auto') {
-  if (typeof val !== 'string') return fallback;
-  const s = val.trim();
-  if (s === 'auto') return 'auto';
-  const up = s.toUpperCase();
-  if (up === 'L0' || up === 'L1' || up === 'L2' || up === 'L3') return up;
-  return fallback;
+function sanitizeQuotaManualFactors(baseFactors, patchFactors) {
+  const b = baseFactors && typeof baseFactors === 'object' ? baseFactors : {};
+  const p = patchFactors && typeof patchFactors === 'object' ? patchFactors : {};
+  return {
+    M: typeof p.M === 'boolean' ? p.M : Boolean(b.M),
+    C: typeof p.C === 'boolean' ? p.C : Boolean(b.C),
+    O: typeof p.O === 'boolean' ? p.O : Boolean(b.O),
+  };
+}
+
+function resolveQuotaCalibPatch(baseMode, baseFactors, patchMode, patchFactors) {
+  const factors = sanitizeQuotaManualFactors(baseFactors, patchFactors);
+  if (typeof patchMode !== 'string') {
+    return {
+      quotaCalibMode: baseMode === 'manual' ? 'manual' : 'auto',
+      quotaManualFactors: factors,
+    };
+  }
+  const s = patchMode.trim().toLowerCase();
+  if (s === 'auto') {
+    return { quotaCalibMode: 'auto', quotaManualFactors: factors };
+  }
+  if (s === 'manual') {
+    return { quotaCalibMode: 'manual', quotaManualFactors: factors };
+  }
+  const hasExplicitFactors = patchFactors && typeof patchFactors === 'object';
+  if (s === 'l0') {
+    return {
+      quotaCalibMode: 'manual',
+      quotaManualFactors: hasExplicitFactors ? factors : { M: false, C: false, O: false },
+    };
+  }
+  if (s === 'l1') {
+    return {
+      quotaCalibMode: 'manual',
+      quotaManualFactors: hasExplicitFactors ? factors : { M: true, C: false, O: false },
+    };
+  }
+  if (s === 'l2') {
+    return {
+      quotaCalibMode: 'manual',
+      quotaManualFactors: hasExplicitFactors ? factors : { M: true, C: true, O: false },
+    };
+  }
+  if (s === 'l3') {
+    return {
+      quotaCalibMode: 'manual',
+      quotaManualFactors: hasExplicitFactors ? factors : { M: true, C: true, O: true },
+    };
+  }
+  return {
+    quotaCalibMode: baseMode === 'manual' ? 'manual' : 'auto',
+    quotaManualFactors: factors,
+  };
 }
 
 function deepMergeConfig(base, patch) {
   if (!patch || typeof patch !== 'object') return structuredClone(base);
+  const calib = resolveQuotaCalibPatch(
+    base.quotaCalibMode,
+    base.quotaManualFactors,
+    patch.quotaCalibMode,
+    patch.quotaManualFactors
+  );
   const out = {
     lang: patch.lang === 'en' || patch.lang === 'zh-CN' ? patch.lang : base.lang,
     modules: { ...base.modules, ...(patch.modules && typeof patch.modules === 'object' ? patch.modules : {}) },
@@ -130,7 +184,8 @@ function deepMergeConfig(base, patch) {
         ? patch.quotaDisplayMode
         : base.quotaDisplayMode,
     quotaAnchorsByPool: sanitizeQuotaAnchorsByPool(base.quotaAnchorsByPool, patch.quotaAnchorsByPool),
-    quotaCalibMode: normalizeQuotaCalibMode(patch.quotaCalibMode, base.quotaCalibMode),
+    quotaCalibMode: calib.quotaCalibMode,
+    quotaManualFactors: calib.quotaManualFactors,
     defaultRange:
       typeof patch.defaultRange === 'string' && patch.defaultRange
         ? patch.defaultRange
@@ -336,7 +391,10 @@ app.api('/api/quota/anchors', (data) => {
     windowType: data.window || data.windowType || null,
     anchorModel: typeof data.anchorModel === 'string' && data.anchorModel.trim() ? data.anchorModel.trim() : null,
     quotaAnchorsByPool: config.quotaAnchorsByPool || {},
-    forceLevel: data.forceLevel || config.quotaCalibMode || 'auto',
+    quotaCalibMode: data.quotaCalibMode || config.quotaCalibMode || 'auto',
+    quotaManualFactors: config.quotaManualFactors || { M: false, C: false, O: false },
+    forceSubset: data.forceSubset || null,
+    forceLevel: data.forceLevel || null,
   });
 }, 'GET');
 
@@ -349,7 +407,8 @@ app.api('/api/quota/anchors', (data) => {
       pool: null,
       windowType: null,
       quotaAnchorsByPool: config.quotaAnchorsByPool || {},
-      forceLevel: config.quotaCalibMode || 'auto',
+      quotaCalibMode: config.quotaCalibMode || 'auto',
+      quotaManualFactors: config.quotaManualFactors || { M: false, C: false, O: false },
     });
   } catch (err) {
     return jsonError(400, err.message);
@@ -365,7 +424,8 @@ app.api('/api/quota/anchors/delete', (data) => {
       pool: null,
       windowType: null,
       quotaAnchorsByPool: config.quotaAnchorsByPool || {},
-      forceLevel: config.quotaCalibMode || 'auto',
+      quotaCalibMode: config.quotaCalibMode || 'auto',
+      quotaManualFactors: config.quotaManualFactors || { M: false, C: false, O: false },
     });
   } catch (err) {
     return jsonError(400, err.message);

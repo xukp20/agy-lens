@@ -435,25 +435,38 @@
         invalidPct: '请输入 0 到 100 之间的有效剩余百分比（支持最多 2 位小数，如 94.25）',
         recordFailed: '记录失败: {msg}',
         deleteFailed: '删除失败: {msg}',
-        levelL0: 'L0 基准',
-        levelL1: 'L1 模型倍率',
-        levelL2: 'L2 模型+缓存',
-        levelL3: 'L3 全量',
-        calibBadgeHelp: '渐进式分层校准（L0 → L1 → L2 → L3）：随本周期内不同模型/缓存配比的区间增多逐步解锁。\n仅当留一交叉验证（LOOCV-MAE）改善 ≥15%、信息准则（χ²_W + 2·df）下降且共线性 VIF < 10 时才自动晋级，防止小样本过拟合。',
+        subsetBase: '基准',
+        subsetM: '模型 (M)',
+        subsetC: '缓存 (C)',
+        subsetO: '输出 (O)',
+        subsetMC: '模型+缓存',
+        subsetMO: '模型+输出',
+        subsetCO: '缓存+输出',
+        subsetMCO: '全因子 (M+C+O)',
+        factorM: '模型倍率 (M)',
+        factorC: '缓存倍率 (C)',
+        factorO: '输出倍率 (O)',
+        calibBadgeHelp: '正交 3 因子校准：模型倍率 (M)、缓存倍率 (C)、输出倍率 (O) 彼此独立，随各自变异度独立解锁。\n系统在全部 8 个子集中用留一交叉验证（LOOCV-MAE）与 χ² 准则自动择优，并对微小滞后/回弹进行保守平滑归并，防止过拟合。',
         mixEqHint: '当前配比等效',
         clamped: '受限',
         maeStrip: 'MAE ±{mae}pp',
         labTitle: '权重校准实验室',
         labSummary: '推荐 {rec} · {n} 段',
-        modeAuto: '自动',
+        modeAuto: '自动择优',
+        modeAutoHelp: '评估全部 8 个正交子集，按 LOOCV-MAE 改善与 χ² 准则自动选择最优模型。',
         modeManual: '手动 {mode}',
-        allUnlocked: '全部 4 级校准条件已就绪。',
+        allFactorsUnlocked: '全部 3 个正交因子已就绪，可自由组合或使用自动择优。',
+        manualFallbackHint: '组合 {subset} 暂不可用（{reason}），已回退至 {fallback}。',
+        subsetIneligible: '样本量或共线性条件未满足',
+        smoothSegSummary: '{anchors} 锚点 → {segs} 平滑段 (合并 {merged} 处抖动)',
+        smoothHuberTag: 'Huber 降权 {n} 处跳变',
+        smoothTipInfo: '保守区间平滑：自动归并微小结算滞后与微幅回弹，保持总花费与 Δu 守恒；Huber 权重自动抑制偶发滞后异常点。',
         baseAnchorLabel: '1.00× 基准锚点',
         anchorSrcDefault: '默认',
         anchorSrcUser: '自定义',
         anchorSrcFallback: '自动回退',
         anchorPoolQ: '锚点口径 Q: ~{usd}',
-        anchorPoolQHelp: '「锚点口径 Q」指完全使用所选 1.00× 基准模型时的周期总额度；卡片顶部大号数字为按当前混合配比折算的等效 API 总额度，切换层级时平滑不跳变。',
+        anchorPoolQHelp: '「锚点口径 Q」指完全使用所选 1.00× 基准模型时的周期总额度；卡片顶部大号数字为按当前混合配比折算的等效 API 总额度，切换因子组合时平滑不跳变。',
         paramBase: '基准 1.00×',
         paramFitted: '已拟合',
         paramDefault: '默认 1.00×',
@@ -463,27 +476,35 @@
         interpModelEff: '同 API 花费下，额度消耗约为基准模型的 {v}×（更省额度）。',
         interpModelHeavy: '同 API 花费下，额度消耗约为基准模型的 {v}×（更费额度）。',
         interpModelNeutral: '与基准模型额度消耗速率基本一致（~{v}×）。',
-        interpModelUnfit: '沿用 API 标价 1.00×（解锁 L1 后拟合）。',
+        interpModelUnfit: '沿用 API 标价 1.00×（启用因子 M 后拟合）。',
         interpCacheCheap: '缓存读取按 API 折扣的 {v}× 扣额（命中更划算）。',
         interpCacheExpensive: '缓存读取按 API 折扣的 {v}× 扣额（折扣低于 API）。',
         interpCacheNeutral: '缓存读取扣额与官方 API 定价基本一致（~{v}×）。',
-        interpCacheUnfit: '按官方 API 缓存折扣计算（解锁 L2 后拟合）。',
+        interpCacheUnfit: '按官方 API 缓存折扣计算（启用因子 C 后拟合）。',
         interpOutExpensive: '输出 / 思考 Token 权重为 API 价的 {v}×（输出更贵）。',
         interpOutCheap: '输出 / 思考 Token 权重仅为 API 价的 {v}×（输出更省）。',
         interpOutNeutral: '输出与输入消耗比基本符合官方 API 定价（~{v}×）。',
-        interpOutUnfit: '按官方 API 输出比例计算（解锁 L3 后拟合）。',
+        interpOutUnfit: '按官方 API 输出比例计算（启用因子 O 后拟合）。',
+        trialNotAdopted: '未采纳 · 试算 {val}{clamped}（{reason}）',
+        trialReasonWorse: 'LOOCV ±{trial}pp 差于基准 ±{base}pp',
+        trialReasonMarginal: 'LOOCV ±{trial}pp 较基准 ±{base}pp 降幅不足 15%',
+        trialReasonChi2: '信息准则 χ² 改善未达门槛',
         promoNoteFollow: '提示：本周期内促销模型尚未跨越调价点，暂无法独立辨识订阅是否跟随促销折扣，当前按「跟随 API 促销价」假设校准。',
         promoNoteList: '提示：本周期内促销模型尚未跨越调价点，暂按「标准原价（不跟随促销）」假设校准。',
         residualTitle: '实测 vs 预测残差 (pp)',
         residualNoData: '当前周期分段拟合数据不足。',
         residualSummary: '{l0} ±{mae0}pp → {cur} ±{mae1}pp ({metric})',
+        residualBaseOnly: '{base} ±{mae0}pp ({metric})',
         legendObs: '实测 Observed',
-        legendL0: 'L0 预测',
+        legendBase: '基准预测',
         legendCur: '{lvl} 预测',
+        legendHuber: 'Huber 降权',
         segTipTitle: '区间 #{idx} · 花费 {usd}',
         segTipObs: '实测消耗: {v}pp',
-        segTipL0: 'L0 预测: {v}pp (误差 {err}pp)',
-        segTipCur: '{lvl} 预测: {v}pp (误差 {err}pp)'
+        segTipBase: '基准预测: {v}pp (误差 {err}pp)',
+        segTipCur: '{lvl} 预测: {v}pp (误差 {err}pp)',
+        segTipMerged: '合并了 {n} 个原始间隔',
+        segTipDownweighted: 'Huber 已降权（疑似滞后跳变）'
       },
       settings: {
         title: '面板设置',
@@ -837,25 +858,38 @@
         invalidPct: 'Enter a valid percentage between 0 and 100 (up to 2 decimals, e.g. 94.25)',
         recordFailed: 'Failed to save anchor: {msg}',
         deleteFailed: 'Failed to delete anchor: {msg}',
-        levelL0: 'L0 Base',
-        levelL1: 'L1 Models',
-        levelL2: 'L2 +Cache',
-        levelL3: 'L3 +Output',
-        calibBadgeHelp: 'Progressive hierarchical calibration (L0 → L1 → L2 → L3) unlocks as current-cycle segments accumulate varied model & cache mixes.\nAuto mode upgrades only when LOOCV-MAE improves ≥15%, (χ²_W + 2·df) drops, and VIF < 10 to prevent small-sample overfitting.',
+        subsetBase: 'Base',
+        subsetM: 'Models (M)',
+        subsetC: 'Cache (C)',
+        subsetO: 'Output (O)',
+        subsetMC: 'M+C',
+        subsetMO: 'M+O',
+        subsetCO: 'C+O',
+        subsetMCO: 'All (M+C+O)',
+        factorM: 'Models (M)',
+        factorC: 'Cache (C)',
+        factorO: 'Output (O)',
+        calibBadgeHelp: 'Orthogonal 3-factor calibration: Models (M), Cache (C), and Output (O) unlock independently based on each dimension’s observed variation.\nAuto mode evaluates all 8 subsets using LOOCV-MAE + χ² criteria with conservative lag coalescing to prevent overfitting.',
         mixEqHint: 'Current-mix eq.',
         clamped: 'clamped',
         maeStrip: 'MAE ±{mae}pp',
         labTitle: 'Weight Calibration Lab',
         labSummary: 'Rec {rec} · {n} segs',
         modeAuto: 'Auto',
+        modeAutoHelp: 'Evaluates all 8 orthogonal subsets via LOOCV-MAE & χ² criteria to pick the optimal model.',
         modeManual: 'Manual {mode}',
-        allUnlocked: 'All 4 calibration levels unlocked.',
+        allFactorsUnlocked: 'All 3 orthogonal factors are eligible.',
+        manualFallbackHint: 'Subset {subset} is ineligible ({reason}); showing {fallback}.',
+        subsetIneligible: 'insufficient segments or collinearity',
+        smoothSegSummary: '{anchors} anchors → {segs} smoothed segs ({merged} merged)',
+        smoothHuberTag: 'Huber downweighted {n}',
+        smoothTipInfo: 'Conservative smoothing merges tiny settlement-lag & micro-rebound intervals while conserving total spend & Δu; Huber IRLS downweights lag outliers.',
         baseAnchorLabel: '1.00× Base Anchor',
         anchorSrcDefault: 'Default',
         anchorSrcUser: 'Custom',
         anchorSrcFallback: 'Fallback',
         anchorPoolQ: 'Anchor Q: ~{usd}',
-        anchorPoolQHelp: 'Anchor Q is the cycle budget measured in 1.00× Base Anchor API USD. The card headline shows your current-mix equivalent API budget so switching levels stays smooth.',
+        anchorPoolQHelp: 'Anchor Q is the cycle budget measured in 1.00× Base Anchor API USD. The card headline shows your current-mix equivalent API budget so switching factor subsets stays smooth.',
         paramBase: 'Base 1.00×',
         paramFitted: 'Fitted',
         paramDefault: 'Default 1.00×',
@@ -865,27 +899,35 @@
         interpModelEff: 'Consumes ~{v}× quota per API $ vs base (more efficient).',
         interpModelHeavy: 'Consumes ~{v}× quota per API $ vs base (heavier drain).',
         interpModelNeutral: 'Drains at nearly 1:1 rate vs base (~{v}×).',
-        interpModelUnfit: 'Uses 1.00× API list ratio (unlock L1 to fit).',
+        interpModelUnfit: 'Uses 1.00× API list ratio (enable M to fit).',
         interpCacheCheap: 'Cache reads drain {v}× their API price (extra savings).',
         interpCacheExpensive: 'Cache reads drain {v}× their API price (smaller discount).',
         interpCacheNeutral: 'Cache read discount aligns with API pricing (~{v}×).',
-        interpCacheUnfit: 'Follows public API cache discount (unlock L2 to fit).',
+        interpCacheUnfit: 'Follows public API cache discount (enable C to fit).',
         interpOutExpensive: 'Output / thinking weight is {v}× its API price (costlier).',
         interpOutCheap: 'Output / thinking weight is {v}× its API price (cheaper).',
         interpOutNeutral: 'Output-to-input weight aligns with API pricing (~{v}×).',
-        interpOutUnfit: 'Follows public API output ratio (unlock L3 to fit).',
+        interpOutUnfit: 'Follows public API output ratio (enable O to fit).',
+        trialNotAdopted: 'Not adopted · Trial {val}{clamped} ({reason})',
+        trialReasonWorse: 'LOOCV ±{trial}pp worse than base ±{base}pp',
+        trialReasonMarginal: 'LOOCV ±{trial}pp <15% gain vs base ±{base}pp',
+        trialReasonChi2: 'χ² + 2·df gain below threshold',
         promoNoteFollow: 'Note: Current segments have not crossed a price transition; promo pass-through is unidentifiable and assumed to follow the API promo price.',
         promoNoteList: 'Note: Current segments have not crossed a price transition; currently assumed to follow standard list price.',
         residualTitle: 'Observed vs Predicted Residuals (pp)',
         residualNoData: 'Not enough segment fits in current cycle.',
         residualSummary: '{l0} ±{mae0}pp → {cur} ±{mae1}pp ({metric})',
+        residualBaseOnly: '{base} ±{mae0}pp ({metric})',
         legendObs: 'Observed',
-        legendL0: 'L0 Pred',
+        legendBase: 'Base Pred',
         legendCur: '{lvl} Pred',
+        legendHuber: 'Huber downweighted',
         segTipTitle: 'Segment #{idx} · Spend {usd}',
         segTipObs: 'Observed: {v}pp',
-        segTipL0: 'L0 Pred: {v}pp (err {err}pp)',
-        segTipCur: '{lvl} Pred: {v}pp (err {err}pp)'
+        segTipBase: 'Base Pred: {v}pp (err {err}pp)',
+        segTipCur: '{lvl} Pred: {v}pp (err {err}pp)',
+        segTipMerged: 'Merged {n} raw intervals',
+        segTipDownweighted: 'Huber downweighted (lag outlier)'
       },
       settings: {
         title: 'Settings',
@@ -1149,11 +1191,39 @@
     return id.replace(/^(?:gemini|claude)-/, '');
   }
 
-  function calibLevelLabel(lvl) {
-    if (lvl === 'L1') return t('quota.levelL1');
-    if (lvl === 'L2') return t('quota.levelL2');
-    if (lvl === 'L3') return t('quota.levelL3');
-    return t('quota.levelL0');
+  function factorsToSubsetKey(factors) {
+    const parts = [];
+    if (factors?.M) parts.push('M');
+    if (factors?.C) parts.push('C');
+    if (factors?.O) parts.push('O');
+    return parts.length ? parts.join('+') : 'base';
+  }
+
+  function subsetKeyToFactors(key) {
+    const parts = new Set(String(key || 'base').split('+'));
+    return {
+      M: parts.has('M'),
+      C: parts.has('C'),
+      O: parts.has('O')
+    };
+  }
+
+  function calibSubsetLabel(subsetKey) {
+    const map = {
+      base: 'quota.subsetBase',
+      M: 'quota.subsetM',
+      C: 'quota.subsetC',
+      O: 'quota.subsetO',
+      'M+C': 'quota.subsetMC',
+      'M+O': 'quota.subsetMO',
+      'C+O': 'quota.subsetCO',
+      'M+C+O': 'quota.subsetMCO'
+    };
+    return t(map[subsetKey] || 'quota.subsetBase');
+  }
+
+  function calibSubsetShort(subsetKey) {
+    return !subsetKey || subsetKey === 'base' ? t('quota.subsetBase') : String(subsetKey);
   }
 
   function fmtMultWithSe(p) {
@@ -1234,7 +1304,8 @@
     quotaDisplayMode: 'remaining',
     defaultRange: '7d',
     quotaAnchorsByPool: {},
-    quotaCalibMode: 'auto'
+    quotaCalibMode: 'auto',
+    quotaManualFactors: { M: false, C: false, O: false }
   };
 
   const state = {
@@ -1416,7 +1487,23 @@
   function normalizeConfigPayload(res) {
     if (!res) return;
     const cfg = res.config || {};
-    const validModes = new Set(['auto', 'L0', 'L1', 'L2', 'L3']);
+    const rawMf = cfg.quotaManualFactors && typeof cfg.quotaManualFactors === 'object' ? cfg.quotaManualFactors : null;
+    let quotaCalibMode = cfg.quotaCalibMode === 'manual' ? 'manual' : 'auto';
+    let quotaManualFactors = {
+      M: Boolean(rawMf?.M),
+      C: Boolean(rawMf?.C),
+      O: Boolean(rawMf?.O)
+    };
+    if (['L0', 'L1', 'L2', 'L3'].includes(cfg.quotaCalibMode)) {
+      quotaCalibMode = 'manual';
+      if (!rawMf) {
+        quotaManualFactors = {
+          M: cfg.quotaCalibMode === 'L1' || cfg.quotaCalibMode === 'L2' || cfg.quotaCalibMode === 'L3',
+          C: cfg.quotaCalibMode === 'L2' || cfg.quotaCalibMode === 'L3',
+          O: cfg.quotaCalibMode === 'L3'
+        };
+      }
+    }
     state.config = {
       ...DEFAULT_CONFIG,
       ...cfg,
@@ -1427,7 +1514,8 @@
       quotaAnchorsByPool: {
         ...(cfg.quotaAnchorsByPool && typeof cfg.quotaAnchorsByPool === 'object' ? cfg.quotaAnchorsByPool : {})
       },
-      quotaCalibMode: validModes.has(cfg.quotaCalibMode) ? cfg.quotaCalibMode : DEFAULT_CONFIG.quotaCalibMode,
+      quotaCalibMode,
+      quotaManualFactors,
       moduleOrder: Array.isArray(cfg.moduleOrder) && cfg.moduleOrder.length
         ? cfg.moduleOrder.filter((id) => ALL_MODULE_IDS.includes(id))
         : [...DEFAULT_CONFIG.moduleOrder]
@@ -2933,9 +3021,10 @@
         .map((s) => {
           const e = s.estimation;
           const cal = e.calibration || null;
-          const activeLvl = cal?.activeLevel || 'L0';
-          const levels = cal?.levels || {};
-          const activeLvlObj = levels[activeLvl] || levels.L0 || null;
+          const activeSubset = cal?.activeSubset || 'base';
+          const subsets = cal?.subsets || {};
+          const activeSubObj = subsets[activeSubset] || subsets.base || null;
+          const activeFactors = cal?.activeFactors || subsetKeyToFactors(activeSubset);
           const statusMap = {
             ok: { cls: 'ok', text: t('quota.statusOk') },
             low_confidence: { cls: 'warn', text: t('quota.statusLow') },
@@ -2947,13 +3036,13 @@
 
           const calibBadgeHtml = cal
             ? `
-              <span class="pill ${activeLvl !== 'L0' ? 'accent' : 'outline'}">${esc(calibLevelLabel(activeLvl))}</span>
+              <span class="pill ${activeSubset !== 'base' ? 'accent' : 'outline'}">${esc(calibSubsetLabel(activeSubset))}</span>
               ${helpTip(t('quota.calibBadgeHelp'))}
             `
             : '';
 
           const weightStripHtml =
-            cal && activeLvl !== 'L0' && activeLvlObj ? renderCalibWeightStrip(activeLvlObj) : '';
+            cal && activeSubset !== 'base' && activeSubObj ? renderCalibWeightStrip(activeSubObj) : '';
           const calibLabHtml = cal ? buildCalibrationLabHtml(s, cal) : '';
 
           return `
@@ -2976,7 +3065,7 @@
                     <div class="muted-note num">${esc(t('quota.calDesc', { du: deltaPct.toFixed(2), seg: num(e.segmentsUsed), usd: fmtUsd(e.windowSpendUsd) }))}</div>
                   `
                   : `
-                    <div class="est-total num mono">~${fmtUsd(e.estimatedPoolUsd)} <span class="muted-note" style="font-size:11px;font-weight:400">95% CI [${fmtUsd(e.ciLowUsd)}, ${fmtUsd(e.ciHighUsd)}]${activeLvl !== 'L0' ? ` · ${esc(t('quota.mixEqHint'))}` : ''}</span></div>
+                    <div class="est-total num mono">~${fmtUsd(e.estimatedPoolUsd)} <span class="muted-note" style="font-size:11px;font-weight:400">95% CI [${fmtUsd(e.ciLowUsd)}, ${fmtUsd(e.ciHighUsd)}]${activeSubset !== 'base' ? ` · ${esc(t('quota.mixEqHint'))}` : ''}</span></div>
                     <div class="chart-caption-row num">
                       <span>${esc(t('quota.effDelta', { du: deltaPct.toFixed(2), seg: num(e.segmentsUsed), usd: fmtUsd(e.windowSpendUsd) }))}</span>
                       <span>${esc(t('quota.impliedRem', { usd: e.impliedRemainingUsd != null ? fmtUsd(e.impliedRemainingUsd) : '—' }))}</span>
@@ -2990,7 +3079,7 @@
                   : ''
               }
               ${
-                e.mixedModelWarning && activeLvl === 'L0'
+                e.mixedModelWarning && !activeFactors.M
                   ? `<div class="banner warn" style="padding:6px 8px">${esc(t('quota.mixedWarn'))}</div>`
                   : ''
               }
@@ -3036,8 +3125,9 @@
           ${
             olderList.length > 0
               ? `
-                <button type="button" class="older-cycles-btn" data-action="toggle-older-anchors">
-                  ${esc(state.quotaOlderOpen ? t('quota.hideOlderCycles', { m: olderList.length }) : t('quota.showOlderCycles', { m: olderList.length }))}
+                <button type="button" class="older-cycles-btn older-anchors-toggle ${state.quotaOlderOpen ? 'open' : ''}" data-action="toggle-older-anchors" aria-expanded="${state.quotaOlderOpen}">
+                  <span>${esc(state.quotaOlderOpen ? t('quota.hideOlderCycles', { m: olderList.length }) : t('quota.showOlderCycles', { m: olderList.length }))}</span>
+                  <svg class="icon chevron" width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg>
                 </button>
                 ${
                   state.quotaOlderOpen
@@ -3087,10 +3177,10 @@
       .join('');
   }
 
-  function renderCalibWeightStrip(levelObj) {
-    const models = Array.isArray(levelObj?.params?.models) ? levelObj.params.models : [];
-    const cache = levelObj?.params?.cache;
-    const output = levelObj?.params?.output;
+  function renderCalibWeightStrip(subsetObj) {
+    const models = Array.isArray(subsetObj?.params?.models) ? subsetObj.params.models : [];
+    const cache = subsetObj?.params?.cache;
+    const output = subsetObj?.params?.output;
     const items = [];
 
     for (const m of models) {
@@ -3115,8 +3205,8 @@
     }
 
     const maeText =
-      levelObj?.maePp != null && Number.isFinite(Number(levelObj.maePp))
-        ? `<span class="calib-mae-chip num">${esc(t('quota.maeStrip', { mae: num(levelObj.maePp).toFixed(2) }))}</span>`
+      subsetObj?.maePp != null && Number.isFinite(Number(subsetObj.maePp))
+        ? `<span class="calib-mae-chip num">${esc(t('quota.maeStrip', { mae: num(subsetObj.maePp).toFixed(2) }))}</span>`
         : '';
 
     if (!items.length && !maeText) return '';
@@ -3128,36 +3218,63 @@
     `;
   }
 
+  function renderCalibSmoothingPill(summary, cal) {
+    const rawN = num(cal.rawSegmentsCount, num(cal.segmentsCount, 0));
+    const segN = num(cal.segmentsCount, 0);
+    const mergedN = Math.max(num(cal.coalescedCount, 0), rawN - segN);
+    const huberN = num(cal.huberDownweightedCount, 0);
+    if (mergedN <= 0 && huberN <= 0) return '';
+
+    const anchorsN =
+      Array.isArray(summary?.currentCycleAnchors) && summary.currentCycleAnchors.length
+        ? summary.currentCycleAnchors.length
+        : rawN + 1;
+    const parts = [];
+    if (mergedN > 0) {
+      parts.push(t('quota.smoothSegSummary', { anchors: anchorsN, segs: segN, merged: mergedN }));
+    }
+    if (huberN > 0) {
+      parts.push(t('quota.smoothHuberTag', { n: huberN }));
+    }
+    return `
+      <span class="calib-smooth-pill num ${huberN > 0 ? 'has-huber' : ''}" data-tip="${esc(t('quota.smoothTipInfo'))}">
+        ${huberN > 0 ? '<span class="calib-huber-dot" aria-hidden="true"></span>' : ''}
+        <span>${esc(parts.join(' · '))}</span>
+      </span>
+    `;
+  }
+
   function buildCalibrationLabHtml(summary, cal) {
     const labKey = `${summary.pool}:${summary.windowType}`;
-    const activeLvl = cal.activeLevel || 'L0';
-    const recLvl = cal.recommendedLevel || 'L0';
-    const levels = cal.levels || {};
-    const activeLvlObj = levels[activeLvl] || levels.L0 || null;
+    const activeSubset = cal.activeSubset || 'base';
+    const recSubset = cal.recommendedSubset || 'base';
+    const subsets = cal.subsets || {};
+    const activeSubObj = subsets[activeSubset] || subsets.base || null;
     const isOpen = state.quotaLabOpenByKey.has(labKey)
       ? Boolean(state.quotaLabOpenByKey.get(labKey))
-      : activeLvl !== 'L0';
+      : activeSubset !== 'base';
 
-    const calibMode = state.config.quotaCalibMode || 'auto';
+    const calibMode = cal.mode || state.config.quotaCalibMode || 'auto';
     const manualTag =
-      calibMode !== 'auto' ? ` · ${t('quota.modeManual', { mode: calibMode })}` : '';
+      calibMode === 'manual' ? ` · ${t('quota.modeManual', { mode: calibSubsetShort(activeSubset) })}` : '';
 
     return `
       <div class="calib-lab-wrap">
         <button type="button" class="calib-lab-toggle ${isOpen ? 'open' : ''}" data-action="toggle-calib-lab" data-key="${esc(labKey)}" aria-expanded="${isOpen}">
           <span class="calib-lab-toggle-left">
             <span>${esc(t('quota.labTitle'))}</span>
-            <span class="pill outline num">${esc(t('quota.labSummary', { rec: recLvl, n: num(cal.segmentsCount, 0) }))}${esc(manualTag)}</span>
+            <span class="pill outline num">${esc(t('quota.labSummary', { rec: calibSubsetShort(recSubset), n: num(cal.segmentsCount, 0) }))}${esc(manualTag)}</span>
+            ${renderCalibSmoothingPill(summary, cal)}
           </span>
           <svg class="icon chevron" width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg>
         </button>
         ${
           isOpen
             ? `<div class="calib-lab-body">
-                ${renderCalibLadder(cal)}
-                ${renderCalibAnchorSelector(summary, cal, activeLvlObj)}
-                ${renderCalibParamTable(cal, activeLvlObj)}
-                ${renderCalibResidualSvg(cal, activeLvlObj)}
+                ${renderCalibControls(summary, cal)}
+                ${renderCalibAnchorSelector(summary, cal, activeSubObj)}
+                ${renderCalibParamTable(cal, activeSubObj)}
+                ${renderCalibResidualSvg(summary, cal, activeSubObj)}
               </div>`
             : ''
         }
@@ -3165,64 +3282,92 @@
     `;
   }
 
-  function renderCalibLadder(cal) {
-    const calibMode = state.config.quotaCalibMode || 'auto';
-    const activeLvl = cal.activeLevel || 'L0';
-    const recLvl = cal.recommendedLevel || 'L0';
-    const levels = cal.levels || {};
-    const order = ['L0', 'L1', 'L2', 'L3'];
+  function renderCalibControls(summary, cal) {
+    const calibMode = cal.mode || state.config.quotaCalibMode || 'auto';
+    const activeSubset = cal.activeSubset || 'base';
+    const recSubset = cal.recommendedSubset || 'base';
+    const activeFactors = cal.activeFactors || subsetKeyToFactors(activeSubset);
+    const recFactors = subsetKeyToFactors(recSubset);
+    const factorsMeta = cal.factors || {};
+    const subsets = cal.subsets || {};
 
-    const pills = order
-      .map((lvl, idx) => {
-        const obj = levels[lvl] || {};
-        const eligible = lvl === 'L0' ? true : Boolean(obj.eligible);
-        const isSelected = calibMode === lvl || (calibMode === 'auto' && activeLvl === lvl);
-        const isRec = recLvl === lvl;
+    const factorDefs = [
+      { key: 'M', label: t('quota.factorM') },
+      { key: 'C', label: t('quota.factorC') },
+      { key: 'O', label: t('quota.factorO') }
+    ];
+
+    const chipsHtml = factorDefs
+      .map((fd) => {
+        const fMeta = factorsMeta[fd.key] || {};
+        const eligible = Boolean(fMeta.eligible);
+        const isActive = Boolean(activeFactors[fd.key]);
+        const isRec = Boolean(recFactors[fd.key]);
+        const subObj = subsets[fd.key] || {};
         const cls = [
-          'calib-step-btn',
-          isSelected ? 'active' : '',
+          'calib-factor-chip',
+          isActive ? 'active' : '',
           isRec ? 'recommended' : '',
           !eligible ? 'dimmed' : ''
         ]
           .filter(Boolean)
           .join(' ');
-        const tipLines = [calibLevelLabel(lvl)];
-        if (!eligible && obj.reason) tipLines.push(obj.reason);
-        else if (obj.loocvMaePp != null) tipLines.push(`LOOCV MAE: ±${num(obj.loocvMaePp).toFixed(2)}pp`);
-        else if (obj.maePp != null) tipLines.push(`MAE: ±${num(obj.maePp).toFixed(2)}pp`);
 
-        const btn = `
-          <button type="button" class="${cls}" data-action="set-calib-mode" data-mode="${lvl}" data-tip="${esc(tipLines.join('\n'))}" ${!eligible ? 'aria-disabled="true"' : ''}>
+        const tipLines = [fd.label];
+        if (!eligible && fMeta.reason) {
+          tipLines.push(fMeta.reason);
+        } else if (subObj.loocvMaePp != null) {
+          tipLines.push(`LOOCV MAE: ±${num(subObj.loocvMaePp).toFixed(2)}pp`);
+        } else if (subObj.maePp != null) {
+          tipLines.push(`MAE: ±${num(subObj.maePp).toFixed(2)}pp`);
+        }
+
+        return `
+          <button type="button" class="${cls}" data-action="toggle-calib-factor" data-factor="${fd.key}" data-pool="${esc(summary.pool)}" data-wt="${esc(summary.windowType)}" data-tip="${esc(tipLines.join('\n'))}" aria-pressed="${isActive}" ${!eligible ? 'aria-disabled="true"' : ''}>
             ${isRec ? '<span class="calib-rec-dot" aria-hidden="true"></span>' : ''}
-            <span>${lvl}</span>
+            <span>${esc(fd.label)}</span>
           </button>
         `;
-        return idx < order.length - 1 ? `${btn}<span class="calib-ladder-arrow">→</span>` : btn;
       })
       .join('');
 
-    const lockedReasons = ['L1', 'L2', 'L3']
-      .map((lvl) => ({ lvl, obj: levels[lvl] }))
+    const manualFactors = state.config.quotaManualFactors || {};
+    const requestedSubset = factorsToSubsetKey(manualFactors);
+    const reqSubObj = subsets[requestedSubset];
+    const fallbackWarn =
+      calibMode === 'manual' && requestedSubset !== activeSubset && reqSubObj && !reqSubObj.eligible
+        ? `<div class="calib-subset-warn">${esc(
+            t('quota.manualFallbackHint', {
+              subset: calibSubsetShort(requestedSubset),
+              reason: reqSubObj.reason || t('quota.subsetIneligible'),
+              fallback: calibSubsetShort(activeSubset)
+            })
+          )}</div>`
+        : '';
+
+    const lockedReasons = factorDefs
+      .map((fd) => ({ key: fd.key, obj: factorsMeta[fd.key] }))
       .filter((x) => x.obj && !x.obj.eligible && x.obj.reason);
 
     const unlockHint = lockedReasons.length
-      ? `${lockedReasons[0].lvl}: ${lockedReasons[0].obj.reason}`
-      : t('quota.allUnlocked');
+      ? lockedReasons.map((x) => `${x.key}: ${x.obj.reason}`).join(' · ')
+      : t('quota.allFactorsUnlocked');
 
     return `
-      <div style="display:flex;flex-direction:column;gap:4px">
-        <div class="calib-ladder-row">
-          <div class="calib-ladder">${pills}</div>
-          <button type="button" class="btn-sm ${calibMode === 'auto' ? 'primary' : ''}" style="height:22px;padding:0 8px;font-size:10.5px" data-action="set-calib-mode" data-mode="auto">
-            ${esc(t('quota.modeAuto'))} (${esc(recLvl)})
+      <div class="calib-controls-wrap">
+        <div class="calib-controls-row">
+          <button type="button" class="calib-auto-btn ${calibMode === 'auto' ? 'active' : ''}" data-action="set-calib-auto" data-tip="${esc(t('quota.modeAutoHelp'))}" aria-pressed="${calibMode === 'auto'}">
+            <span>${esc(t('quota.modeAuto'))} (${esc(calibSubsetShort(recSubset))})</span>
           </button>
+          <div class="calib-factors-group">${chipsHtml}</div>
         </div>
+        ${fallbackWarn}
         <div class="calib-unlock-hint">${esc(unlockHint)}</div>
       </div>
     `;
   }
 
-  function renderCalibAnchorSelector(summary, cal, activeLvlObj) {
+  function renderCalibAnchorSelector(summary, cal, activeSubObj) {
     const avail =
       Array.isArray(cal.availableAnchorModels) && cal.availableAnchorModels.length
         ? cal.availableAnchorModels
@@ -3237,7 +3382,7 @@
     };
     const srcInfo = srcMap[cal.anchorSource] || srcMap.default;
     const anchorUsd =
-      activeLvlObj?.anchorPoolUsd != null ? fmtUsd(activeLvlObj.anchorPoolUsd) : '—';
+      activeSubObj?.anchorPoolUsd != null ? fmtUsd(activeSubObj.anchorPoolUsd) : '—';
 
     return `
       <div class="calib-anchor-row">
@@ -3260,16 +3405,44 @@
     `;
   }
 
-  function renderCalibParamTable(cal, activeLvlObj) {
-    const models = Array.isArray(activeLvlObj?.params?.models) ? activeLvlObj.params.models : [];
-    const cache = activeLvlObj?.params?.cache;
-    const output = activeLvlObj?.params?.output;
+  function renderCalibParamTable(cal, activeSubObj) {
+    const models = Array.isArray(activeSubObj?.params?.models) ? activeSubObj.params.models : [];
+    const cache = activeSubObj?.params?.cache;
+    const output = activeSubObj?.params?.output;
+    const baseSub = cal?.subsets?.base || null;
+    const trialM = cal?.subsets?.M || null;
+    const trialC = cal?.subsets?.C || null;
+    const trialO = cal?.subsets?.O || null;
+
+    function buildTrialHint(trialSub, paramObj) {
+      if (!trialSub || !trialSub.eligible || !paramObj || !paramObj.fitted) return '';
+      const baseLoocv = baseSub?.loocvMaePp;
+      const triLoocv = trialSub.loocvMaePp;
+      let reason = t('quota.trialReasonChi2');
+      if (baseLoocv != null && triLoocv != null) {
+        const bStr = num(baseLoocv).toFixed(2);
+        const tStr = num(triLoocv).toFixed(2);
+        if (triLoocv >= baseLoocv) {
+          reason = t('quota.trialReasonWorse', { trial: tStr, base: bStr });
+        } else if (triLoocv > baseLoocv * 0.85) {
+          reason = t('quota.trialReasonMarginal', { trial: tStr, base: bStr });
+        }
+      }
+      const clampedStr = paramObj.clamped ? ` (${t('quota.clamped')})` : '';
+      return t('quota.trialNotAdopted', {
+        val: fmtMultWithSe(paramObj),
+        clamped: clampedStr,
+        reason
+      });
+    }
+
     const rows = [];
 
     for (const m of models) {
       const val = num(m.value, 1);
       let statusPill = `<span class="pill outline">${esc(t('quota.paramDefault'))}</span>`;
       let interp = t('quota.interpModelUnfit');
+      let trialNote = '';
       if (m.isAnchor) {
         statusPill = `<span class="pill accent">${esc(t('quota.paramBase'))}</span>`;
         interp = t('quota.interpBase');
@@ -3278,13 +3451,17 @@
         if (val < 0.95) interp = t('quota.interpModelEff', { v: val.toFixed(2) });
         else if (val > 1.05) interp = t('quota.interpModelHeavy', { v: val.toFixed(2) });
         else interp = t('quota.interpModelNeutral', { v: val.toFixed(2) });
+      } else if (trialM?.eligible) {
+        const tm = (trialM.params?.models || []).find((x) => x.canonicalId === m.canonicalId);
+        trialNote = buildTrialHint(trialM, tm);
       }
       rows.push({
         name: `${m.canonicalId} (${Math.round(num(m.share) * 100)}%)`,
         statusPill,
         valText: m.isAnchor || !m.fitted ? '1.00×' : fmtMultWithSe(m),
         clamped: Boolean(m.clamped),
-        interp
+        interp,
+        trialNote
       });
     }
 
@@ -3295,17 +3472,21 @@
         ? `<span class="pill ok">${esc(t('quota.paramFitted'))}</span>`
         : `<span class="pill outline">${esc(t('quota.paramDefault'))}</span>`;
       let interp = t('quota.interpCacheUnfit');
+      let trialNote = '';
       if (fitted) {
         if (val < 0.85) interp = t('quota.interpCacheCheap', { v: val.toFixed(2) });
         else if (val > 1.15) interp = t('quota.interpCacheExpensive', { v: val.toFixed(2) });
         else interp = t('quota.interpCacheNeutral', { v: val.toFixed(2) });
+      } else if (trialC?.eligible) {
+        trialNote = buildTrialHint(trialC, trialC.params?.cache);
       }
       rows.push({
         name: t('quota.paramCacheName'),
         statusPill,
         valText: fitted ? fmtMultWithSe(cache) : '1.00×',
         clamped: Boolean(cache.clamped),
-        interp
+        interp,
+        trialNote
       });
     }
 
@@ -3316,17 +3497,21 @@
         ? `<span class="pill ok">${esc(t('quota.paramFitted'))}</span>`
         : `<span class="pill outline">${esc(t('quota.paramDefault'))}</span>`;
       let interp = t('quota.interpOutUnfit');
+      let trialNote = '';
       if (fitted) {
         if (val > 1.15) interp = t('quota.interpOutExpensive', { v: val.toFixed(2) });
         else if (val < 0.85) interp = t('quota.interpOutCheap', { v: val.toFixed(2) });
         else interp = t('quota.interpOutNeutral', { v: val.toFixed(2) });
+      } else if (trialO?.eligible) {
+        trialNote = buildTrialHint(trialO, trialO.params?.output);
       }
       rows.push({
         name: t('quota.paramOutName'),
         statusPill,
         valText: fitted ? fmtMultWithSe(output) : '1.00×',
         clamped: Boolean(output.clamped),
-        interp
+        interp,
+        trialNote
       });
     }
 
@@ -3354,6 +3539,7 @@
                 </span>
               </div>
               <div class="calib-param-desc">${esc(r.interp)}</div>
+              ${r.trialNote ? `<div class="calib-param-desc num mono" style="opacity:0.82">${esc(r.trialNote)}</div>` : ''}
             </div>
           `
           )
@@ -3363,28 +3549,35 @@
     `;
   }
 
-  function renderCalibResidualSvg(cal, activeLvlObj) {
-    const activeLvl = cal.activeLevel || 'L0';
-    const l0Obj = cal.levels?.L0 || null;
-    const fits = Array.isArray(activeLvlObj?.segmentFits) ? activeLvlObj.segmentFits : [];
+  function renderCalibResidualSvg(summary, cal, activeSubObj) {
+    const activeSubset = cal.activeSubset || 'base';
+    const baseObj = cal.subsets?.base || null;
+    const fits = Array.isArray(activeSubObj?.segmentFits) ? activeSubObj.segmentFits : [];
+    const smoothPillHtml = renderCalibSmoothingPill(summary, cal);
 
     const hasLoocv =
-      l0Obj?.loocvMaePp != null &&
-      activeLvlObj?.loocvMaePp != null &&
-      Number.isFinite(Number(l0Obj.loocvMaePp)) &&
-      Number.isFinite(Number(activeLvlObj.loocvMaePp));
-    const l0Err = hasLoocv ? num(l0Obj.loocvMaePp, 0) : num(l0Obj?.maePp, 0);
-    const curErr = hasLoocv ? num(activeLvlObj.loocvMaePp, 0) : num(activeLvlObj?.maePp, 0);
+      baseObj?.loocvMaePp != null &&
+      activeSubObj?.loocvMaePp != null &&
+      Number.isFinite(Number(baseObj.loocvMaePp)) &&
+      Number.isFinite(Number(activeSubObj.loocvMaePp));
+    const baseErr = hasLoocv ? num(baseObj.loocvMaePp, 0) : num(baseObj?.maePp, 0);
+    const curErr = hasLoocv ? num(activeSubObj.loocvMaePp, 0) : num(activeSubObj?.maePp, 0);
     const metricLbl = hasLoocv ? 'LOOCV' : 'MAE';
     const summaryLine =
-      l0Obj && activeLvlObj
-        ? t('quota.residualSummary', {
-            l0: 'L0',
-            mae0: l0Err.toFixed(2),
-            cur: activeLvl,
-            mae1: curErr.toFixed(2),
-            metric: metricLbl
-          })
+      baseObj && activeSubObj
+        ? activeSubset === 'base'
+          ? t('quota.residualBaseOnly', {
+              base: calibSubsetShort('base'),
+              mae0: baseErr.toFixed(2),
+              metric: metricLbl
+            })
+          : t('quota.residualSummary', {
+              l0: calibSubsetShort('base'),
+              mae0: baseErr.toFixed(2),
+              cur: calibSubsetShort(activeSubset),
+              mae1: curErr.toFixed(2),
+              metric: metricLbl
+            })
         : '';
 
     if (fits.length === 0) {
@@ -3392,6 +3585,7 @@
         <div class="calib-chart-box">
           <div class="calib-chart-head">
             <span style="font-weight:600">${esc(t('quota.residualTitle'))}</span>
+            ${smoothPillHtml}
             ${summaryLine ? `<span class="muted-note num">${esc(summaryLine)}</span>` : ''}
           </div>
           <div class="muted-note" style="font-size:11px">${esc(t('quota.residualNoData'))}</div>
@@ -3400,21 +3594,21 @@
     }
 
     const W = 360;
-    const H = 96;
+    const H = 100;
     const padL = 28;
     const padR = 8;
-    const padT = 8;
+    const padT = 11;
     const padB = 16;
     const plotW = W - padL - padR;
     const plotH = H - padT - padB;
 
     let maxPp = 1;
     for (const s of fits) {
-      maxPp = Math.max(maxPp, num(s.observedPp, 0), num(s.predL0Pp, 0), num(s.predPp, 0));
+      maxPp = Math.max(maxPp, num(s.observedPp, 0), num(s.predBasePp ?? s.predL0Pp, 0), num(s.predPp, 0));
     }
     maxPp *= 1.15;
 
-    const showCur = activeLvl !== 'L0';
+    const showCur = activeSubset !== 'base';
     const barsPerSeg = showCur ? 3 : 2;
     const slotW = plotW / fits.length;
     const groupW = Math.min(34, slotW * 0.78);
@@ -3430,44 +3624,58 @@
       `;
     }).join('');
 
+    let hasDownweighted = false;
     const groupsHtml = fits
       .map((s, idx) => {
         const obs = Math.max(0, num(s.observedPp, 0));
-        const p0 = Math.max(0, num(s.predL0Pp, 0));
+        const pBase = Math.max(0, num(s.predBasePp ?? s.predL0Pp, 0));
         const p1 = Math.max(0, num(s.predPp, 0));
         const xCenter = padL + (idx + 0.5) * slotW;
         const x0 = xCenter - groupW / 2;
 
         const hObs = Math.max(1, (obs / maxPp) * plotH);
-        const hL0 = Math.max(1, (p0 / maxPp) * plotH);
+        const hBase = Math.max(1, (pBase / maxPp) * plotH);
         const hCur = Math.max(1, (p1 / maxPp) * plotH);
 
         const yObs = padT + plotH - hObs;
-        const yL0 = padT + plotH - hL0;
+        const yBase = padT + plotH - hBase;
         const yCur = padT + plotH - hCur;
 
-        const errL0 = p0 - obs;
+        const errBase = pBase - obs;
         const errCur = p1 - obs;
         const fmtSigned = (v) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}`;
+        const mergedCnt = num(s.mergedCount, 1);
+        const isDownweighted = Boolean(s.downweighted);
+        if (isDownweighted) hasDownweighted = true;
+
         const tipLines = [
           t('quota.segTipTitle', { idx: s.idx ?? idx + 1, usd: fmtUsd(s.spendUsd) }),
           t('quota.segTipObs', { v: obs.toFixed(2) }),
-          t('quota.segTipL0', { v: p0.toFixed(2), err: fmtSigned(errL0) })
+          t('quota.segTipBase', { v: pBase.toFixed(2), err: fmtSigned(errBase) })
         ];
         if (showCur) {
-          tipLines.push(t('quota.segTipCur', { lvl: activeLvl, v: p1.toFixed(2), err: fmtSigned(errCur) }));
+          tipLines.push(t('quota.segTipCur', { lvl: calibSubsetShort(activeSubset), v: p1.toFixed(2), err: fmtSigned(errCur) }));
+        }
+        if (mergedCnt > 1) {
+          tipLines.push(t('quota.segTipMerged', { n: mergedCnt }));
+        }
+        if (isDownweighted) {
+          tipLines.push(t('quota.segTipDownweighted'));
         }
 
         const bx0 = x0;
         const bx1 = x0 + barW + gap;
         const bx2 = x0 + (barW + gap) * 2;
+        const topBarY = Math.min(yObs, yBase, showCur ? yCur : yBase);
+        const dotY = Math.max(4, topBarY - 4.5);
 
         return `
           <g class="calib-seg-group" data-tip="${esc(tipLines.join('\n'))}">
             <rect class="calib-seg-bg" x="${(xCenter - slotW / 2).toFixed(1)}" y="${padT}" width="${slotW.toFixed(1)}" height="${plotH}" rx="2"/>
             <rect x="${bx0.toFixed(1)}" y="${yObs.toFixed(1)}" width="${barW.toFixed(1)}" height="${hObs.toFixed(1)}" rx="1.5" fill="var(--accent)"/>
-            <rect x="${bx1.toFixed(1)}" y="${yL0.toFixed(1)}" width="${barW.toFixed(1)}" height="${hL0.toFixed(1)}" rx="1.5" fill="var(--fg-muted)" opacity="0.55"/>
+            <rect x="${bx1.toFixed(1)}" y="${yBase.toFixed(1)}" width="${barW.toFixed(1)}" height="${hBase.toFixed(1)}" rx="1.5" fill="var(--fg-muted)" opacity="0.55"/>
             ${showCur ? `<rect x="${bx2.toFixed(1)}" y="${yCur.toFixed(1)}" width="${barW.toFixed(1)}" height="${hCur.toFixed(1)}" rx="1.5" fill="var(--ok)"/>` : ''}
+            ${isDownweighted ? `<circle cx="${xCenter.toFixed(1)}" cy="${dotY.toFixed(1)}" r="2.3" fill="var(--warn)" stroke="var(--surface)" stroke-width="0.6"/>` : ''}
             <text x="${xCenter.toFixed(1)}" y="${H - 3}" text-anchor="middle" font-size="8.5" fill="var(--fg-muted)" class="num">#${esc(s.idx ?? idx + 1)}</text>
           </g>
         `;
@@ -3478,6 +3686,7 @@
       <div class="calib-chart-box">
         <div class="calib-chart-head">
           <span style="font-weight:600">${esc(t('quota.residualTitle'))}</span>
+          ${smoothPillHtml}
           ${summaryLine ? `<span class="muted-note num">${esc(summaryLine)}</span>` : ''}
         </div>
         <svg class="calib-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(t('quota.residualTitle'))}">
@@ -3486,8 +3695,9 @@
         </svg>
         <div class="legend-inline">
           <span class="legend-item"><span class="legend-dot" style="background:var(--accent)"></span>${esc(t('quota.legendObs'))}</span>
-          <span class="legend-item"><span class="legend-dot" style="background:var(--fg-muted);opacity:0.55"></span>${esc(t('quota.legendL0'))}</span>
-          ${showCur ? `<span class="legend-item"><span class="legend-dot" style="background:var(--ok)"></span>${esc(t('quota.legendCur', { lvl: activeLvl }))}</span>` : ''}
+          <span class="legend-item"><span class="legend-dot" style="background:var(--fg-muted);opacity:0.55"></span>${esc(t('quota.legendBase'))}</span>
+          ${showCur ? `<span class="legend-item"><span class="legend-dot" style="background:var(--ok)"></span>${esc(t('quota.legendCur', { lvl: calibSubsetShort(activeSubset) }))}</span>` : ''}
+          ${hasDownweighted ? `<span class="legend-item"><span class="legend-dot" style="background:var(--warn)"></span>${esc(t('quota.legendHuber'))}</span>` : ''}
         </div>
       </div>
     `;
@@ -4066,13 +4276,32 @@
         return;
       }
 
-      if (action === 'set-calib-mode') {
-        if (actionEl.getAttribute('aria-disabled') === 'true') return;
-        const nextMode = actionEl.dataset.mode;
-        if (!nextMode || !['auto', 'L0', 'L1', 'L2', 'L3'].includes(nextMode)) return;
-        state.config.quotaCalibMode = nextMode;
+      if (action === 'set-calib-auto') {
+        state.config.quotaCalibMode = 'auto';
         renderGrid();
-        await saveConfigPatch({ quotaCalibMode: nextMode });
+        await saveConfigPatch({ quotaCalibMode: 'auto' });
+        await refreshQuotaOnly();
+        return;
+      }
+
+      if (action === 'toggle-calib-factor') {
+        if (actionEl.getAttribute('aria-disabled') === 'true') return;
+        const factor = actionEl.dataset.factor;
+        if (!['M', 'C', 'O'].includes(factor)) return;
+        const pool = actionEl.dataset.pool;
+        const wt = actionEl.dataset.wt;
+        const matchedSum = (state.quotaData?.summaries || []).find(
+          (s) => s.pool === pool && s.windowType === wt
+        );
+        const curActive = matchedSum?.estimation?.calibration?.activeFactors;
+        const base = curActive
+          ? { M: Boolean(curActive.M), C: Boolean(curActive.C), O: Boolean(curActive.O) }
+          : { ...(state.config.quotaManualFactors || { M: false, C: false, O: false }) };
+        const nextFactors = { ...base, [factor]: !base[factor] };
+        state.config.quotaCalibMode = 'manual';
+        state.config.quotaManualFactors = nextFactors;
+        renderGrid();
+        await saveConfigPatch({ quotaCalibMode: 'manual', quotaManualFactors: nextFactors });
         await refreshQuotaOnly();
         return;
       }

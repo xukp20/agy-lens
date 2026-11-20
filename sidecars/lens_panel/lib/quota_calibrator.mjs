@@ -1,5 +1,6 @@
 /**
- * Single-cycle hierarchical quota weight calibrator (L0 -> L1 -> L2 -> L3) for AGY Lens.
+ * Single-cycle orthogonal 3-factor quota weight calibrator (M, C, O)
+ * with conservative segment coalescing and Huber robust IRLS smoothing for AGY Lens.
  * Pure Node.js ESM with zero external dependencies.
  */
 import { calculateTurnCostBreakdown } from './pricing.mjs';
@@ -12,7 +13,58 @@ const ALPHA_OUT_MIN = 0.2;
 const ALPHA_OUT_MAX = 5.0;
 const LAMBDA_MODEL = 0.25;
 const LAMBDA_ALPHA = 0.25;
-const MAX_L1_MODELS = 3;
+const MAX_M_MODELS = 3;
+const HUBER_ITERS = 3;
+const HUBER_DOWNWEIGHT_THRESHOLD = 0.85;
+
+export const SUBSET_DEFS = [
+  { key: 'base', factors: { M: false, C: false, O: false } },
+  { key: 'M', factors: { M: true, C: false, O: false } },
+  { key: 'C', factors: { M: false, C: true, O: false } },
+  { key: 'O', factors: { M: false, C: false, O: true } },
+  { key: 'M+C', factors: { M: true, C: true, O: false } },
+  { key: 'M+O', factors: { M: true, C: false, O: true } },
+  { key: 'C+O', factors: { M: false, C: true, O: true } },
+  { key: 'M+C+O', factors: { M: true, C: true, O: true } },
+];
+
+export const SUBSET_KEYS = SUBSET_DEFS.map((d) => d.key);
+
+export function factorsToSubsetKey(factors) {
+  if (!factors || typeof factors !== 'object') return 'base';
+  const parts = [];
+  if (factors.M) parts.push('M');
+  if (factors.C) parts.push('C');
+  if (factors.O) parts.push('O');
+  return parts.length > 0 ? parts.join('+') : 'base';
+}
+
+export function normalizeSubsetKey(input) {
+  if (typeof input !== 'string') return null;
+  const trimmed = input.trim();
+  if (!trimmed || trimmed.toLowerCase() === 'base') return 'base';
+  const up = trimmed.toUpperCase();
+  if (up === 'L0') return 'base';
+  if (up === 'L1') return 'M';
+  if (up === 'L2') return 'M+C';
+  if (up === 'L3') return 'M+C+O';
+  const tokens = new Set(
+    up
+      .split('+')
+      .map((s) => s.trim())
+      .filter(Boolean)
+  );
+  const key = factorsToSubsetKey({
+    M: tokens.has('M'),
+    C: tokens.has('C'),
+    O: tokens.has('O'),
+  });
+  return SUBSET_KEYS.includes(key) ? key : null;
+}
+
+function factorCount(factors) {
+  return (factors.M ? 1 : 0) + (factors.C ? 1 : 0) + (factors.O ? 1 : 0);
+}
 
 function mean(arr) {
   if (!arr.length) return 0;
@@ -190,6 +242,160 @@ function computeMaxVif(rows, weights) {
   return maxVif;
 }
 
+/**
+ * Conservatively coalesce noisy settlement-lag intervals, short-gap bursts,
+ * and micro-rebounds across raw consecutive anchor intervals without dropping turns or spend.
+ */
+export function coalesceRawSegments(rawSegments, { minDurationMs = 0 } = {}) {
+  if (!Array.isArray(rawSegments) || rawSegments.length === 0) {
+    return {
+      segments: [],
+      rawSegmentsCount: 0,
+      coalescedCount: 0,
+      reboundMergedCount: 0,
+      shortGapMergedCount: 0,
+    };
+  }
+
+  const m = rawSegments.length;
+  const coalesced = [];
+  let startIdx = 0;
+  let cumSpendUsd = 0;
+  let cumDeltaU = 0;
+  let cumTurns = [];
+  let reboundMergedCount = 0;
+  let shortGapMergedCount = 0;
+
+  const pairDelta = (sIdx, eIdx) => {
+    const first = rawSegments[sIdx];
+    const last = rawSegments[eIdx];
+    if (first.startPct != null && last.endPct != null) {
+      return (first.startPct - last.endPct) / 100;
+    }
+    let sum = 0;
+    for (let k = sIdx; k <= eIdx; k++) sum += rawSegments[k].deltaU || 0;
+    return sum;
+  };
+
+  const pairQK = (sIdx, eIdx) => {
+    const first = rawSegments[sIdx];
+    const last = rawSegments[eIdx];
+    if (first.startPrecisionStep != null && last.endPrecisionStep != null) {
+      return Math.max(first.startPrecisionStep, last.endPrecisionStep) / 100;
+    }
+    let maxQ = 0;
+    for (let k = sIdx; k <= eIdx; k++) {
+      maxQ = Math.max(maxQ, rawSegments[k].qK || 0.0001);
+    }
+    return maxQ || 0.0001;
+  };
+
+  const countReboundsInRange = (sIdx, eIdx) => {
+    let cnt = 0;
+    for (let k = sIdx; k <= eIdx; k++) {
+      if ((rawSegments[k].deltaU || 0) <= 0) cnt++;
+    }
+    return cnt;
+  };
+
+  for (let i = 0; i < m; i++) {
+    const cur = rawSegments[i];
+    const first = rawSegments[startIdx];
+    cumSpendUsd += cur.spendUsd || 0;
+    if (Array.isArray(cur.turns) && cur.turns.length > 0) {
+      cumTurns.push(...cur.turns);
+    }
+    cumDeltaU = pairDelta(startIdx, i);
+    const qPair = pairQK(startIdx, i);
+    const minSegDelta = Math.max(5 * qPair, 0.0015);
+    const durationMs =
+      first.startAt != null && cur.endAt != null
+        ? Math.max(0, cur.endAt - first.startAt)
+        : Infinity;
+    const meetsDuration = minDurationMs <= 0 || durationMs >= minDurationMs;
+    const isLast = i === m - 1;
+
+    const canEmitRegular = cumDeltaU >= minSegDelta && meetsDuration;
+    const canEmitFinalStandalone =
+      isLast &&
+      cumDeltaU >= 5 * qPair &&
+      (meetsDuration || coalesced.length === 0);
+
+    if (canEmitRegular || canEmitFinalStandalone) {
+      const rawCount = i - startIdx + 1;
+      reboundMergedCount += countReboundsInRange(startIdx, i);
+      coalesced.push({
+        _startRawIdx: startIdx,
+        startAt: first.startAt,
+        endAt: cur.endAt,
+        startPct: first.startPct ?? null,
+        endPct: cur.endPct ?? null,
+        startPrecisionStep: first.startPrecisionStep ?? null,
+        endPrecisionStep: cur.endPrecisionStep ?? null,
+        deltaU: cumDeltaU,
+        qK: qPair,
+        spendUsd: cumSpendUsd,
+        turns: cumTurns,
+        anchorCount: rawCount,
+        mergedFromRawCount: rawCount,
+      });
+      startIdx = i + 1;
+      cumSpendUsd = 0;
+      cumDeltaU = 0;
+      cumTurns = [];
+    } else if (!isLast) {
+      if (cumDeltaU >= minSegDelta && !meetsDuration) {
+        shortGapMergedCount++;
+      }
+    } else if (isLast && coalesced.length >= 1) {
+      // Conserve tiny tail, short trailing burst, or minor trailing rebound into the previous coalesced segment
+      if (cumDeltaU >= 5 * qPair && !meetsDuration) {
+        shortGapMergedCount++;
+      }
+      const prev = coalesced[coalesced.length - 1];
+      const prevStart = rawSegments[prev._startRawIdx];
+      const lowerThanPrevStart =
+        prevStart.startPct != null && cur.endPct != null
+          ? cur.endPct < prevStart.startPct
+          : prev.deltaU + cumDeltaU > 0;
+      if (lowerThanPrevStart) {
+        const combinedDeltaU = pairDelta(prev._startRawIdx, i);
+        const combinedQK = pairQK(prev._startRawIdx, i);
+        if (combinedDeltaU >= 5 * combinedQK) {
+          const addedRaw = i - startIdx + 1;
+          reboundMergedCount += countReboundsInRange(startIdx, i);
+          prev.endAt = cur.endAt;
+          prev.endPct = cur.endPct ?? prev.endPct;
+          prev.endPrecisionStep = cur.endPrecisionStep ?? prev.endPrecisionStep;
+          prev.deltaU = combinedDeltaU;
+          prev.qK = combinedQK;
+          prev.spendUsd += cumSpendUsd;
+          if (cumTurns.length > 0) prev.turns.push(...cumTurns);
+          prev.anchorCount += addedRaw;
+          prev.mergedFromRawCount += addedRaw;
+        }
+      }
+    }
+  }
+
+  for (const seg of coalesced) {
+    delete seg._startRawIdx;
+  }
+
+  const coalescedCount = coalesced.reduce(
+    (acc, seg) => acc + Math.max(0, (seg.mergedFromRawCount || 1) - 1),
+    0
+  );
+
+  return {
+    segments: coalesced,
+    rawSegmentsCount: m,
+    coalescedCount,
+    reboundMergedCount,
+    shortGapMergedCount,
+  };
+}
+
 function aggregateTurnsByModel(turns, pricingState, useListPrice) {
   const byModel = new Map();
   const turnCosts = [];
@@ -260,7 +466,6 @@ function solveModelMultipliers(segments, weights, anchorModel, candidateModels, 
   const fixedWeights = new Map();
   const clampedSet = new Set();
 
-  // Base fallback L0 beta
   let num0 = 0;
   let den0 = 0;
   for (let k = 0; k < N; k++) {
@@ -306,7 +511,6 @@ function solveModelMultipliers(segments, weights, anchorModel, candidateModels, 
       break;
     }
 
-    // Build X^T W X and X^T W y
     const XtWX = Array.from({ length: p }, () => new Array(p).fill(0));
     const XtWy = new Array(p).fill(0);
     for (let k = 0; k < N; k++) {
@@ -325,7 +529,6 @@ function solveModelMultipliers(segments, weights, anchorModel, candidateModels, 
       for (let j = 0; j < i; j++) XtWX[i][j] = XtWX[j][i];
     }
 
-    // 6 Gauss-Newton IRLS iterations on lambda * sum (ln(gamma_c / gamma_0))^2
     let gamma = new Array(p).fill(beta0);
     for (let iter = 0; iter < 6; iter++) {
       const H = XtWX.map((r) => [...r]);
@@ -381,7 +584,6 @@ function solveModelMultipliers(segments, weights, anchorModel, candidateModels, 
     break;
   }
 
-  // Final weights map across all candidate models
   const modelWeights = new Map();
   modelWeights.set(anchorModel, 1.0);
   for (const m of candidateModels) {
@@ -416,8 +618,8 @@ function solveModelMultipliers(segments, weights, anchorModel, candidateModels, 
   };
 }
 
-function fitLevelCore(
-  levelName,
+function fitSubsetCore(
+  subsetKey,
   segments,
   weights,
   anchorModel,
@@ -446,6 +648,7 @@ function fitLevelCore(
   if (!fitCache && !fitOut) {
     bestFit = evalPoint(1.0, 1.0);
   } else if (fitCache && !fitOut) {
+    // 1D 36-point log profile grid + 9-point refinement on alpha_cache
     const coarseGrid = [0, ...makeLogGrid(0.05, ALPHA_CACHE_MAX, 34, [1.0])];
     let bestIdx = 0;
     let bestRes = Infinity;
@@ -477,8 +680,38 @@ function fitLevelCore(
       alphaCache = ALPHA_CACHE_MAX;
       cacheClamped = true;
     }
+  } else if (!fitCache && fitOut) {
+    // 1D 32-point log profile grid + 9-point refinement on alpha_out
+    const coarseGrid = makeLogGrid(ALPHA_OUT_MIN, ALPHA_OUT_MAX, 31, [1.0]);
+    let bestIdx = 0;
+    let bestRes = Infinity;
+    for (let i = 0; i < coarseGrid.length; i++) {
+      const res = evalPoint(1.0, coarseGrid[i]);
+      if (res.totalObj < bestRes) {
+        bestRes = res.totalObj;
+        bestIdx = i;
+        bestFit = res;
+      }
+    }
+    const lo = coarseGrid[Math.max(0, bestIdx - 1)];
+    const hi = coarseGrid[Math.min(coarseGrid.length - 1, bestIdx + 1)];
+    const fineGrid = makeLogGrid(lo, hi, 9, [coarseGrid[bestIdx]]);
+    for (const ao of fineGrid) {
+      const res = evalPoint(1.0, ao);
+      if (res.totalObj < bestFit.totalObj) {
+        bestFit = res;
+      }
+    }
+    alphaOut = bestFit.ao;
+    if (alphaOut <= ALPHA_OUT_MIN + 1e-4) {
+      alphaOut = ALPHA_OUT_MIN;
+      outClamped = true;
+    } else if (alphaOut >= ALPHA_OUT_MAX - 1e-4) {
+      alphaOut = ALPHA_OUT_MAX;
+      outClamped = true;
+    }
   } else {
-    // 2D Profile Grid (18x18 coarse + 5x5 local refinement)
+    // 2D 18x18 coarse log grid + 5x5 local refinement on (alpha_cache, alpha_out)
     const acCoarse = [0, ...makeLogGrid(0.05, ALPHA_CACHE_MAX, 16, [1.0])];
     const aoCoarse = makeLogGrid(ALPHA_OUT_MIN, ALPHA_OUT_MAX, 17, [1.0]);
     let bestIc = 0;
@@ -528,7 +761,7 @@ function fitLevelCore(
   }
 
   return {
-    levelName,
+    subsetKey,
     beta: bestFit.fit.beta,
     modelWeights: bestFit.fit.modelWeights,
     freeCandidates: bestFit.fit.freeCandidates,
@@ -539,6 +772,123 @@ function fitLevelCore(
     outClamped,
     yHat: bestFit.fit.yHat,
     chi2Data: bestFit.fit.chi2Data,
+  };
+}
+
+function computeHuberFactors(residuals, sigmaVec) {
+  const absZ = residuals.map((rk, k) => Math.abs(rk) / sigmaVec[k]);
+  const madZ = median(absZ);
+  return residuals.map((rk, k) => {
+    const delta = Math.max(2.0 * sigmaVec[k], 0.0025, 1.5 * madZ * sigmaVec[k]);
+    const ar = Math.abs(rk);
+    return ar <= delta ? 1.0 : delta / ar;
+  });
+}
+
+function computeHuberLoss(residuals, sigmaVec, baseWeights) {
+  const absZ = residuals.map((rk, k) => Math.abs(rk) / sigmaVec[k]);
+  const madZ = median(absZ);
+  let loss = 0;
+  for (let k = 0; k < residuals.length; k++) {
+    const delta = Math.max(2.0 * sigmaVec[k], 0.0025, 1.5 * madZ * sigmaVec[k]);
+    const ar = Math.abs(residuals[k]);
+    const rho = ar <= delta ? 0.5 * ar * ar : delta * (ar - 0.5 * delta);
+    loss += baseWeights[k] * rho;
+  }
+  return loss;
+}
+
+/**
+ * Wrap WLS fitting with 3 iterations of Huber robust reweighting when N >= 4.
+ */
+function fitSubsetWithHuber(
+  subsetKey,
+  segments,
+  baseWeights,
+  sigmaVec,
+  anchorModel,
+  candidateModels,
+  factorFlags,
+  fallbackHuberFactors = null
+) {
+  const N = segments.length;
+  if (N < 4) {
+    const coreFit = fitSubsetCore(
+      subsetKey,
+      segments,
+      baseWeights,
+      anchorModel,
+      candidateModels,
+      factorFlags
+    );
+    return {
+      coreFit,
+      effectiveWeights: baseWeights,
+      huberFactors: new Array(N).fill(1.0),
+    };
+  }
+
+  let huberFactors;
+  if (!factorFlags.fitModels && !factorFlags.fitCache && !factorFlags.fitOut) {
+    // Protect 1-param base fit against high-leverage lag spikes via median slope initialization
+    const ratios = segments
+      .filter((s) => s.rawSpendUsd > 0)
+      .map((s) => s.y_k / s.rawSpendUsd);
+    const betaMed = ratios.length > 0 ? Math.max(1e-9, median(ratios)) : 1e-3;
+    const medRes = segments.map((s) => s.y_k - betaMed * s.rawSpendUsd);
+    huberFactors = computeHuberFactors(medRes, sigmaVec);
+  } else {
+    const rawInit = fitSubsetCore(
+      subsetKey,
+      segments,
+      baseWeights,
+      anchorModel,
+      candidateModels,
+      factorFlags
+    );
+    const rawRes = segments.map((s, k) => s.y_k - rawInit.yHat[k]);
+    huberFactors = computeHuberFactors(rawRes, sigmaVec);
+
+    if (fallbackHuberFactors) {
+      const altWeights = baseWeights.map((bw, k) => bw * fallbackHuberFactors[k]);
+      const altInit = fitSubsetCore(
+        subsetKey,
+        segments,
+        altWeights,
+        anchorModel,
+        candidateModels,
+        factorFlags
+      );
+      const altRes = segments.map((s, k) => s.y_k - altInit.yHat[k]);
+      if (
+        computeHuberLoss(altRes, sigmaVec, baseWeights) <
+        computeHuberLoss(rawRes, sigmaVec, baseWeights)
+      ) {
+        huberFactors = computeHuberFactors(altRes, sigmaVec);
+      }
+    }
+  }
+
+  let effWeights = baseWeights;
+  let coreFit = null;
+  for (let iter = 0; iter < HUBER_ITERS; iter++) {
+    effWeights = baseWeights.map((bw, k) => bw * huberFactors[k]);
+    coreFit = fitSubsetCore(
+      subsetKey,
+      segments,
+      effWeights,
+      anchorModel,
+      candidateModels,
+      factorFlags
+    );
+    const residuals = segments.map((s, k) => s.y_k - coreFit.yHat[k]);
+    huberFactors = computeHuberFactors(residuals, sigmaVec);
+  }
+
+  return {
+    coreFit,
+    effectiveWeights: effWeights,
+    huberFactors,
   };
 }
 
@@ -581,7 +931,39 @@ function computeJacobianAndStats(
     return row;
   });
 
-  const maxVif = computeMaxVif(J, weights);
+  // Compute VIF on non-overlapping linear basis D so large alpha_cache / alpha_out
+  // values do not artificially inflate collinearity between column 0 and alpha columns.
+  const D = Array.from({ length: N }, (_, k) => {
+    const row = new Array(colCount).fill(0);
+    const activeIdx = new Map();
+    freeModels.forEach((m, idx) => activeIdx.set(m, idx + 1));
+
+    let crSum = 0;
+    let outSum = 0;
+    for (const [mId, bucket] of segments[k].byModel.entries()) {
+      const sBase =
+        bucket.inUsd +
+        bucket.cacheWriteUsd +
+        (freeCache ? 0 : coreFit.alphaCache * bucket.cacheReadUsd) +
+        (freeOut ? 0 : coreFit.alphaOut * bucket.outUsd);
+      if (activeIdx.has(mId)) {
+        row[activeIdx.get(mId)] += sBase;
+      } else {
+        const fw = coreFit.modelWeights.get(mId) ?? 1.0;
+        row[0] += fw * sBase;
+      }
+      const w = coreFit.modelWeights.get(mId) ?? 1.0;
+      crSum += w * bucket.cacheReadUsd;
+      outSum += w * bucket.outUsd;
+    }
+
+    let cIdx = 1 + freeModels.length;
+    if (freeCache) row[cIdx++] = crSum;
+    if (freeOut) row[cIdx++] = outSum;
+    return row;
+  });
+
+  const maxVif = computeMaxVif(D, weights);
 
   const G = Array.from({ length: colCount }, () => new Array(colCount).fill(0));
   for (let k = 0; k < N; k++) {
@@ -690,7 +1072,7 @@ function computeWeightedMaePp(segments, weights, yHat) {
 }
 
 function computeLoocvMaePp(
-  levelName,
+  subsetKey,
   segments,
   weights,
   anchorModel,
@@ -713,7 +1095,6 @@ function computeLoocvMaePp(
       }
     }
 
-    // Hold unsupported parameters fixed at 1.0 in this fold.
     const foldCandidates = [];
     if (fitModels) {
       for (const m of candidateModels) {
@@ -743,8 +1124,8 @@ function computeLoocvMaePp(
       if (sampleStd(outShares) < 1e-6) foldFitOut = false;
     }
 
-    const foldFit = fitLevelCore(
-      levelName,
+    const foldFit = fitSubsetCore(
+      subsetKey,
       trainSegs,
       trainWeights,
       anchorModel,
@@ -767,10 +1148,13 @@ function computeLoocvMaePp(
   return sumW > 0 ? (100 * sumErr) / sumW : null;
 }
 
-function buildEmptyLevelResult(eligible, reason, allModels, anchorModel) {
+function buildEmptySubsetResult(def, eligible, reason, paramCount, allModels, anchorModel) {
   return {
+    key: def.key,
     eligible,
     reason,
+    factors: { ...def.factors },
+    paramCount,
     anchorPoolUsd: null,
     equivalentMixPoolUsd: null,
     seBeta: null,
@@ -795,9 +1179,10 @@ function buildEmptyLevelResult(eligible, reason, allModels, anchorModel) {
   };
 }
 
-function runLadderForRegime({
+function runSubsetsForRegime({
   pool,
   pricingState,
+  coalescedResult,
   rawSegments,
   tailTurns,
   preferredAnchor,
@@ -805,7 +1190,7 @@ function runLadderForRegime({
   qEff,
   fallbackPooled,
 }) {
-  const preparedAll = rawSegments.map((seg, i) => {
+  const preparedAll = coalescedResult.segments.map((seg, i) => {
     const agg = aggregateTurnsByModel(seg.turns || [], pricingState, useListPrice);
     return {
       idx: i + 1,
@@ -813,21 +1198,28 @@ function runLadderForRegime({
       endAt: seg.endAt,
       y_k: seg.deltaU,
       q_k: seg.qK,
+      mergedCount: seg.mergedFromRawCount || seg.anchorCount || 1,
       ...agg,
     };
   });
 
-  const usableSegments = preparedAll.filter(
-    (s) => s.y_k >= Math.max(5 * s.q_k, 0.0005) && s.rawSpendUsd > 0
-  );
+  const usableSegments = preparedAll.filter((s) => s.y_k > 0 && s.rawSpendUsd > 0);
   const tailAgg = aggregateTurnsByModel(tailTurns || [], pricingState, useListPrice);
 
   // Spend map for anchor resolution & equivalent capacity
+  const rawTurnsAll = rawSegments.flatMap((s) => s.turns || []);
+  const rawAggAll = aggregateTurnsByModel(rawTurnsAll, pricingState, useListPrice);
   const anchorSourceSegs = usableSegments.length > 0 ? usableSegments : preparedAll;
   const spendMap = new Map();
   let totalSpendForAnchor = 0;
   for (const s of anchorSourceSegs) {
     for (const [mId, b] of s.byModel.entries()) {
+      spendMap.set(mId, (spendMap.get(mId) || 0) + b.totalUsd);
+      totalSpendForAnchor += b.totalUsd;
+    }
+  }
+  if (totalSpendForAnchor <= 0 && rawAggAll.rawSpendUsd > 0) {
+    for (const [mId, b] of rawAggAll.byModel.entries()) {
       spendMap.set(mId, (spendMap.get(mId) || 0) + b.totalUsd);
       totalSpendForAnchor += b.totalUsd;
     }
@@ -869,7 +1261,7 @@ function runLadderForRegime({
   let anyPromo = false;
   let anyNonPromoSameModel = false;
   const promoFlagsByModel = new Map();
-  for (const s of [...preparedAll, tailAgg]) {
+  for (const s of [...preparedAll, rawAggAll, tailAgg]) {
     for (const [mId, b] of s.byModel.entries()) {
       let f = promoFlagsByModel.get(mId);
       if (!f) {
@@ -886,58 +1278,8 @@ function runLadderForRegime({
   }
 
   const N = usableSegments.length;
-  if (N === 0) {
-    const levels = {
-      L0: buildEmptyLevelResult(
-        Boolean(fallbackPooled && fallbackPooled.sumDeltaU > 0 && fallbackPooled.sumC > 0),
-        fallbackPooled && fallbackPooled.sumDeltaU > 0 ? '' : 'Need at least 2 anchors with positive quota delta',
-        availableAnchorModels,
-        anchorModel
-      ),
-      L1: buildEmptyLevelResult(false, 'Need at least 4 valid segments (current: 0/4)', availableAnchorModels, anchorModel),
-      L2: buildEmptyLevelResult(false, 'Need at least 5 valid segments (current: 0/5)', availableAnchorModels, anchorModel),
-      L3: buildEmptyLevelResult(false, 'Need at least 6 valid segments (current: 0/6)', availableAnchorModels, anchorModel),
-    };
-    if (levels.L0.eligible) {
-      const qPool = fallbackPooled.sumC / fallbackPooled.sumDeltaU;
-      levels.L0.anchorPoolUsd = qPool;
-      levels.L0.equivalentMixPoolUsd = qPool;
-    }
-    return {
-      recommendedLevel: 'L0',
-      anchorModel,
-      anchorSource,
-      availableAnchorModels,
-      anyPromo,
-      promoIdentifiable: !anyPromo || anyNonPromoSameModel,
-      segmentsCount: 0,
-      levels,
-      bestChi2: 0,
-    };
-  }
 
-  // Compute noise variance & WLS weights
-  const sumYUsable = usableSegments.reduce((a, s) => a + s.y_k, 0);
-  const sumCUsable = usableSegments.reduce((a, s) => a + s.rawSpendUsd, 0);
-  const qHatL0 = sumYUsable > 0 ? sumCUsable / sumYUsable : 100;
-  const allTurnCosts = [];
-  for (const s of usableSegments) {
-    for (const c of s.turnCosts) allTurnCosts.push(c);
-  }
-  const medianTurnCostUsd = median(allTurnCosts);
-  const sigmaLag = Math.min(0.005, medianTurnCostUsd / Math.max(20, qHatL0));
-
-  const weights = usableSegments.map((s) => {
-    const sigma2 = (s.q_k * s.q_k) / 6 + (0.015 * s.y_k) ** 2 + sigmaLag * sigmaLag;
-    return 1 / Math.max(1e-12, sigma2);
-  });
-
-  // Cycle turns/buckets for non-jumping equivalent mix capacity (all positive segments + tail)
-  const cycleBuckets = [...anchorSourceSegs];
-  if (tailAgg.rawSpendUsd > 0) cycleBuckets.push(tailAgg);
-  const sumCycleRaw = cycleBuckets.reduce((acc, b) => acc + b.rawSpendUsd, 0);
-
-  // Identify candidate L1 models
+  // Individual factor diagnostics (M, C, O)
   const nonAnchorStats = [];
   for (const m of availableAnchorModels) {
     if (m.canonicalId === anchorModel) continue;
@@ -945,37 +1287,201 @@ function runLadderForRegime({
       const mSpend = s.byModel.get(m.canonicalId)?.totalUsd || 0;
       return s.rawSpendUsd > 0 ? mSpend / s.rawSpendUsd : 0;
     });
-    const std = sampleStd(perSegShares);
     nonAnchorStats.push({
       canonicalId: m.canonicalId,
       share: m.share,
-      std,
+      std: sampleStd(perSegShares),
     });
   }
-  const l1Candidates = nonAnchorStats
+  const candidateModels = nonAnchorStats
     .filter((m) => m.share >= 0.10 && m.std >= 0.08)
     .sort((a, b) => b.share - a.share)
-    .slice(0, MAX_L1_MODELS)
+    .slice(0, MAX_M_MODELS)
     .map((m) => m.canonicalId);
 
-  const l0Core = fitLevelCore('L0', usableSegments, weights, anchorModel, [], {
-    fitModels: false,
-    fitCache: false,
-    fitOut: false,
-  });
+  const maxModelStd = nonAnchorStats.reduce((mx, m) => Math.max(mx, m.std), 0);
+  const kExtraModels = candidateModels.length;
 
-  function finalizeLevel(levelName, coreFit, { fitModels = false, fitCache = false, fitOut = false } = {}, reason = '') {
-    const stats = computeJacobianAndStats(coreFit, usableSegments, weights, anchorModel, {
+  let mEligible = false;
+  let mReason = '';
+  if (availableAnchorModels.length <= 1) {
+    mReason = 'Only 1 active model in cycle';
+  } else if (candidateModels.length === 0) {
+    const hasSecondModel = nonAnchorStats.some((m) => m.share >= 0.10);
+    mReason = !hasSecondModel
+      ? 'Need >=2 models with >=10% cycle spend share'
+      : 'Model mix variation across segments too low (std < 0.08)';
+  } else {
+    const minNM = 1 + kExtraModels + 2;
+    if (N < minNM) {
+      mReason = `Need ${minNM - N} more smoothed segments with varied model mix (${N}/${minNM})`;
+    } else {
+      mEligible = true;
+    }
+  }
+
+  const cacheShares = usableSegments.map((s) => {
+    let cr = 0;
+    for (const b of s.byModel.values()) cr += b.cacheReadUsd;
+    return s.rawSpendUsd > 0 ? cr / s.rawSpendUsd : 0;
+  });
+  const cacheStd = sampleStd(cacheShares);
+
+  let cEligible = false;
+  let cReason = '';
+  if (N < 2) {
+    cReason = `Need ${4 - N} more smoothed segments with varied cache-read share (${N}/4)`;
+  } else if (cacheStd < 0.05) {
+    cReason = `Cache-read share variation too low (std ${cacheStd.toFixed(2)} < 0.05)`;
+  } else if (N < 4) {
+    cReason = `Need ${4 - N} more smoothed segments with varied cache-read share (${N}/4)`;
+  } else {
+    cEligible = true;
+  }
+
+  const outShares = usableSegments.map((s) => {
+    let o = 0;
+    for (const b of s.byModel.values()) o += b.outUsd;
+    return s.rawSpendUsd > 0 ? o / s.rawSpendUsd : 0;
+  });
+  const outStd = sampleStd(outShares);
+
+  let oEligible = false;
+  let oReason = '';
+  if (N < 2) {
+    oReason = `Need ${4 - N} more smoothed segments with varied output share (${N}/4)`;
+  } else if (outStd < 0.06) {
+    oReason = `Output share variation too low (std ${outStd.toFixed(2)} < 0.06)`;
+  } else if (N < 4) {
+    oReason = `Need ${4 - N} more smoothed segments with varied output share (${N}/4)`;
+  } else {
+    oEligible = true;
+  }
+
+  const factorsMeta = {
+    M: {
+      eligible: mEligible,
+      reason: mReason,
+      candidateModels,
+      std: Number(maxModelStd.toFixed(4)),
+    },
+    C: {
+      eligible: cEligible,
+      reason: cReason,
+      std: Number(cacheStd.toFixed(4)),
+    },
+    O: {
+      eligible: oEligible,
+      reason: oReason,
+      std: Number(outStd.toFixed(4)),
+    },
+  };
+
+  if (N === 0) {
+    const subsets = {};
+    for (const def of SUBSET_DEFS) {
+      const pCount =
+        1 +
+        (def.factors.M ? kExtraModels : 0) +
+        (def.factors.C ? 1 : 0) +
+        (def.factors.O ? 1 : 0);
+      if (def.key === 'base') {
+        const baseOk = Boolean(fallbackPooled && fallbackPooled.sumDeltaU > 0 && fallbackPooled.sumC > 0);
+        const res = buildEmptySubsetResult(
+          def,
+          baseOk,
+          baseOk ? '' : 'Need at least 2 anchors with positive quota delta',
+          1,
+          availableAnchorModels,
+          anchorModel
+        );
+        if (baseOk) {
+          const qPool = fallbackPooled.sumC / fallbackPooled.sumDeltaU;
+          res.anchorPoolUsd = qPool;
+          res.equivalentMixPoolUsd = qPool;
+        }
+        subsets[def.key] = res;
+      } else {
+        const firstIneligible = def.factors.M ? mReason : def.factors.C ? cReason : oReason;
+        subsets[def.key] = buildEmptySubsetResult(
+          def,
+          false,
+          firstIneligible,
+          pCount,
+          availableAnchorModels,
+          anchorModel
+        );
+      }
+    }
+
+    return {
+      recommendedSubset: 'base',
+      anchorModel,
+      anchorSource,
+      availableAnchorModels,
+      anyPromo,
+      promoIdentifiable: !anyPromo || anyNonPromoSameModel,
+      rawSegmentsCount: coalescedResult.rawSegmentsCount,
+      segmentsCount: 0,
+      coalescedCount: coalescedResult.coalescedCount,
+      reboundMergedCount: coalescedResult.reboundMergedCount,
+      factors: factorsMeta,
+      subsets,
+      bestChi2: 0,
+    };
+  }
+
+  // Compute noise variance & base WLS weights
+  const sumYUsable = usableSegments.reduce((a, s) => a + s.y_k, 0);
+  const sumCUsable = usableSegments.reduce((a, s) => a + s.rawSpendUsd, 0);
+  const qHatBase = sumYUsable > 0 ? sumCUsable / sumYUsable : 100;
+  const allTurnCosts = [];
+  for (const s of usableSegments) {
+    for (const c of s.turnCosts) allTurnCosts.push(c);
+  }
+  const medianTurnCostUsd = median(allTurnCosts);
+  const sigmaLag = Math.min(0.005, medianTurnCostUsd / Math.max(20, qHatBase));
+
+  const sigmaVec = usableSegments.map((s) => {
+    const sigma2 = (s.q_k * s.q_k) / 6 + (0.015 * s.y_k) ** 2 + sigmaLag * sigmaLag;
+    return Math.sqrt(Math.max(1e-12, sigma2));
+  });
+  const baseWeights = sigmaVec.map((sig) => 1 / (sig * sig));
+
+  // Cycle turns/buckets for non-jumping equivalent mix capacity (all positive segments + tail)
+  const cycleBuckets = [...anchorSourceSegs];
+  if (tailAgg.rawSpendUsd > 0) cycleBuckets.push(tailAgg);
+  const sumCycleRaw = cycleBuckets.reduce((acc, b) => acc + b.rawSpendUsd, 0);
+
+  // Fit base first (with Huber IRLS when N >= 4)
+  const baseFitBundle = fitSubsetWithHuber(
+    'base',
+    usableSegments,
+    baseWeights,
+    sigmaVec,
+    anchorModel,
+    [],
+    { fitModels: false, fitCache: false, fitOut: false }
+  );
+  const baseCore = baseFitBundle.coreFit;
+
+  function finalizeSubset(def, fitBundle, paramCount, reason = '') {
+    const { coreFit, effectiveWeights, huberFactors } = fitBundle;
+    const fitModels = def.factors.M;
+    const fitCache = def.factors.C;
+    const fitOut = def.factors.O;
+
+    const stats = computeJacobianAndStats(coreFit, usableSegments, effectiveWeights, anchorModel, {
       fitCache,
       fitOut,
     });
-    const maePp = computeWeightedMaePp(usableSegments, weights, coreFit.yHat);
+    const maePp = computeWeightedMaePp(usableSegments, effectiveWeights, coreFit.yHat);
     const loocvMaePp = computeLoocvMaePp(
-      levelName,
+      def.key,
       usableSegments,
-      weights,
+      effectiveWeights,
       anchorModel,
-      fitModels ? l1Candidates : [],
+      fitModels ? candidateModels : [],
       { fitModels, fitCache, fitOut }
     );
     const anchorPoolUsd = coreFit.beta > 0 ? 1 / coreFit.beta : null;
@@ -990,7 +1496,7 @@ function runLadderForRegime({
 
     const modelParams = availableAnchorModels.map((m) => {
       const isAnchor = m.canonicalId === anchorModel;
-      const isCandidate = fitModels && l1Candidates.includes(m.canonicalId);
+      const isCandidate = fitModels && candidateModels.includes(m.canonicalId);
       const isClamped = isCandidate && coreFit.clampedSet.has(m.canonicalId);
       const val = isAnchor ? 1.0 : (coreFit.modelWeights.get(m.canonicalId) ?? 1.0);
       const se = isCandidate && !isClamped ? (stats.seModels.get(m.canonicalId) ?? null) : null;
@@ -1007,33 +1513,35 @@ function runLadderForRegime({
 
     const segmentFits = usableSegments.map((s, k) => {
       const observedPp = Number((s.y_k * 100).toFixed(4));
-      const predL0Pp = Number((l0Core.yHat[k] * 100).toFixed(4));
+      const predBasePp = Number((baseCore.yHat[k] * 100).toFixed(4));
       const predPp = Number((coreFit.yHat[k] * 100).toFixed(4));
+      const downweighted = N >= 4 && huberFactors[k] < HUBER_DOWNWEIGHT_THRESHOLD;
       return {
         idx: s.idx,
-        segIdx: s.idx,
         observedPp,
-        predL0Pp,
+        predBasePp,
         predPp,
-        predCurPp: predPp,
+        spendUsd: Number(s.rawSpendUsd.toFixed(4)),
+        mergedCount: s.mergedCount,
+        downweighted,
         startAt: s.startAt,
         endAt: s.endAt,
-        spendUsd: Number(s.rawSpendUsd.toFixed(4)),
       };
     });
 
     return {
+      key: def.key,
       eligible: true,
       reason,
+      factors: { ...def.factors },
+      paramCount,
       anchorPoolUsd,
       equivalentMixPoolUsd,
       seBeta: stats.seBeta,
       maePp: Number(maePp.toFixed(4)),
       loocvMaePp: loocvMaePp != null ? Number(loocvMaePp.toFixed(4)) : null,
       chi2Score: Number(stats.chi2Score.toFixed(4)),
-      maxVif: Number(
-        Number.isFinite(stats.maxVif) ? stats.maxVif.toFixed(3) : 9999
-      ),
+      maxVif: Number(Number.isFinite(stats.maxVif) ? stats.maxVif.toFixed(3) : 9999),
       _rawMaxVif: stats.maxVif,
       _chi2Data: coreFit.chi2Data,
       _modelWeights: coreFit.modelWeights,
@@ -1058,192 +1566,127 @@ function runLadderForRegime({
     };
   }
 
-  const L0 = finalizeLevel('L0', l0Core, { fitModels: false, fitCache: false, fitOut: false });
+  const subsets = {};
+  subsets.base = finalizeSubset(SUBSET_DEFS[0], baseFitBundle, 1);
 
-  // Evaluate L1
-  let L1;
-  const minNL1 = 1 + l1Candidates.length + 2;
-  if (l1Candidates.length === 0) {
-    const hasSecondModel = nonAnchorStats.some((m) => m.share >= 0.10);
-    const reason = !hasSecondModel
-      ? 'Need >=2 models with >=10% cycle spend share to unlock L1'
-      : 'Model mix variation across segments too low (std < 0.08)';
-    L1 = buildEmptyLevelResult(false, reason, availableAnchorModels, anchorModel);
-  } else if (N < minNL1) {
-    L1 = buildEmptyLevelResult(
-      false,
-      `Need ${minNL1 - N} more segments with varied model mix (current: ${N}/${minNL1})`,
-      availableAnchorModels,
-      anchorModel
-    );
-  } else {
-    const l1Core = fitLevelCore('L1', usableSegments, weights, anchorModel, l1Candidates, {
-      fitModels: true,
-      fitCache: false,
-      fitOut: false,
-    });
-    const l1Cand = finalizeLevel('L1', l1Core, { fitModels: true, fitCache: false, fitOut: false });
-    if (l1Cand._rawMaxVif >= 10) {
-      L1 = {
-        ...l1Cand,
-        eligible: false,
-        reason: `Collinear model mix rejected (VIF ${l1Cand.maxVif} >= 10)`,
-      };
-    } else {
-      L1 = l1Cand;
+  for (const def of SUBSET_DEFS) {
+    if (def.key === 'base') continue;
+    const pCount =
+      1 +
+      (def.factors.M ? kExtraModels : 0) +
+      (def.factors.C ? 1 : 0) +
+      (def.factors.O ? 1 : 0);
+
+    // Check individual factor eligibility first
+    const failedFactorReasons = [];
+    if (def.factors.M && !mEligible) failedFactorReasons.push(mReason);
+    if (def.factors.C && !cEligible) failedFactorReasons.push(cReason);
+    if (def.factors.O && !oEligible) failedFactorReasons.push(oReason);
+
+    if (failedFactorReasons.length > 0) {
+      subsets[def.key] = buildEmptySubsetResult(
+        def,
+        false,
+        failedFactorReasons[0],
+        pCount,
+        availableAnchorModels,
+        anchorModel
+      );
+      continue;
     }
-  }
 
-  // Evaluate L2
-  let L2;
-  const activeModelExtras = L1.eligible ? l1Candidates.length : 0;
-  const pL2 = 1 + activeModelExtras + 1;
-  const minNL2 = pL2 + 3;
-  const cacheShares = usableSegments.map((s) => {
-    let cr = 0;
-    for (const b of s.byModel.values()) cr += b.cacheReadUsd;
-    return s.rawSpendUsd > 0 ? cr / s.rawSpendUsd : 0;
-  });
-  const cacheStd = sampleStd(cacheShares);
+    const minN = pCount + 2;
+    if (N < minN) {
+      subsets[def.key] = buildEmptySubsetResult(
+        def,
+        false,
+        `Need ${minN - N} more smoothed segments for ${def.key} (${N}/${minN})`,
+        pCount,
+        availableAnchorModels,
+        anchorModel
+      );
+      continue;
+    }
 
-  if (cacheStd < 0.05) {
-    L2 = buildEmptyLevelResult(
-      false,
-      `Cache-read share variation too low (std ${cacheStd.toFixed(2)} < 0.05)`,
-      availableAnchorModels,
-      anchorModel
-    );
-  } else if (N < minNL2) {
-    L2 = buildEmptyLevelResult(
-      false,
-      `Need ${minNL2 - N} more segments with varied cache hit rate (current: ${N}/${minNL2})`,
-      availableAnchorModels,
-      anchorModel
-    );
-  } else {
-    const l2Core = fitLevelCore(
-      'L2',
+    const fitBundle = fitSubsetWithHuber(
+      def.key,
       usableSegments,
-      weights,
+      baseWeights,
+      sigmaVec,
       anchorModel,
-      activeModelExtras > 0 ? l1Candidates : [],
+      def.factors.M ? candidateModels : [],
       {
-        fitModels: activeModelExtras > 0,
-        fitCache: true,
-        fitOut: false,
-      }
+        fitModels: def.factors.M,
+        fitCache: def.factors.C,
+        fitOut: def.factors.O,
+      },
+      baseFitBundle.huberFactors
     );
-    const l2Cand = finalizeLevel('L2', l2Core, {
-      fitModels: activeModelExtras > 0,
-      fitCache: true,
-      fitOut: false,
-    });
-    if (l2Cand._rawMaxVif >= 10) {
-      L2 = {
-        ...l2Cand,
+
+    const cand = finalizeSubset(def, fitBundle, pCount);
+    if (cand._rawMaxVif >= 10) {
+      subsets[def.key] = {
+        ...cand,
         eligible: false,
-        reason: `Collinear cache-read dimension rejected (VIF ${l2Cand.maxVif} >= 10)`,
+        reason: `Collinear ${def.key} dimensions rejected (VIF ${cand.maxVif} >= 10)`,
       };
+      // If a single-factor subset itself fails VIF, mark that factor ineligible too
+      if (factorCount(def.factors) === 1) {
+        const fKey = def.factors.M ? 'M' : def.factors.C ? 'C' : 'O';
+        factorsMeta[fKey].eligible = false;
+        factorsMeta[fKey].reason = subsets[def.key].reason;
+      }
     } else {
-      L2 = l2Cand;
+      subsets[def.key] = cand;
     }
   }
 
-  // Evaluate L3
-  let L3;
-  const pL3 = 1 + activeModelExtras + 2;
-  const minNL3 = pL3 + 4;
-  const outShares = usableSegments.map((s) => {
-    let o = 0;
-    for (const b of s.byModel.values()) o += b.outUsd;
-    return s.rawSpendUsd > 0 ? o / s.rawSpendUsd : 0;
-  });
-  const outStd = sampleStd(outShares);
+  // Auto subset selection across all eligible subsets sorted by paramCount ascending (Occam's razor)
+  let recommendedSubset = 'base';
+  const eligibleCandidates = Object.values(subsets)
+    .filter((s) => s.key !== 'base' && s.eligible && s.loocvMaePp != null)
+    .sort(
+      (a, b) =>
+        a.paramCount - b.paramCount ||
+        (a.loocvMaePp ?? Infinity) - (b.loocvMaePp ?? Infinity)
+    );
 
-  if (!L2.eligible) {
-    L3 = buildEmptyLevelResult(
-      false,
-      'Unlock L2 before evaluating L3 output weights',
-      availableAnchorModels,
-      anchorModel
-    );
-  } else if (outStd < 0.06) {
-    L3 = buildEmptyLevelResult(
-      false,
-      `Output share variation too low (std ${outStd.toFixed(2)} < 0.06)`,
-      availableAnchorModels,
-      anchorModel
-    );
-  } else if (N < minNL3) {
-    L3 = buildEmptyLevelResult(
-      false,
-      `Need ${minNL3 - N} more segments with varied output share (current: ${N}/${minNL3})`,
-      availableAnchorModels,
-      anchorModel
-    );
-  } else {
-    const l3Core = fitLevelCore(
-      'L3',
-      usableSegments,
-      weights,
-      anchorModel,
-      activeModelExtras > 0 ? l1Candidates : [],
-      {
-        fitModels: activeModelExtras > 0,
-        fitCache: true,
-        fitOut: true,
-      }
-    );
-    const l3Cand = finalizeLevel('L3', l3Core, {
-      fitModels: activeModelExtras > 0,
-      fitCache: true,
-      fitOut: true,
-    });
-    if (l3Cand._rawMaxVif >= 10) {
-      L3 = {
-        ...l3Cand,
-        eligible: false,
-        reason: `Collinear output dimension rejected (VIF ${l3Cand.maxVif} >= 10)`,
-      };
-    } else {
-      L3 = l3Cand;
-    }
-  }
-
-  // Anti-overfitting progressive selection: L0 -> L1 -> L2 -> L3
-  const levels = { L0, L1, L2, L3 };
-  let recommendedLevel = 'L0';
-  const order = ['L1', 'L2', 'L3'];
-  for (const lvlName of order) {
-    const prev = levels[recommendedLevel];
-    const cur = levels[lvlName];
-    if (!cur.eligible) continue;
-    if (cur.loocvMaePp == null || prev.loocvMaePp == null) continue;
+  for (const cand of eligibleCandidates) {
+    const best = subsets[recommendedSubset];
+    if (best.loocvMaePp == null) continue;
+    const reqFactor =
+      factorCount(best.factors) >= 1 && factorCount(cand.factors) > factorCount(best.factors)
+        ? 0.90
+        : 0.85;
     const loocvImproved =
-      cur.loocvMaePp <= prev.loocvMaePp * 0.85 &&
-      prev.loocvMaePp - cur.loocvMaePp > qEff * 50;
-    const chi2Improved = cur.chi2Score <= prev.chi2Score - 2.0;
-    const vifOk = cur._rawMaxVif < 10;
+      cand.loocvMaePp <= best.loocvMaePp * reqFactor &&
+      best.loocvMaePp - cand.loocvMaePp > qEff * 50;
+    const chi2Improved = cand.chi2Score <= best.chi2Score - 2.0;
+    const vifOk = cand._rawMaxVif < 10;
     if (loocvImproved && chi2Improved && vifOk) {
-      recommendedLevel = lvlName;
+      recommendedSubset = cand.key;
     }
   }
 
   return {
-    recommendedLevel,
+    recommendedSubset,
     anchorModel,
     anchorSource,
     availableAnchorModels,
     anyPromo,
     promoIdentifiable: !anyPromo || anyNonPromoSameModel,
+    rawSegmentsCount: coalescedResult.rawSegmentsCount,
     segmentsCount: N,
-    levels,
-    bestChi2: levels[recommendedLevel]._chi2Data ?? 0,
+    coalescedCount: coalescedResult.coalescedCount,
+    reboundMergedCount: coalescedResult.reboundMergedCount,
+    factors: factorsMeta,
+    subsets,
+    bestChi2: subsets[recommendedSubset]._chi2Data ?? 0,
   };
 }
 
-function stripInternalLevelFields(lvl) {
-  const copy = { ...lvl };
+function stripInternalSubsetFields(sub) {
+  const copy = { ...sub };
   delete copy._rawMaxVif;
   delete copy._chi2Data;
   delete copy._modelWeights;
@@ -1253,22 +1696,40 @@ function stripInternalLevelFields(lvl) {
 }
 
 /**
- * Calibrate hierarchical quota weights strictly within the current cycle.
+ * Calibrate orthogonal 3-factor quota weights strictly within the current cycle.
  */
 export function calibrateQuotaCycle({
   pool,
+  windowType = null,
   pricingState,
   rawSegments,
   tailTurns = [],
   preferredAnchor = null,
-  forceLevel = 'auto',
+  quotaCalibMode = 'auto',
+  quotaManualFactors = null,
+  forceSubset = null,
+  forceLevel = null,
   qEff = 0.0001,
   fallbackPooled = null,
+  minDurationMs = null,
 }) {
-  const effRun = runLadderForRegime({
+  const effectiveMinDurationMs =
+    typeof minDurationMs === 'number' && Number.isFinite(minDurationMs) && minDurationMs >= 0
+      ? minDurationMs
+      : windowType === '7d'
+        ? 10 * 60_000
+        : windowType === '5h'
+          ? 5 * 60_000
+          : 0;
+  const coalescedResult = coalesceRawSegments(rawSegments || [], {
+    minDurationMs: effectiveMinDurationMs,
+  });
+
+  const effRun = runSubsetsForRegime({
     pool,
     pricingState,
-    rawSegments,
+    coalescedResult,
+    rawSegments: rawSegments || [],
     tailTurns,
     preferredAnchor,
     useListPrice: false,
@@ -1280,10 +1741,11 @@ export function calibrateQuotaCycle({
   let promoAssumption = 'none';
   if (effRun.anyPromo) {
     if (effRun.promoIdentifiable) {
-      const listRun = runLadderForRegime({
+      const listRun = runSubsetsForRegime({
         pool,
         pricingState,
-        rawSegments,
+        coalescedResult,
+        rawSegments: rawSegments || [],
         tailTurns,
         preferredAnchor,
         useListPrice: true,
@@ -1301,52 +1763,84 @@ export function calibrateQuotaCycle({
     }
   }
 
-  const normalizedForce =
-    typeof forceLevel === 'string' && ['L0', 'L1', 'L2', 'L3'].includes(forceLevel.toUpperCase())
-      ? forceLevel.toUpperCase()
-      : 'auto';
+  // Resolve requested mode & subset
+  let mode = quotaCalibMode === 'manual' ? 'manual' : 'auto';
+  let requestedKey = null;
 
-  const activeLevel =
-    normalizedForce !== 'auto' && chosen.levels[normalizedForce]?.eligible
-      ? normalizedForce
-      : chosen.recommendedLevel;
+  if (typeof forceSubset === 'string' && forceSubset.trim()) {
+    const norm = normalizeSubsetKey(forceSubset);
+    if (norm) {
+      mode = 'manual';
+      requestedKey = norm;
+    }
+  } else if (typeof forceLevel === 'string' && forceLevel.trim() && forceLevel !== 'auto') {
+    const norm = normalizeSubsetKey(forceLevel);
+    if (norm) {
+      mode = 'manual';
+      requestedKey = norm;
+    }
+  } else if (typeof quotaCalibMode === 'string' && quotaCalibMode !== 'auto' && quotaCalibMode !== 'manual') {
+    const norm = normalizeSubsetKey(quotaCalibMode);
+    if (norm) {
+      mode = 'manual';
+      requestedKey = norm;
+    }
+  }
 
-  const activeLvlObj = chosen.levels[activeLevel];
+  if (mode === 'manual' && !requestedKey) {
+    requestedKey = factorsToSubsetKey(quotaManualFactors);
+  }
+
+  const activeSubset =
+    mode === 'manual' && requestedKey && chosen.subsets[requestedKey]?.eligible
+      ? requestedKey
+      : chosen.recommendedSubset;
+
+  const activeSubObj = chosen.subsets[activeSubset];
+  const activeFactors = { ...activeSubObj.factors };
+  const huberDownweightedCount = (activeSubObj.segmentFits || []).filter((f) => f.downweighted).length;
+
   const useList = promoAssumption === 'list_price';
   const tailAgg = aggregateTurnsByModel(tailTurns || [], pricingState, useList);
-  const tailWeightedUsd =
-    activeLvlObj._modelWeights
-      ? segmentTotalWeightedSpend(
-          tailAgg,
-          activeLvlObj._alphaCache ?? 1.0,
-          activeLvlObj._alphaOut ?? 1.0,
-          activeLvlObj._modelWeights
-        )
-      : tailAgg.rawSpendUsd;
+  const tailWeightedUsd = activeSubObj._modelWeights
+    ? segmentTotalWeightedSpend(
+        tailAgg,
+        activeSubObj._alphaCache ?? 1.0,
+        activeSubObj._alphaOut ?? 1.0,
+        activeSubObj._modelWeights
+      )
+    : tailAgg.rawSpendUsd;
 
-  const cleanLevels = {
-    L0: stripInternalLevelFields(chosen.levels.L0),
-    L1: stripInternalLevelFields(chosen.levels.L1),
-    L2: stripInternalLevelFields(chosen.levels.L2),
-    L3: stripInternalLevelFields(chosen.levels.L3),
-  };
+  const cleanSubsets = {};
+  for (const key of SUBSET_KEYS) {
+    cleanSubsets[key] = stripInternalSubsetFields(chosen.subsets[key]);
+  }
 
   return {
-    recommendedLevel: chosen.recommendedLevel,
-    activeLevel,
+    mode,
+    recommendedSubset: chosen.recommendedSubset,
+    activeSubset,
+    activeFactors,
     anchorModel: chosen.anchorModel,
     anchorSource: chosen.anchorSource,
     availableAnchorModels: chosen.availableAnchorModels,
     promoIdentifiable: chosen.promoIdentifiable,
     promoAssumption,
+    rawSegmentsCount: chosen.rawSegmentsCount,
     segmentsCount: chosen.segmentsCount,
-    levels: cleanLevels,
+    coalescedCount: chosen.coalescedCount,
+    reboundMergedCount: chosen.reboundMergedCount,
+    shortGapMergedCount: coalescedResult.shortGapMergedCount || 0,
+    huberDownweightedCount,
+    factors: chosen.factors,
+    subsets: cleanSubsets,
     activeMeta: {
-      anchorPoolUsd: activeLvlObj.anchorPoolUsd,
-      equivalentMixPoolUsd: activeLvlObj.equivalentMixPoolUsd,
-      seBeta: activeLvlObj.seBeta,
+      anchorPoolUsd: activeSubObj.anchorPoolUsd,
+      equivalentMixPoolUsd: activeSubObj.equivalentMixPoolUsd,
+      seBeta: activeSubObj.seBeta,
       tailWeightedUsd,
       tailRawUsd: tailAgg.rawSpendUsd,
+      segmentFits: activeSubObj.segmentFits,
     },
   };
 }

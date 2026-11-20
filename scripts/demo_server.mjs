@@ -118,6 +118,7 @@ const demoConfig = {
   quotaDisplayMode: 'remaining',
   quotaAnchorsByPool: {},
   quotaCalibMode: 'auto',
+  quotaManualFactors: { M: false, C: false, O: false },
   defaultRange: '7d',
 };
 
@@ -1237,7 +1238,10 @@ function buildQuotaStatusResponse(query = {}) {
   const filterWin = query.window || query.windowType ? normalizeWindowType(query.window || query.windowType) : null;
   const nowMs = Date.now();
   const anchorModel = typeof query.anchorModel === 'string' && query.anchorModel.trim() ? query.anchorModel.trim() : null;
-  const forceLevel = query.forceLevel || demoConfig.quotaCalibMode || 'auto';
+  const quotaCalibMode = query.quotaCalibMode || demoConfig.quotaCalibMode || 'auto';
+  const quotaManualFactors = demoConfig.quotaManualFactors || { M: false, C: false, O: false };
+  const forceSubset = query.forceSubset || null;
+  const forceLevel = query.forceLevel || null;
 
   const turnsInMemory = (pool, startExclusiveMs, endInclusiveMs) => {
     if (endInclusiveMs <= startExclusiveMs) return [];
@@ -1275,6 +1279,9 @@ function buildQuotaStatusResponse(query = {}) {
         computeSummaryForPair(null, pricingState, p, w, grouped.get(`${p}|${w}`) || [], nowMs, {
           turnsFn: turnsInMemory,
           preferredAnchor,
+          quotaCalibMode,
+          quotaManualFactors,
+          forceSubset,
           forceLevel,
         })
       );
@@ -1418,11 +1425,25 @@ const server = createServer(async (req, res) => {
             }
           }
         }
+        if (body.quotaManualFactors && typeof body.quotaManualFactors === 'object') {
+          if (typeof body.quotaManualFactors.M === 'boolean') demoConfig.quotaManualFactors.M = body.quotaManualFactors.M;
+          if (typeof body.quotaManualFactors.C === 'boolean') demoConfig.quotaManualFactors.C = body.quotaManualFactors.C;
+          if (typeof body.quotaManualFactors.O === 'boolean') demoConfig.quotaManualFactors.O = body.quotaManualFactors.O;
+        }
         if (typeof body.quotaCalibMode === 'string') {
-          const m = body.quotaCalibMode.trim();
-          const up = m.toUpperCase();
-          if (m === 'auto') demoConfig.quotaCalibMode = 'auto';
-          else if (up === 'L0' || up === 'L1' || up === 'L2' || up === 'L3') demoConfig.quotaCalibMode = up;
+          const m = body.quotaCalibMode.trim().toLowerCase();
+          if (m === 'auto' || m === 'manual') {
+            demoConfig.quotaCalibMode = m;
+          } else if (m === 'l0' || m === 'l1' || m === 'l2' || m === 'l3') {
+            demoConfig.quotaCalibMode = 'manual';
+            if (!body.quotaManualFactors) {
+              demoConfig.quotaManualFactors = {
+                M: m !== 'l0',
+                C: m === 'l2' || m === 'l3',
+                O: m === 'l3',
+              };
+            }
+          }
         }
         if (typeof body.defaultRange === 'string' && body.defaultRange) demoConfig.defaultRange = body.defaultRange;
         return sendJson(res, 200, buildConfigPayload());
