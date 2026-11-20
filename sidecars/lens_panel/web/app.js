@@ -2763,7 +2763,14 @@
               </div>
               ${
                 e.status === 'calibrating'
-                  ? `<div class="muted-note num">${esc(t('quota.calDesc', { du: deltaPct.toFixed(2), seg: num(e.segmentsUsed), usd: fmtUsd(e.windowSpendUsd) }))}</div>`
+                  ? `
+                    ${
+                      e.estimatedPoolUsd != null
+                        ? `<div class="est-total num mono" style="opacity:0.78">~${fmtUsd(e.estimatedPoolUsd)} <span class="muted-note" style="font-size:11px;font-weight:400">(${esc(st.text)})</span></div>`
+                        : ''
+                    }
+                    <div class="muted-note num">${esc(t('quota.calDesc', { du: deltaPct.toFixed(2), seg: num(e.segmentsUsed), usd: fmtUsd(e.windowSpendUsd) }))}</div>
+                  `
                   : `
                     <div class="est-total num mono">~${fmtUsd(e.estimatedPoolUsd)} <span class="muted-note" style="font-size:11px;font-weight:400">95% CI [${fmtUsd(e.ciLowUsd)}, ${fmtUsd(e.ciHighUsd)}]</span></div>
                     <div class="chart-caption-row num">

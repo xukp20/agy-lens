@@ -83,16 +83,32 @@ export function addQuotaAnchor(cacheDb, payload) {
     if (!Number.isFinite(r) || r <= 0) throw new Error('Invalid resetAt timestamp');
     resetAt = Math.round(r);
   } else {
-    const prev = cacheDb
+    const priorRows = cacheDb
       .prepare(
         `SELECT remaining_pct, reset_at, captured_at
          FROM quota_anchors
          WHERE pool = ? AND window_type = ? AND captured_at <= ?
-         ORDER BY captured_at DESC, id DESC
-         LIMIT 1`
+         ORDER BY captured_at ASC, id ASC`
       )
-      .get(pool, windowType, capturedAt);
-    resetAt = resolveInheritedResetAt(prev, capturedAt, remainingPct, null);
+      .all(pool, windowType, capturedAt);
+    if (priorRows.length > 0) {
+      const priorCycles = segmentCycles(priorRows);
+      const activeCycle = priorCycles[priorCycles.length - 1];
+      const latestInCycle = activeCycle[activeCycle.length - 1];
+      let cycleResetAt = null;
+      for (let i = activeCycle.length - 1; i >= 0; i--) {
+        if (activeCycle[i].reset_at != null) {
+          cycleResetAt = activeCycle[i].reset_at;
+          break;
+        }
+      }
+      resetAt = resolveInheritedResetAt(
+        { remaining_pct: latestInCycle.remaining_pct, reset_at: cycleResetAt },
+        capturedAt,
+        remainingPct,
+        null
+      );
+    }
   }
 
   const note = typeof payload?.note === 'string' ? payload.note.trim().slice(0, 240) : '';
@@ -238,8 +254,16 @@ export function computeSummaryForPair(
     segments.push({ spendUsd, deltaU, qK });
   }
 
+  let cycleResetAt = null;
+  for (let i = latestCycle.length - 1; i >= 0; i--) {
+    if (latestCycle[i].reset_at != null) {
+      cycleResetAt = latestCycle[i].reset_at;
+      break;
+    }
+  }
+
   const endMs =
-    latestRow.reset_at != null && nowMs > latestRow.reset_at ? latestRow.reset_at : nowMs;
+    cycleResetAt != null && nowMs > cycleResetAt ? cycleResetAt : nowMs;
   const tailModelMap = new Map();
   const spendSinceLastUsd = sumSpend(pool, latestRow.captured_at, endMs, tailModelMap);
 
@@ -252,7 +276,6 @@ export function computeSummaryForPair(
       share: totalMixUsd > 0 ? usd / totalMixUsd : 0,
     }))
     .sort((a, b) => b.share - a.share);
-  const mixedModelWarning = modelMix.filter((m) => m.share >= 0.1).length >= 2;
 
   const sumC = segments.reduce((acc, s) => acc + s.spendUsd, 0);
   const sumDeltaU = segments.reduce((acc, s) => acc + s.deltaU, 0);
@@ -265,8 +288,12 @@ export function computeSummaryForPair(
       : latestRow.precision_step / 100;
   const precisionStepPct = Number((qEff * 100).toFixed(4));
 
-  const minThreshold = qEff <= 0.001 ? 0.02 : 0.05;
-  const highThreshold = qEff <= 0.001 ? 0.05 : 0.10;
+  // Precision-adaptive thresholds:
+  // - 2-decimal (0.01% step): >=0.20% usable (low_confidence), >=1.00% high confidence (ok)
+  // - 1-decimal (0.1% step):  >=0.50% usable (low_confidence), >=2.00% high confidence (ok)
+  // - Integer   (1% step):    >=2.00% usable (low_confidence), >=5.00% high confidence (ok)
+  const minThreshold = qEff <= 0.00015 ? 0.002 : qEff <= 0.0015 ? 0.005 : 0.02;
+  const highThreshold = qEff <= 0.00015 ? 0.01 : qEff <= 0.0015 ? 0.02 : 0.05;
 
   let estimatedPoolUsd = null;
   let ciLowUsd = null;
@@ -275,13 +302,20 @@ export function computeSummaryForPair(
   let projectedRemainingPct = null;
   let status = 'calibrating';
 
-  if (segments.length > 0 && sumDeltaU >= minThreshold && sumC > 0) {
+  if (segments.length > 0 && sumDeltaU > 0 && sumC > 0) {
     const qHat = sumC / sumDeltaU;
     const err95 = 0.776 * Math.sqrt(segments.reduce((acc, s) => acc + s.qK * s.qK, 0));
     estimatedPoolUsd = qHat;
     ciLowUsd = sumC / (sumDeltaU + err95);
-    ciHighUsd = sumDeltaU - err95 > 0.001 ? sumC / (sumDeltaU - err95) : null;
-    status = sumDeltaU >= highThreshold ? 'ok' : 'low_confidence';
+    ciHighUsd = sumDeltaU - err95 > 0.0001 ? sumC / (sumDeltaU - err95) : null;
+
+    if (sumDeltaU >= highThreshold) {
+      status = 'ok';
+    } else if (sumDeltaU >= minThreshold) {
+      status = 'low_confidence';
+    } else {
+      status = 'calibrating';
+    }
 
     projectedRemainingPct = Math.max(
       0,
@@ -291,18 +325,37 @@ export function computeSummaryForPair(
     impliedRemainingUsd = qHat * (projectedRemainingPct / 100);
   }
 
+  // Only flag mixed-model variance when >=2 models share >=10% AND segment rates actually diverge >35%.
+  let mixedModelWarning = false;
+  const hasMultipleModels = modelMix.filter((m) => m.share >= 0.1).length >= 2;
+  if (hasMultipleModels && estimatedPoolUsd != null) {
+    const meaningfulSegRates = segments
+      .filter((s) => s.deltaU >= Math.max(0.002, s.qK * 2) && s.spendUsd > 0)
+      .map((s) => s.spendUsd / s.deltaU);
+    if (meaningfulSegRates.length >= 2) {
+      const minR = Math.min(...meaningfulSegRates);
+      const maxR = Math.max(...meaningfulSegRates);
+      if ((maxR - minR) / estimatedPoolUsd > 0.35) {
+        mixedModelWarning = true;
+      }
+    }
+  }
+
   let evenUsePaceRatio = null;
-  if (latestRow.reset_at != null && latestRow.reset_at > nowMs) {
+  if (cycleResetAt != null && cycleResetAt > nowMs) {
     const windowMs = windowType === '7d' ? 7 * 86400 * 1000 : 5 * 3600 * 1000;
-    const windowStart = latestRow.reset_at - windowMs;
-    const elapsedFrac = Math.max(0.001, Math.min(1, (nowMs - windowStart) / windowMs));
-    const currentRem = projectedRemainingPct !== null ? projectedRemainingPct : latestRow.remaining_pct;
-    const usedFrac = Math.max(0, Math.min(1, (100 - currentRem) / 100));
-    evenUsePaceRatio = usedFrac / elapsedFrac;
+    const remainingMs = cycleResetAt - nowMs;
+    if (remainingMs <= windowMs) {
+      const windowStart = cycleResetAt - windowMs;
+      const elapsedFrac = Math.max(0.01, Math.min(1, (nowMs - windowStart) / windowMs));
+      const currentRem = projectedRemainingPct !== null ? projectedRemainingPct : latestRow.remaining_pct;
+      const usedFrac = Math.max(0, Math.min(1, (100 - currentRem) / 100));
+      evenUsePaceRatio = usedFrac / elapsedFrac;
+    }
   }
 
   const inheritableResetAt =
-    latestAnchor.resetAt != null && latestAnchor.resetAt > nowMs ? latestAnchor.resetAt : null;
+    cycleResetAt != null && cycleResetAt > nowMs ? cycleResetAt : null;
 
   return {
     pool,
