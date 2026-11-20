@@ -122,6 +122,42 @@ export function openTelemetryCacheDb(dataDir) {
     db.exec("ALTER TABLE turns ADD COLUMN provider_request_id TEXT NOT NULL DEFAULT ''");
   }
 
+  // Self-heal legacy 0-token turns captured mid-stream (status=2) before v1.2.1.
+  // Rewinds only affected conversations' high-water marks while preserving quota_anchors.
+  const zeroConvs = db
+    .prepare(
+      `SELECT conversation_id, source, MIN(step_idx) AS min_zero_idx
+       FROM turns
+       WHERE (uncached_in + cache_read + cache_create + total_out) = 0
+       GROUP BY conversation_id, source`
+    )
+    .all();
+  if (zeroConvs.length > 0) {
+    const rewindFile = db.prepare(
+      `UPDATE indexed_files
+       SET max_step15_idx = MIN(max_step15_idx, ?),
+           max_gen_idx = -1,
+           db_mtime_ms = 0,
+           wal_mtime_ms = 0,
+           wal_size = -1
+       WHERE conversation_id = ? AND source = ?`
+    );
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      for (const row of zeroConvs) {
+        rewindFile.run(Math.max(-1, Number(row.min_zero_idx) - 1), row.conversation_id, row.source);
+      }
+      db.exec('DELETE FROM turns WHERE (uncached_in + cache_read + cache_create + total_out) = 0');
+      db.exec('COMMIT');
+    } catch {
+      try {
+        db.exec('ROLLBACK');
+      } catch {
+        // ignore
+      }
+    }
+  }
+
   return { db, dbPath };
 }
 
@@ -259,7 +295,9 @@ function indexSingleDb(cacheDb, entry, summariesMap, learnedEnums) {
   try {
     srcDb = new DatabaseSync(entry.dbPath, { readOnly: true, timeout: 50 });
     stepRows = srcDb
-      .prepare('SELECT idx, metadata FROM steps WHERE step_type = 15 AND idx > ? ORDER BY idx ASC')
+      .prepare(
+        'SELECT idx, status, metadata FROM steps WHERE step_type = 15 AND idx > ? ORDER BY idx ASC'
+      )
       .all(lastStepIdx);
     genRows = srcDb
       .prepare(
@@ -315,8 +353,10 @@ function indexSingleDb(cacheDb, entry, summariesMap, learnedEnums) {
   }
 
   let maxStepIdx = lastStepIdx;
+  let hitInFlight = false;
   let lastActivityMs = prev?.last_activity_ms || 0;
   const now = Date.now();
+  const insertedStepIdxs = new Set();
 
   const insertTurn = cacheDb.prepare(`
     INSERT OR REPLACE INTO turns (
@@ -348,8 +388,33 @@ function indexSingleDb(cacheDb, entry, summariesMap, learnedEnums) {
     }
 
     for (const sRow of stepRows) {
-      if (sRow.idx > maxStepIdx) maxStepIdx = sRow.idx;
       const meta = parseStep15Metadata(sRow.metadata);
+      const totalTokens =
+        (meta.uncachedIn || 0) +
+        (meta.cacheRead || 0) +
+        (meta.cacheCreate || 0) +
+        (meta.totalOut || 0);
+      const isInFlight =
+        sRow.status === 1 ||
+        sRow.status === 2 ||
+        (meta.completedAtMs == null && totalTokens === 0);
+
+      if (isInFlight) {
+        // Hold high-water mark before any still-streaming step so its final usage is indexed on completion.
+        hitInFlight = true;
+        if (meta.createdAtMs && meta.createdAtMs > lastActivityMs) {
+          lastActivityMs = meta.createdAtMs;
+        }
+        continue;
+      }
+
+      if (totalTokens === 0) {
+        // Terminated step (e.g. cancelled/errored) with zero usage: skip turn row but advance watermark.
+        if (!hitInFlight && sRow.idx > maxStepIdx) maxStepIdx = sRow.idx;
+        continue;
+      }
+
+      if (!hitInFlight && sRow.idx > maxStepIdx) maxStepIdx = sRow.idx;
       const gen = genByStepIdx.get(sRow.idx);
 
       const modelEnum = gen?.modelEnum ?? meta.modelEnum ?? null;
@@ -387,11 +452,11 @@ function indexSingleDb(cacheDb, entry, summariesMap, learnedEnums) {
         gen?.contextEst ?? null,
         gen?.compactLimit ?? null
       );
+      insertedStepIdxs.add(sRow.idx);
     }
 
     // Backfill gen_metadata fields onto already-indexed turns if gen_metadata landed after step_type=15.
     if (genByStepIdx.size > 0) {
-      const stepIdxSet = new Set(stepRows.map((r) => r.idx));
       const updateTurnGen = cacheDb.prepare(`
         UPDATE turns
         SET raw_model_id = COALESCE(NULLIF(?, ''), raw_model_id),
@@ -405,7 +470,7 @@ function indexSingleDb(cacheDb, entry, summariesMap, learnedEnums) {
         WHERE conversation_id = ? AND step_idx = ?
       `);
       for (const [stepIdx, gen] of genByStepIdx.entries()) {
-        if (stepIdxSet.has(stepIdx)) continue;
+        if (insertedStepIdxs.has(stepIdx)) continue;
         const canonical = normalizeModelId(gen.modelId, gen.modelEnum, enumIdMap);
         updateTurnGen.run(
           gen.modelId,
@@ -428,10 +493,10 @@ function indexSingleDb(cacheDb, entry, summariesMap, learnedEnums) {
       entry.source,
       stats.dbMtimeMs,
       stats.dbSize,
-      stats.walMtimeMs,
-      stats.walSize,
+      hitInFlight ? 0 : stats.walMtimeMs,
+      hitInFlight ? -1 : stats.walSize,
       maxStepIdx,
-      maxGenIdx,
+      hitInFlight ? lastGenIdx : maxGenIdx,
       title,
       workspace,
       lastActivityMs,
