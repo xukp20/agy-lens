@@ -9,6 +9,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   calculateTurnCost,
+  calculateTurnCostBreakdown,
   inferPool,
   listPricingModels,
   loadDefaults,
@@ -115,14 +116,22 @@ const demoConfig = {
   refreshSec: 30,
   pricingAutoSync: false,
   quotaDisplayMode: 'remaining',
+  quotaAnchorsByPool: {},
+  quotaCalibMode: 'auto',
   defaultRange: '7d',
 };
 
 const pricingOverrides = {};
 
 function getDemoPricingState() {
+  const defaults = loadDefaults();
   return {
-    defaults: loadDefaults(),
+    defaults,
+    defaultAnchors: defaults.defaultAnchors || {
+      gemini: 'gemini-4-neon',
+      argon: 'gemini-4-argon',
+      '3p': 'claude-opus-5-5',
+    },
     overrides: pricingOverrides,
     remote: { fetchedAt: null, models: {} },
   };
@@ -431,6 +440,105 @@ function buildSyntheticDataset(nowMs) {
     }
   }
 
+  // 4b. Dedicated 6-segment current 7d Gemini calibration clusters (varied model mix & cache hit rates)
+  const dayMs = 86400 * 1000;
+  const cal7dTimes = [
+    nowMs - 5.6 * dayMs,
+    nowMs - 4.7 * dayMs,
+    nowMs - 3.8 * dayMs,
+    nowMs - 2.8 * dayMs,
+    nowMs - 1.7 * dayMs,
+    nowMs - 0.7 * dayMs,
+    anchorT2,
+  ];
+  const cal7dSpecs = [
+    // seg 1: Neon heavy, low cache hit (~25%)
+    { model: 'gemini-4-neon', turns: 22, hit: 0.25, prompt: 240000, outMult: 1.0, ws: '/workspace/rust-engine' },
+    // seg 2: Hydrogen heavy, very high cache hit (~94%)
+    { model: 'gemini-4-hydrogen', turns: 85, hit: 0.94, prompt: 230000, outMult: 0.8, ws: '/workspace/ml-pipeline' },
+    // seg 3: Neon high cache hit (~92%)
+    { model: 'gemini-4-neon', turns: 65, hit: 0.92, prompt: 245000, outMult: 0.7, ws: '/workspace/acme-web' },
+    // seg 4: Hydrogen heavy, low cache hit (~20%)
+    { model: 'gemini-4-hydrogen', turns: 48, hit: 0.20, prompt: 185000, outMult: 1.0, ws: '/workspace/rust-engine' },
+    // seg 5: Neon moderate hit (~60%)
+    { model: 'gemini-4-neon', turns: 32, hit: 0.60, prompt: 225000, outMult: 1.1, ws: '/workspace/acme-web' },
+    // seg 6: Hydrogen high cache hit (~95%) + small Neon tail
+    { model: 'gemini-4-hydrogen', turns: 95, hit: 0.95, prompt: 240000, outMult: 0.7, ws: '/workspace/ml-pipeline' },
+  ];
+  for (let idx = 0; idx < cal7dSpecs.length; idx++) {
+    const spec = cal7dSpecs[idx];
+    const segStart = cal7dTimes[idx] + 15 * 60 * 1000;
+    const segEnd = cal7dTimes[idx + 1] - 25 * 60 * 1000;
+    const cid = `demo-7d-cal-${idx + 1}`;
+    addConvMeta(cid, 'cli', spec.ws, `Sprint segment #${idx + 1} calibration workload`);
+    const stepSpan = Math.floor((segEnd - segStart) / (spec.turns + 1));
+    for (let s = 0; s < spec.turns; s++) {
+      const completed = segStart + stepSpan * (s + 1);
+      const created = completed - 8000;
+      const prompt = spec.prompt + (s % 12) * 2500;
+      const cacheRead = Math.round(prompt * spec.hit);
+      const uncachedIn = Math.max(500, prompt - cacheRead);
+      const thinkingOut = Math.round(2400 * spec.outMult);
+      const visibleOut = Math.round(900 * spec.outMult);
+      pushTurn({
+        conversation_id: cid,
+        step_idx: (s + 1) * 2,
+        source: 'cli',
+        workspace: spec.ws,
+        title: `Sprint segment #${idx + 1} calibration workload`,
+        created_at_ms: created,
+        first_token_at_ms: created + 950,
+        completed_at_ms: completed,
+        ttft_ms: 950,
+        gen_ms: 7050,
+        canonical_model_id: spec.model,
+        display_name: MODEL_DISPLAY[spec.model] || spec.model,
+        pool: 'gemini',
+        uncached_in: uncachedIn,
+        cache_read: cacheRead,
+        cache_create: 0,
+        thinking_out: thinkingOut,
+        visible_out: visibleOut,
+        total_out: thinkingOut + visibleOut,
+        provider_request_id: `req_demo_${++reqSeq}`,
+      });
+    }
+  }
+
+  // Compute exact remaining_pct values for the 6-segment 7d cycle from true weights
+  // (Q_anchor = 480, w_hydrogen = 0.72, alpha_cache = 0.30)
+  const demoPricing = getDemoPricingState();
+  const trueQ7d = 480;
+  const trueW = { 'gemini-4-neon': 1.0, 'gemini-4-hydrogen': 0.72, 'gemini-4-carbon': 0.72, 'gemini-3.8-flash': 1.0 };
+  const trueAlphaCache = 0.30;
+  const weeklyResetAt = nowMs + 1.4 * dayMs;
+  const weeklyNotes = [
+    'Cycle start baseline',
+    'After Rust parser refactor',
+    'After ML pipeline tuning',
+    'Mid-week Neon sprint',
+    'Cache-miss investigation',
+    'Long-context Neon review',
+    'Pre-release check',
+  ];
+  const weeklyPcts = [96.80];
+  for (let k = 1; k < cal7dTimes.length; k++) {
+    const tStart = cal7dTimes[k - 1];
+    const tEnd = cal7dTimes[k];
+    let weightedSum = 0;
+    for (const t of turns) {
+      if (t.pool !== 'gemini') continue;
+      if (t.completed_at_ms <= tStart || t.completed_at_ms > tEnd) continue;
+      const b = calculateTurnCostBreakdown(t, demoPricing);
+      if (b.unpriced) continue;
+      const wm = trueW[b.canonicalId] ?? 1.0;
+      weightedSum += wm * (b.inUsd + trueAlphaCache * b.cacheReadUsd + b.cacheWriteUsd + b.outUsd);
+    }
+    const dropPct = (weightedSum / trueQ7d) * 100;
+    const nextPct = Math.max(5, Math.round((weeklyPcts[k - 1] - dropPct) * 100) / 100);
+    weeklyPcts.push(nextPct);
+  }
+
   // Initial quota anchors (2-decimal high-precision examples)
   let nextAnchorId = 1;
   const anchors = [
@@ -467,28 +575,41 @@ function buildSyntheticDataset(nowMs) {
       note: 'After benchmark run',
       created_at: anchorT2,
     },
+    // Older 7d cycle (to demonstrate collapsed olderCycleAnchors)
     {
       id: nextAnchorId++,
       pool: 'gemini',
       window_type: '7d',
-      remaining_pct: 88.20,
+      remaining_pct: 91.20,
       precision_step: 0.01,
-      captured_at: nowMs - 3 * 86400 * 1000,
-      reset_at: nowMs + 4 * 86400 * 1000,
-      note: 'Weekly baseline',
-      created_at: nowMs - 3 * 86400 * 1000,
+      captured_at: nowMs - 11.5 * dayMs,
+      reset_at: nowMs - 6.2 * dayMs,
+      note: 'Previous weekly start',
+      created_at: nowMs - 11.5 * dayMs,
     },
     {
       id: nextAnchorId++,
       pool: 'gemini',
       window_type: '7d',
-      remaining_pct: 81.65,
+      remaining_pct: 42.85,
       precision_step: 0.01,
-      captured_at: anchorT2,
-      reset_at: nowMs + 4 * 86400 * 1000,
-      note: 'Weekly check',
-      created_at: anchorT2,
+      captured_at: nowMs - 7.8 * dayMs,
+      reset_at: nowMs - 6.2 * dayMs,
+      note: 'Previous weekly end',
+      created_at: nowMs - 7.8 * dayMs,
     },
+    // Current 6-segment 7d cycle
+    ...cal7dTimes.map((ts, idx) => ({
+      id: nextAnchorId++,
+      pool: 'gemini',
+      window_type: '7d',
+      remaining_pct: weeklyPcts[idx],
+      precision_step: 0.01,
+      captured_at: ts,
+      reset_at: weeklyResetAt,
+      note: weeklyNotes[idx] || `Weekly checkpoint ${idx + 1}`,
+      created_at: ts,
+    })),
     {
       id: nextAnchorId++,
       pool: '3p',
@@ -1115,21 +1236,19 @@ function buildQuotaStatusResponse(query = {}) {
   const filterPool = query.pool ? normalizePool(query.pool) : null;
   const filterWin = query.window || query.windowType ? normalizeWindowType(query.window || query.windowType) : null;
   const nowMs = Date.now();
+  const anchorModel = typeof query.anchorModel === 'string' && query.anchorModel.trim() ? query.anchorModel.trim() : null;
+  const forceLevel = query.forceLevel || demoConfig.quotaCalibMode || 'auto';
 
-  const spendInMemory = (pool, startExclusiveMs, endInclusiveMs, modelSpendMap) => {
-    if (endInclusiveMs <= startExclusiveMs) return 0;
-    let sum = 0;
-    for (const t of dataset.turns) {
-      if (t.pool !== pool) continue;
-      if (t.completed_at_ms <= startExclusiveMs || t.completed_at_ms > endInclusiveMs) continue;
-      const cost = calculateTurnCost(t, pricingState);
-      if (cost.unpriced) continue;
-      sum += cost.costUsd;
-      if (modelSpendMap) {
-        modelSpendMap.set(t.canonical_model_id, (modelSpendMap.get(t.canonical_model_id) || 0) + cost.costUsd);
-      }
-    }
-    return sum;
+  const turnsInMemory = (pool, startExclusiveMs, endInclusiveMs) => {
+    if (endInclusiveMs <= startExclusiveMs) return [];
+    return dataset.turns
+      .filter(
+        (t) =>
+          t.pool === pool &&
+          t.completed_at_ms > startExclusiveMs &&
+          t.completed_at_ms <= endInclusiveMs
+      )
+      .sort((a, b) => a.completed_at_ms - b.completed_at_ms);
   };
 
   const ordered = [...dataset.anchors]
@@ -1147,9 +1266,17 @@ function buildQuotaStatusResponse(query = {}) {
   const windows = filterWin ? [filterWin] : VALID_WINDOWS;
   const summaries = [];
   for (const p of pools) {
+    const preferredAnchor =
+      (filterPool === p && anchorModel) ||
+      demoConfig.quotaAnchorsByPool?.[p] ||
+      null;
     for (const w of windows) {
       summaries.push(
-        computeSummaryForPair(null, pricingState, p, w, grouped.get(`${p}|${w}`) || [], nowMs, spendInMemory)
+        computeSummaryForPair(null, pricingState, p, w, grouped.get(`${p}|${w}`) || [], nowMs, {
+          turnsFn: turnsInMemory,
+          preferredAnchor,
+          forceLevel,
+        })
       );
     }
   }
@@ -1280,6 +1407,22 @@ const server = createServer(async (req, res) => {
         if (typeof body.pricingAutoSync === 'boolean') demoConfig.pricingAutoSync = body.pricingAutoSync;
         if (body.quotaDisplayMode === 'used' || body.quotaDisplayMode === 'remaining') {
           demoConfig.quotaDisplayMode = body.quotaDisplayMode;
+        }
+        if (body.quotaAnchorsByPool && typeof body.quotaAnchorsByPool === 'object') {
+          for (const [k, v] of Object.entries(body.quotaAnchorsByPool)) {
+            if (k !== 'gemini' && k !== 'argon' && k !== '3p') continue;
+            if (v === null || v === undefined || (typeof v === 'string' && !v.trim())) {
+              delete demoConfig.quotaAnchorsByPool[k];
+            } else if (typeof v === 'string' && v.trim()) {
+              demoConfig.quotaAnchorsByPool[k] = v.trim();
+            }
+          }
+        }
+        if (typeof body.quotaCalibMode === 'string') {
+          const m = body.quotaCalibMode.trim();
+          const up = m.toUpperCase();
+          if (m === 'auto') demoConfig.quotaCalibMode = 'auto';
+          else if (up === 'L0' || up === 'L1' || up === 'L2' || up === 'L3') demoConfig.quotaCalibMode = up;
         }
         if (typeof body.defaultRange === 'string' && body.defaultRange) demoConfig.defaultRange = body.defaultRange;
         return sendJson(res, 200, buildConfigPayload());

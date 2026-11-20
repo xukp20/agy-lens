@@ -68,6 +68,8 @@ const DEFAULT_CONFIG = {
   refreshSec: 30,
   pricingAutoSync: false,
   quotaDisplayMode: 'remaining',
+  quotaAnchorsByPool: {},
+  quotaCalibMode: 'auto',
   defaultRange: '7d',
 };
 
@@ -75,6 +77,37 @@ const DATA_DIR = resolveDataDir();
 mkdirSync(DATA_DIR, { recursive: true });
 const SETTINGS_FILE = join(DATA_DIR, 'settings.json');
 const { db: cacheDb, dbPath: cacheDbPath } = openTelemetryCacheDb(DATA_DIR);
+
+function sanitizeQuotaAnchorsByPool(baseMap, patchMap) {
+  const out = {};
+  if (baseMap && typeof baseMap === 'object') {
+    for (const [k, v] of Object.entries(baseMap)) {
+      if ((k === 'gemini' || k === 'argon' || k === '3p') && typeof v === 'string' && v.trim()) {
+        out[k] = v.trim();
+      }
+    }
+  }
+  if (patchMap && typeof patchMap === 'object') {
+    for (const [k, v] of Object.entries(patchMap)) {
+      if (k !== 'gemini' && k !== 'argon' && k !== '3p') continue;
+      if (v === null || v === undefined || (typeof v === 'string' && !v.trim())) {
+        delete out[k];
+      } else if (typeof v === 'string' && v.trim()) {
+        out[k] = v.trim();
+      }
+    }
+  }
+  return out;
+}
+
+function normalizeQuotaCalibMode(val, fallback = 'auto') {
+  if (typeof val !== 'string') return fallback;
+  const s = val.trim();
+  if (s === 'auto') return 'auto';
+  const up = s.toUpperCase();
+  if (up === 'L0' || up === 'L1' || up === 'L2' || up === 'L3') return up;
+  return fallback;
+}
 
 function deepMergeConfig(base, patch) {
   if (!patch || typeof patch !== 'object') return structuredClone(base);
@@ -96,6 +129,8 @@ function deepMergeConfig(base, patch) {
       patch.quotaDisplayMode === 'used' || patch.quotaDisplayMode === 'remaining'
         ? patch.quotaDisplayMode
         : base.quotaDisplayMode,
+    quotaAnchorsByPool: sanitizeQuotaAnchorsByPool(base.quotaAnchorsByPool, patch.quotaAnchorsByPool),
+    quotaCalibMode: normalizeQuotaCalibMode(patch.quotaCalibMode, base.quotaCalibMode),
     defaultRange:
       typeof patch.defaultRange === 'string' && patch.defaultRange
         ? patch.defaultRange
@@ -299,16 +334,22 @@ app.api('/api/quota/anchors', (data) => {
   return getQuotaStatus(cacheDb, pricingState, {
     pool: data.pool || null,
     windowType: data.window || data.windowType || null,
+    anchorModel: typeof data.anchorModel === 'string' && data.anchorModel.trim() ? data.anchorModel.trim() : null,
+    quotaAnchorsByPool: config.quotaAnchorsByPool || {},
+    forceLevel: data.forceLevel || config.quotaCalibMode || 'auto',
   });
 }, 'GET');
 
 app.api('/api/quota/anchors', (data) => {
   try {
     addQuotaAnchor(cacheDb, data);
+    const config = loadConfig();
     const pricingState = loadPricingState(DATA_DIR);
     return getQuotaStatus(cacheDb, pricingState, {
       pool: null,
       windowType: null,
+      quotaAnchorsByPool: config.quotaAnchorsByPool || {},
+      forceLevel: config.quotaCalibMode || 'auto',
     });
   } catch (err) {
     return jsonError(400, err.message);
@@ -318,10 +359,13 @@ app.api('/api/quota/anchors', (data) => {
 app.api('/api/quota/anchors/delete', (data) => {
   try {
     deleteQuotaAnchor(cacheDb, data?.id);
+    const config = loadConfig();
     const pricingState = loadPricingState(DATA_DIR);
     return getQuotaStatus(cacheDb, pricingState, {
       pool: null,
       windowType: null,
+      quotaAnchorsByPool: config.quotaAnchorsByPool || {},
+      forceLevel: config.quotaCalibMode || 'auto',
     });
   } catch (err) {
     return jsonError(400, err.message);

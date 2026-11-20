@@ -123,8 +123,13 @@ export function loadPricingState(dataDir) {
   const defaults = loadDefaults();
   const overridesRaw = readJsonSafe(getOverridesPath(dataDir), { models: {} });
   const remoteRaw = readJsonSafe(getRemoteCachePath(dataDir), { fetchedAt: null, models: {} });
+  const defaultAnchors =
+    defaults?.defaultAnchors && typeof defaults.defaultAnchors === 'object'
+      ? { ...defaults.defaultAnchors }
+      : { gemini: 'gemini-4-neon', argon: 'gemini-4-argon', '3p': 'claude-opus-5-5' };
   return {
     defaults,
+    defaultAnchors,
     overrides: overridesRaw?.models && typeof overridesRaw.models === 'object' ? overridesRaw.models : {},
     remote: {
       fetchedAt: remoteRaw?.fetchedAt || null,
@@ -200,6 +205,55 @@ function selectEffectiveDefaultRate(entry, dateStr) {
   return chosen;
 }
 
+function pricesMatchPromo(remoteRate, defSlice) {
+  if (!remoteRate || !defSlice) return false;
+  const dm = Number(defSlice.discount_multiplier);
+  if (!Number.isFinite(dm) || dm <= 0 || dm >= 1) return false;
+  const inMatch =
+    remoteRate.input_per_1m != null &&
+    defSlice.input_per_1m != null &&
+    Math.abs(Number(remoteRate.input_per_1m) - Number(defSlice.input_per_1m)) < 1e-6;
+  const outMatch =
+    remoteRate.output_per_1m == null ||
+    defSlice.output_per_1m == null ||
+    Math.abs(Number(remoteRate.output_per_1m) - Number(defSlice.output_per_1m)) < 1e-6;
+  return inMatch && outMatch;
+}
+
+/**
+ * Merge a remote catalog entry over a bundled default entry for `syncDateStr`,
+ * preserving non-null long-context fields and matching promo metadata.
+ */
+export function mergeRemoteEntryWithDefault(remoteRate, defEntry, syncDateStr) {
+  if (!remoteRate) return null;
+  const effDate = remoteRate.effective_from || syncDateStr || new Date().toISOString().slice(0, 10);
+  const defSlice = defEntry ? selectEffectiveDefaultRate(defEntry, effDate) : null;
+  const keepPromo = pricesMatchPromo(remoteRate, defSlice);
+  return {
+    ...remoteRate,
+    pool: remoteRate.pool || defEntry?.pool || 'gemini',
+    effective_from: effDate,
+    long_context_threshold:
+      remoteRate.long_context_threshold ?? defSlice?.long_context_threshold ?? null,
+    input_above_per_1m:
+      remoteRate.input_above_per_1m ?? defSlice?.input_above_per_1m ?? null,
+    output_above_per_1m:
+      remoteRate.output_above_per_1m ?? defSlice?.output_above_per_1m ?? null,
+    thinking_above_per_1m:
+      remoteRate.thinking_above_per_1m ?? defSlice?.thinking_above_per_1m ?? null,
+    cache_read_above_per_1m:
+      remoteRate.cache_read_above_per_1m ?? defSlice?.cache_read_above_per_1m ?? null,
+    cache_write_above_per_1m:
+      remoteRate.cache_write_above_per_1m ?? defSlice?.cache_write_above_per_1m ?? null,
+    discount_multiplier: keepPromo
+      ? defSlice.discount_multiplier
+      : (remoteRate.discount_multiplier ?? 1.0),
+    promo_label: keepPromo
+      ? (defSlice.promo_label ?? null)
+      : (remoteRate.promo_label ?? null),
+  };
+}
+
 /**
  * Resolve effective rate for `(canonicalId, timestampMs)`.
  */
@@ -209,35 +263,61 @@ export function resolveRate(canonicalId, timestampMs, state) {
     : new Date().toISOString().slice(0, 10);
 
   if (state.overrides?.[canonicalId]) {
+    const ov = state.overrides[canonicalId];
     return {
-      ...state.overrides[canonicalId],
-      pool: state.overrides[canonicalId].pool || inferPool(canonicalId),
+      ...ov,
+      discount_multiplier: ov.discount_multiplier ?? 1.0,
+      promo_label: ov.promo_label ?? null,
+      pool: ov.pool || inferPool(canonicalId),
       source: 'override',
     };
   }
 
   const defEntry = state.defaults?.models?.[canonicalId];
-  if (defEntry) {
-    const rate = selectEffectiveDefaultRate(defEntry, dateStr);
-    if (rate) {
-      return {
-        ...rate,
+  const remoteRateRaw = state.remote?.models?.[canonicalId];
+
+  const slices = [];
+  if (defEntry && Array.isArray(defEntry.rates)) {
+    for (const r of defEntry.rates) {
+      slices.push({
+        ...r,
+        discount_multiplier: r.discount_multiplier ?? 1.0,
+        promo_label: r.promo_label ?? null,
         pool: defEntry.pool || inferPool(canonicalId),
         source: 'default',
-      };
+      });
     }
   }
 
-  const remoteRate = state.remote?.models?.[canonicalId];
-  if (remoteRate) {
-    return {
-      ...remoteRate,
-      pool: remoteRate.pool || inferPool(canonicalId),
+  if (remoteRateRaw) {
+    const fallbackSyncDate = state.remote?.fetchedAt
+      ? new Date(state.remote.fetchedAt).toISOString().slice(0, 10)
+      : dateStr;
+    const mergedRemote = mergeRemoteEntryWithDefault(remoteRateRaw, defEntry, fallbackSyncDate);
+    slices.push({
+      ...mergedRemote,
+      pool: mergedRemote.pool || defEntry?.pool || inferPool(canonicalId),
       source: 'remote',
-    };
+    });
   }
 
-  return null;
+  if (slices.length === 0) return null;
+
+  // Sort ascending by effective_from; for identical dates, default precedes remote so remote takes >= syncDateStr.
+  slices.sort((a, b) => {
+    const cmp = String(a.effective_from || '').localeCompare(String(b.effective_from || ''));
+    if (cmp !== 0) return cmp;
+    if (a.source === b.source) return 0;
+    return a.source === 'default' ? -1 : 1;
+  });
+
+  let chosen = null;
+  for (const s of slices) {
+    if (!s.effective_from || s.effective_from <= dateStr) {
+      chosen = s;
+    }
+  }
+  return chosen || slices[0];
 }
 
 /**
@@ -336,6 +416,78 @@ export function calculateTurnCost(turn, state) {
 }
 
 /**
+ * Calculate detailed per-bucket API-equivalent and list-price cost breakdown for one turn.
+ */
+export function calculateTurnCostBreakdown(turn, pricingState, { useListPrice = false } = {}) {
+  const eff = resolveTurnEffectiveRates(turn, pricingState);
+  if (!eff.rate) {
+    return {
+      canonicalId: eff.canonicalId,
+      unpriced: true,
+      longContext: false,
+      isPromo: false,
+      discountMultiplier: 1.0,
+      inUsd: 0,
+      cacheReadUsd: 0,
+      cacheWriteUsd: 0,
+      outUsd: 0,
+      totalUsd: 0,
+      listInUsd: 0,
+      listCacheReadUsd: 0,
+      listCacheWriteUsd: 0,
+      listOutUsd: 0,
+      listTotalUsd: 0,
+    };
+  }
+
+  const thinkingOut = Math.max(0, Number(turn.thinking_out ?? turn.thinkingOut ?? 0));
+  const totalOut = Math.max(0, Number(turn.total_out ?? turn.totalOut ?? 0));
+  const visibleOutRaw = turn.visible_out ?? turn.visibleOut;
+  const visibleOut = Math.max(
+    0,
+    visibleOutRaw !== undefined && visibleOutRaw !== null
+      ? Number(visibleOutRaw)
+      : totalOut - thinkingOut
+  );
+  const extraOut = Math.max(0, totalOut - (visibleOut + thinkingOut));
+
+  const effInUsd = (eff.uncachedIn * (eff.inRate ?? 0)) / 1e6;
+  const effCacheReadUsd = (eff.cacheRead * (eff.cacheReadRate ?? 0)) / 1e6;
+  const effCacheWriteUsd = (eff.cacheCreate * (eff.cacheWriteRate ?? 0)) / 1e6;
+  const effOutUsd = ((visibleOut + extraOut) * (eff.outRate ?? 0) + thinkingOut * (eff.thinkRate ?? 0)) / 1e6;
+  const effTotalUsd = effInUsd + effCacheReadUsd + effCacheWriteUsd + effOutUsd;
+
+  const rawDm = Number(eff.rate.discount_multiplier);
+  const discountMultiplier = Number.isFinite(rawDm) && rawDm > 0 && rawDm <= 1 ? rawDm : 1.0;
+  const isPromo = discountMultiplier > 0 && discountMultiplier < 1;
+  const listScale = isPromo ? 1 / discountMultiplier : 1.0;
+
+  const listInUsd = effInUsd * listScale;
+  const listCacheReadUsd = effCacheReadUsd * listScale;
+  const listCacheWriteUsd = effCacheWriteUsd * listScale;
+  const listOutUsd = effOutUsd * listScale;
+  const listTotalUsd = effTotalUsd * listScale;
+
+  return {
+    canonicalId: eff.canonicalId,
+    unpriced: false,
+    longContext: eff.longContext,
+    isPromo,
+    discountMultiplier,
+    inUsd: useListPrice ? listInUsd : effInUsd,
+    cacheReadUsd: useListPrice ? listCacheReadUsd : effCacheReadUsd,
+    cacheWriteUsd: useListPrice ? listCacheWriteUsd : effCacheWriteUsd,
+    outUsd: useListPrice ? listOutUsd : effOutUsd,
+    totalUsd: useListPrice ? listTotalUsd : effTotalUsd,
+    listInUsd,
+    listCacheReadUsd,
+    listCacheWriteUsd,
+    listOutUsd,
+    listTotalUsd,
+  };
+}
+
+/**
  * Calculate excess API-equivalent cost caused by `wastedTokens` missing prompt cache,
  * respecting the turn's effective long-context tier.
  */
@@ -374,6 +526,8 @@ export function listPricingModels(state, nowMs = Date.now()) {
       inputAbovePer1m: rate.input_above_per_1m ?? null,
       outputAbovePer1m: rate.output_above_per_1m ?? null,
       cacheReadAbovePer1m: rate.cache_read_above_per_1m ?? null,
+      discountMultiplier: rate.discount_multiplier ?? 1.0,
+      promoLabel: rate.promo_label ?? null,
       notes: rate.notes || '',
     });
   }
@@ -382,6 +536,13 @@ export function listPricingModels(state, nowMs = Date.now()) {
     defaultsFile: DEFAULTS_FILE,
     overridesFile: '', // filled by caller with dataDir
     lastSyncedAt: state.remote?.fetchedAt || null,
+    defaultAnchors:
+      state.defaultAnchors ||
+      state.defaults?.defaultAnchors || {
+        gemini: 'gemini-4-neon',
+        argon: 'gemini-4-argon',
+        '3p': 'claude-opus-5-5',
+      },
     models,
   };
 }
@@ -406,6 +567,8 @@ export async function syncRemotePricing(dataDir) {
   if (inflightSync) return inflightSync;
   inflightSync = (async () => {
     mkdirSync(dataDir, { recursive: true });
+    const defaults = loadDefaults();
+    const syncDateStr = new Date().toISOString().slice(0, 10);
     const merged = {};
     const errors = [];
     let litellmCount = 0;
@@ -428,22 +591,26 @@ export async function syncRemotePricing(dataDir) {
         const outAbove = parsePositivePerToken(info.output_cost_per_token_above_200k_tokens);
         const crAbove = parsePositivePerToken(info.cache_read_input_token_cost_above_200k_tokens);
 
-        merged[canonical] = {
-          pool: inferPool(canonical, key),
-          effective_from: new Date().toISOString().slice(0, 10),
-          input_per_1m: in1m ?? 0,
-          output_per_1m: out1m ?? 0,
-          thinking_per_1m: out1m ?? 0,
-          cache_read_per_1m: cacheRead ?? 0,
-          cache_write_per_1m: cacheWrite ?? 0,
-          long_context_threshold: inAbove || outAbove ? 200000 : null,
-          input_above_per_1m: inAbove,
-          output_above_per_1m: outAbove,
-          thinking_above_per_1m: outAbove,
-          cache_read_above_per_1m: crAbove,
-          cache_write_above_per_1m: null,
-          notes: 'Synced from LiteLLM',
-        };
+        merged[canonical] = mergeRemoteEntryWithDefault(
+          {
+            pool: inferPool(canonical, key),
+            effective_from: syncDateStr,
+            input_per_1m: in1m ?? 0,
+            output_per_1m: out1m ?? 0,
+            thinking_per_1m: out1m ?? 0,
+            cache_read_per_1m: cacheRead ?? 0,
+            cache_write_per_1m: cacheWrite ?? 0,
+            long_context_threshold: inAbove || outAbove ? 200000 : null,
+            input_above_per_1m: inAbove,
+            output_above_per_1m: outAbove,
+            thinking_above_per_1m: outAbove,
+            cache_read_above_per_1m: crAbove,
+            cache_write_above_per_1m: null,
+            notes: 'Synced from LiteLLM',
+          },
+          defaults?.models?.[canonical],
+          syncDateStr
+        );
         litellmCount++;
       }
     } catch (err) {
@@ -468,22 +635,26 @@ export async function syncRemotePricing(dataDir) {
 
         // Prefer OpenRouter when LiteLLM didn't already supply an entry, or fill missing fields.
         if (!merged[canonical]) {
-          merged[canonical] = {
-            pool: inferPool(canonical, item.id),
-            effective_from: new Date().toISOString().slice(0, 10),
-            input_per_1m: in1m ?? 0,
-            output_per_1m: out1m ?? 0,
-            thinking_per_1m: reasoning ?? out1m ?? 0,
-            cache_read_per_1m: cacheRead ?? 0,
-            cache_write_per_1m: cacheWrite ?? 0,
-            long_context_threshold: null,
-            input_above_per_1m: null,
-            output_above_per_1m: null,
-            thinking_above_per_1m: null,
-            cache_read_above_per_1m: null,
-            cache_write_above_per_1m: null,
-            notes: 'Synced from OpenRouter',
-          };
+          merged[canonical] = mergeRemoteEntryWithDefault(
+            {
+              pool: inferPool(canonical, item.id),
+              effective_from: syncDateStr,
+              input_per_1m: in1m ?? 0,
+              output_per_1m: out1m ?? 0,
+              thinking_per_1m: reasoning ?? out1m ?? 0,
+              cache_read_per_1m: cacheRead ?? 0,
+              cache_write_per_1m: cacheWrite ?? 0,
+              long_context_threshold: null,
+              input_above_per_1m: null,
+              output_above_per_1m: null,
+              thinking_above_per_1m: null,
+              cache_read_above_per_1m: null,
+              cache_write_above_per_1m: null,
+              notes: 'Synced from OpenRouter',
+            },
+            defaults?.models?.[canonical],
+            syncDateStr
+          );
         }
         openrouterCount++;
       }

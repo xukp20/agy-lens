@@ -1,8 +1,9 @@
 /**
- * Subscription quota alignment anchors & pooled-ratio cycle estimator.
+ * Subscription quota alignment anchors & hierarchical single-cycle calibrator.
  * Completely independent of CLI; stores user-recorded anchors in telemetry_cache.db.
  */
 import { calculateTurnCost } from './pricing.mjs';
+import { calibrateQuotaCycle } from './quota_calibrator.mjs';
 
 export const VALID_POOLS = ['gemini', 'argon', '3p'];
 export const VALID_WINDOWS = ['5h', '7d'];
@@ -162,18 +163,20 @@ export function segmentCycles(orderedAnchors) {
   return cycles;
 }
 
-function sumPoolSpendInInterval(cacheDb, pricingState, pool, startExclusiveMs, endInclusiveMs, modelSpendMap) {
-  if (endInclusiveMs <= startExclusiveMs) return 0;
-  const rows = cacheDb
+function getPoolTurnsInInterval(cacheDb, pool, startExclusiveMs, endInclusiveMs) {
+  if (!cacheDb || endInclusiveMs <= startExclusiveMs) return [];
+  return cacheDb
     .prepare(
       `SELECT * FROM turns
        WHERE pool = ? AND completed_at_ms > ? AND completed_at_ms <= ?
        ORDER BY completed_at_ms ASC`
     )
     .all(pool, startExclusiveMs, endInclusiveMs);
+}
 
+function sumTurnsSpend(turns, pricingState, modelSpendMap) {
   let sum = 0;
-  for (const t of rows) {
+  for (const t of turns) {
     const cost = calculateTurnCost(t, pricingState);
     if (cost.unpriced) continue;
     sum += cost.costUsd;
@@ -183,6 +186,12 @@ function sumPoolSpendInInterval(cacheDb, pricingState, pool, startExclusiveMs, e
     }
   }
   return sum;
+}
+
+function sumPoolSpendInInterval(cacheDb, pricingState, pool, startExclusiveMs, endInclusiveMs, modelSpendMap) {
+  if (endInclusiveMs <= startExclusiveMs) return 0;
+  const rows = getPoolTurnsInInterval(cacheDb, pool, startExclusiveMs, endInclusiveMs);
+  return sumTurnsSpend(rows, pricingState, modelSpendMap);
 }
 
 function formatAnchor(row) {
@@ -206,8 +215,17 @@ export function computeSummaryForPair(
   windowType,
   orderedAnchors,
   nowMs = Date.now(),
-  spendFn = null
+  optionsOrSpendFn = null
 ) {
+  const opts =
+    typeof optionsOrSpendFn === 'function'
+      ? { spendFn: optionsOrSpendFn }
+      : optionsOrSpendFn || {};
+  const spendFn = opts.spendFn || null;
+  const turnsFn = opts.turnsFn || (cacheDb ? (p, s, e) => getPoolTurnsInInterval(cacheDb, p, s, e) : null);
+  const preferredAnchor = opts.preferredAnchor || null;
+  const forceLevel = opts.forceLevel || 'auto';
+
   const sumSpend = spendFn || ((p, s, e, m) => sumPoolSpendInInterval(cacheDb, pricingState, p, s, e, m));
   const cycles = segmentCycles(orderedAnchors);
   if (cycles.length === 0) {
@@ -220,6 +238,8 @@ export function computeSummaryForPair(
       projectedRemainingPct: null,
       evenUsePaceRatio: null,
       cycleCount: 0,
+      currentCycleAnchors: [],
+      olderCycleAnchors: [],
       estimation: {
         status: 'no_data',
         totalDeltaPct: 0,
@@ -232,6 +252,7 @@ export function computeSummaryForPair(
         precisionStepPct: null,
         modelMix: [],
         mixedModelWarning: false,
+        calibration: null,
       },
     };
   }
@@ -239,6 +260,12 @@ export function computeSummaryForPair(
   const latestCycle = cycles[cycles.length - 1];
   const latestRow = latestCycle[latestCycle.length - 1];
   const latestAnchor = formatAnchor(latestRow);
+  const currentCycleAnchors = [...latestCycle].reverse().map(formatAnchor);
+  const olderCycleAnchors = cycles
+    .slice(0, -1)
+    .flat()
+    .sort((a, b) => b.captured_at - a.captured_at || b.id - a.id)
+    .map(formatAnchor);
 
   const modelSpendMap = new Map();
   const segments = [];
@@ -249,9 +276,23 @@ export function computeSummaryForPair(
     const deltaU = (a0.remaining_pct - a1.remaining_pct) / 100;
     if (deltaU <= 0 || a1.captured_at <= a0.captured_at) continue;
 
-    const spendUsd = sumSpend(pool, a0.captured_at, a1.captured_at, modelSpendMap);
+    let turns = [];
+    let spendUsd = 0;
+    if (turnsFn) {
+      turns = turnsFn(pool, a0.captured_at, a1.captured_at) || [];
+      spendUsd = sumTurnsSpend(turns, pricingState, modelSpendMap);
+    } else {
+      spendUsd = sumSpend(pool, a0.captured_at, a1.captured_at, modelSpendMap);
+    }
     const qK = Math.max(a0.precision_step, a1.precision_step) / 100;
-    segments.push({ spendUsd, deltaU, qK });
+    segments.push({
+      startAt: a0.captured_at,
+      endAt: a1.captured_at,
+      spendUsd,
+      deltaU,
+      qK,
+      turns,
+    });
   }
 
   let cycleResetAt = null;
@@ -265,7 +306,14 @@ export function computeSummaryForPair(
   const endMs =
     cycleResetAt != null && nowMs > cycleResetAt ? cycleResetAt : nowMs;
   const tailModelMap = new Map();
-  const spendSinceLastUsd = sumSpend(pool, latestRow.captured_at, endMs, tailModelMap);
+  let tailTurns = [];
+  let spendSinceLastUsd = 0;
+  if (turnsFn) {
+    tailTurns = turnsFn(pool, latestRow.captured_at, endMs) || [];
+    spendSinceLastUsd = sumTurnsSpend(tailTurns, pricingState, tailModelMap);
+  } else {
+    spendSinceLastUsd = sumSpend(pool, latestRow.captured_at, endMs, tailModelMap);
+  }
 
   // Merge tail model mix when segments are empty so calibrating card still shows active mix.
   const mixSourceMap = modelSpendMap.size > 0 ? modelSpendMap : tailModelMap;
@@ -295,6 +343,29 @@ export function computeSummaryForPair(
   const minThreshold = qEff <= 0.00015 ? 0.002 : qEff <= 0.0015 ? 0.005 : 0.02;
   const highThreshold = qEff <= 0.00015 ? 0.01 : qEff <= 0.0015 ? 0.02 : 0.05;
 
+  const calRaw = calibrateQuotaCycle({
+    pool,
+    pricingState,
+    rawSegments: segments,
+    tailTurns,
+    preferredAnchor,
+    forceLevel,
+    qEff,
+    fallbackPooled: { sumC, sumDeltaU },
+  });
+  const activeMeta = calRaw.activeMeta;
+  const calibration = {
+    recommendedLevel: calRaw.recommendedLevel,
+    activeLevel: calRaw.activeLevel,
+    anchorModel: calRaw.anchorModel,
+    anchorSource: calRaw.anchorSource,
+    availableAnchorModels: calRaw.availableAnchorModels,
+    promoIdentifiable: calRaw.promoIdentifiable,
+    promoAssumption: calRaw.promoAssumption,
+    segmentsCount: calRaw.segmentsCount,
+    levels: calRaw.levels,
+  };
+
   let estimatedPoolUsd = null;
   let ciLowUsd = null;
   let ciHighUsd = null;
@@ -302,12 +373,31 @@ export function computeSummaryForPair(
   let projectedRemainingPct = null;
   let status = 'calibrating';
 
-  if (segments.length > 0 && sumDeltaU > 0 && sumC > 0) {
-    const qHat = sumC / sumDeltaU;
-    const err95 = 0.776 * Math.sqrt(segments.reduce((acc, s) => acc + s.qK * s.qK, 0));
-    estimatedPoolUsd = qHat;
-    ciLowUsd = sumC / (sumDeltaU + err95);
-    ciHighUsd = sumDeltaU - err95 > 0.0001 ? sumC / (sumDeltaU - err95) : null;
+  if (
+    segments.length > 0 &&
+    sumDeltaU > 0 &&
+    sumC > 0 &&
+    activeMeta.equivalentMixPoolUsd != null &&
+    activeMeta.anchorPoolUsd != null &&
+    activeMeta.anchorPoolUsd > 0
+  ) {
+    const activeEquiv = activeMeta.equivalentMixPoolUsd;
+    const activeAnchor = activeMeta.anchorPoolUsd;
+    const tailWeighted = activeMeta.tailWeightedUsd ?? spendSinceLastUsd;
+    estimatedPoolUsd = activeEquiv;
+
+    if (calibration.activeLevel === 'L0' || activeMeta.seBeta == null || activeMeta.seBeta <= 0) {
+      const err95 = 0.776 * Math.sqrt(segments.reduce((acc, s) => acc + s.qK * s.qK, 0));
+      ciLowUsd = activeEquiv * (sumDeltaU / (sumDeltaU + err95));
+      ciHighUsd = sumDeltaU - err95 > 0.0001 ? activeEquiv * (sumDeltaU / (sumDeltaU - err95)) : null;
+    } else {
+      const beta = 1 / activeAnchor;
+      const margin = 1.96 * activeMeta.seBeta;
+      const betaHigh = beta + margin;
+      const betaLow = beta - margin;
+      ciLowUsd = activeEquiv * (beta / betaHigh);
+      ciHighUsd = betaLow > 1e-9 ? activeEquiv * (beta / betaLow) : null;
+    }
 
     if (sumDeltaU >= highThreshold) {
       status = 'ok';
@@ -319,16 +409,16 @@ export function computeSummaryForPair(
 
     projectedRemainingPct = Math.max(
       0,
-      Math.min(100, latestRow.remaining_pct - (spendSinceLastUsd / qHat) * 100)
+      Math.min(100, latestRow.remaining_pct - (tailWeighted / activeAnchor) * 100)
     );
     projectedRemainingPct = Math.round(projectedRemainingPct * 100) / 100;
-    impliedRemainingUsd = qHat * (projectedRemainingPct / 100);
+    impliedRemainingUsd = activeEquiv * (projectedRemainingPct / 100);
   }
 
-  // Only flag mixed-model variance when >=2 models share >=10% AND segment rates actually diverge >35%.
+  // Flag mixed-model variance only when staying at uncalibrated L0 and segment rates diverge >35%.
   let mixedModelWarning = false;
   const hasMultipleModels = modelMix.filter((m) => m.share >= 0.1).length >= 2;
-  if (hasMultipleModels && estimatedPoolUsd != null) {
+  if (calibration.activeLevel === 'L0' && hasMultipleModels && estimatedPoolUsd != null) {
     const meaningfulSegRates = segments
       .filter((s) => s.deltaU >= Math.max(0.002, s.qK * 2) && s.spendUsd > 0)
       .map((s) => s.spendUsd / s.deltaU);
@@ -366,6 +456,8 @@ export function computeSummaryForPair(
     projectedRemainingPct,
     evenUsePaceRatio,
     cycleCount: cycles.length,
+    currentCycleAnchors,
+    olderCycleAnchors,
     estimation: {
       status,
       totalDeltaPct,
@@ -378,11 +470,23 @@ export function computeSummaryForPair(
       precisionStepPct,
       modelMix,
       mixedModelWarning,
+      calibration,
     },
   };
 }
 
-export function getQuotaStatus(cacheDb, pricingState, { pool = null, windowType = null } = {}, nowMs = Date.now()) {
+export function getQuotaStatus(
+  cacheDb,
+  pricingState,
+  {
+    pool = null,
+    windowType = null,
+    anchorModel = null,
+    quotaAnchorsByPool = null,
+    forceLevel = 'auto',
+  } = {},
+  nowMs = Date.now()
+) {
   const filterPool = pool ? normalizePool(pool) : null;
   const filterWin = windowType ? normalizeWindowType(windowType) : null;
 
@@ -412,9 +516,18 @@ export function getQuotaStatus(cacheDb, pricingState, { pool = null, windowType 
   const windows = filterWin ? [filterWin] : VALID_WINDOWS;
   const summaries = [];
   for (const p of pools) {
+    const preferredAnchor =
+      (filterPool === p && anchorModel) ||
+      quotaAnchorsByPool?.[p] ||
+      null;
     for (const w of windows) {
       const list = grouped.get(`${p}|${w}`) || [];
-      summaries.push(computeSummaryForPair(cacheDb, pricingState, p, w, list, nowMs));
+      summaries.push(
+        computeSummaryForPair(cacheDb, pricingState, p, w, list, nowMs, {
+          preferredAnchor,
+          forceLevel,
+        })
+      );
     }
   }
 

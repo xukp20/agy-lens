@@ -426,11 +426,64 @@
         impliedRem: '推算剩余: {usd}',
         mixedWarn: '⚠ 检测到同池内多模型混用方差较大，反推总额仅供参考。',
         historyTitle: '历史对齐记录 ({n})',
+        currentHistoryTitle: '本周期对齐记录 ({n})',
+        noCurrentAnchors: '当前周期尚无对齐记录。',
+        showOlderCycles: '查看历史周期记录 ({m})',
+        hideOlderCycles: '收起历史周期记录 ({m})',
         precision: '精度 {step}%',
         resetAt: '重置 {time}',
         invalidPct: '请输入 0 到 100 之间的有效剩余百分比（支持最多 2 位小数，如 94.25）',
         recordFailed: '记录失败: {msg}',
-        deleteFailed: '删除失败: {msg}'
+        deleteFailed: '删除失败: {msg}',
+        levelL0: 'L0 基准',
+        levelL1: 'L1 模型倍率',
+        levelL2: 'L2 模型+缓存',
+        levelL3: 'L3 全量',
+        calibBadgeHelp: '渐进式分层校准（L0 → L1 → L2 → L3）：随本周期内不同模型/缓存配比的区间增多逐步解锁。\n仅当留一交叉验证（LOOCV-MAE）改善 ≥15%、信息准则（χ²_W + 2·df）下降且共线性 VIF < 10 时才自动晋级，防止小样本过拟合。',
+        mixEqHint: '当前配比等效',
+        clamped: '受限',
+        maeStrip: 'MAE ±{mae}pp',
+        labTitle: '权重校准实验室',
+        labSummary: '推荐 {rec} · {n} 段',
+        modeAuto: '自动',
+        modeManual: '手动 {mode}',
+        allUnlocked: '全部 4 级校准条件已就绪。',
+        baseAnchorLabel: '1.00× 基准锚点',
+        anchorSrcDefault: '默认',
+        anchorSrcUser: '自定义',
+        anchorSrcFallback: '自动回退',
+        anchorPoolQ: '锚点口径 Q: ~{usd}',
+        anchorPoolQHelp: '「锚点口径 Q」指完全使用所选 1.00× 基准模型时的周期总额度；卡片顶部大号数字为按当前混合配比折算的等效 API 总额度，切换层级时平滑不跳变。',
+        paramBase: '基准 1.00×',
+        paramFitted: '已拟合',
+        paramDefault: '默认 1.00×',
+        paramCacheName: 'Cache Read (α_cache)',
+        paramOutName: 'Output / Thinking (α_out)',
+        interpBase: '以该模型 API 单价作为本池 1.00× 基准标尺。',
+        interpModelEff: '同 API 花费下，额度消耗约为基准模型的 {v}×（更省额度）。',
+        interpModelHeavy: '同 API 花费下，额度消耗约为基准模型的 {v}×（更费额度）。',
+        interpModelNeutral: '与基准模型额度消耗速率基本一致（~{v}×）。',
+        interpModelUnfit: '沿用 API 标价 1.00×（解锁 L1 后拟合）。',
+        interpCacheCheap: '缓存读取按 API 折扣的 {v}× 扣额（命中更划算）。',
+        interpCacheExpensive: '缓存读取按 API 折扣的 {v}× 扣额（折扣低于 API）。',
+        interpCacheNeutral: '缓存读取扣额与官方 API 定价基本一致（~{v}×）。',
+        interpCacheUnfit: '按官方 API 缓存折扣计算（解锁 L2 后拟合）。',
+        interpOutExpensive: '输出 / 思考 Token 权重为 API 价的 {v}×（输出更贵）。',
+        interpOutCheap: '输出 / 思考 Token 权重仅为 API 价的 {v}×（输出更省）。',
+        interpOutNeutral: '输出与输入消耗比基本符合官方 API 定价（~{v}×）。',
+        interpOutUnfit: '按官方 API 输出比例计算（解锁 L3 后拟合）。',
+        promoNoteFollow: '提示：本周期内促销模型尚未跨越调价点，暂无法独立辨识订阅是否跟随促销折扣，当前按「跟随 API 促销价」假设校准。',
+        promoNoteList: '提示：本周期内促销模型尚未跨越调价点，暂按「标准原价（不跟随促销）」假设校准。',
+        residualTitle: '实测 vs 预测残差 (pp)',
+        residualNoData: '当前周期分段拟合数据不足。',
+        residualSummary: '{l0} ±{mae0}pp → {cur} ±{mae1}pp ({metric})',
+        legendObs: '实测 Observed',
+        legendL0: 'L0 预测',
+        legendCur: '{lvl} 预测',
+        segTipTitle: '区间 #{idx} · 花费 {usd}',
+        segTipObs: '实测消耗: {v}pp',
+        segTipL0: 'L0 预测: {v}pp (误差 {err}pp)',
+        segTipCur: '{lvl} 预测: {v}pp (误差 {err}pp)'
       },
       settings: {
         title: '面板设置',
@@ -459,6 +512,8 @@
         rebuildDone: '重建完成：扫描 {dbs} 个库，耗时 {ms}ms',
         rebuildFail: '重建失败: {msg}',
         pricingSection: '定价表管理',
+        promoBadge: '促销价',
+        defaultAnchorsNote: '默认基准锚点 (1.00×): {list}',
         defaultsPath: '离线默认配置文件 (pricing_defaults.json)',
         builtinDefaults: '内置默认表',
         overridesPath: '用户覆写配置文件 (pricing_overrides.json)',
@@ -773,11 +828,64 @@
         impliedRem: 'Implied left: {usd}',
         mixedWarn: '⚠ High multi-model variance detected in this pool; implied budget is approximate.',
         historyTitle: 'Anchor History ({n})',
+        currentHistoryTitle: 'Current Cycle Anchors ({n})',
+        noCurrentAnchors: 'No anchors logged in the current cycle yet.',
+        showOlderCycles: 'Show Older Cycles ({m})',
+        hideOlderCycles: 'Hide Older Cycles ({m})',
         precision: 'Step {step}%',
         resetAt: 'Reset {time}',
         invalidPct: 'Enter a valid percentage between 0 and 100 (up to 2 decimals, e.g. 94.25)',
         recordFailed: 'Failed to save anchor: {msg}',
-        deleteFailed: 'Failed to delete anchor: {msg}'
+        deleteFailed: 'Failed to delete anchor: {msg}',
+        levelL0: 'L0 Base',
+        levelL1: 'L1 Models',
+        levelL2: 'L2 +Cache',
+        levelL3: 'L3 +Output',
+        calibBadgeHelp: 'Progressive hierarchical calibration (L0 → L1 → L2 → L3) unlocks as current-cycle segments accumulate varied model & cache mixes.\nAuto mode upgrades only when LOOCV-MAE improves ≥15%, (χ²_W + 2·df) drops, and VIF < 10 to prevent small-sample overfitting.',
+        mixEqHint: 'Current-mix eq.',
+        clamped: 'clamped',
+        maeStrip: 'MAE ±{mae}pp',
+        labTitle: 'Weight Calibration Lab',
+        labSummary: 'Rec {rec} · {n} segs',
+        modeAuto: 'Auto',
+        modeManual: 'Manual {mode}',
+        allUnlocked: 'All 4 calibration levels unlocked.',
+        baseAnchorLabel: '1.00× Base Anchor',
+        anchorSrcDefault: 'Default',
+        anchorSrcUser: 'Custom',
+        anchorSrcFallback: 'Fallback',
+        anchorPoolQ: 'Anchor Q: ~{usd}',
+        anchorPoolQHelp: 'Anchor Q is the cycle budget measured in 1.00× Base Anchor API USD. The card headline shows your current-mix equivalent API budget so switching levels stays smooth.',
+        paramBase: 'Base 1.00×',
+        paramFitted: 'Fitted',
+        paramDefault: 'Default 1.00×',
+        paramCacheName: 'Cache Read (α_cache)',
+        paramOutName: 'Output / Thinking (α_out)',
+        interpBase: 'Reference 1.00× API price scale for this quota pool.',
+        interpModelEff: 'Consumes ~{v}× quota per API $ vs base (more efficient).',
+        interpModelHeavy: 'Consumes ~{v}× quota per API $ vs base (heavier drain).',
+        interpModelNeutral: 'Drains at nearly 1:1 rate vs base (~{v}×).',
+        interpModelUnfit: 'Uses 1.00× API list ratio (unlock L1 to fit).',
+        interpCacheCheap: 'Cache reads drain {v}× their API price (extra savings).',
+        interpCacheExpensive: 'Cache reads drain {v}× their API price (smaller discount).',
+        interpCacheNeutral: 'Cache read discount aligns with API pricing (~{v}×).',
+        interpCacheUnfit: 'Follows public API cache discount (unlock L2 to fit).',
+        interpOutExpensive: 'Output / thinking weight is {v}× its API price (costlier).',
+        interpOutCheap: 'Output / thinking weight is {v}× its API price (cheaper).',
+        interpOutNeutral: 'Output-to-input weight aligns with API pricing (~{v}×).',
+        interpOutUnfit: 'Follows public API output ratio (unlock L3 to fit).',
+        promoNoteFollow: 'Note: Current segments have not crossed a price transition; promo pass-through is unidentifiable and assumed to follow the API promo price.',
+        promoNoteList: 'Note: Current segments have not crossed a price transition; currently assumed to follow standard list price.',
+        residualTitle: 'Observed vs Predicted Residuals (pp)',
+        residualNoData: 'Not enough segment fits in current cycle.',
+        residualSummary: '{l0} ±{mae0}pp → {cur} ±{mae1}pp ({metric})',
+        legendObs: 'Observed',
+        legendL0: 'L0 Pred',
+        legendCur: '{lvl} Pred',
+        segTipTitle: 'Segment #{idx} · Spend {usd}',
+        segTipObs: 'Observed: {v}pp',
+        segTipL0: 'L0 Pred: {v}pp (err {err}pp)',
+        segTipCur: '{lvl} Pred: {v}pp (err {err}pp)'
       },
       settings: {
         title: 'Settings',
@@ -806,6 +914,8 @@
         rebuildDone: 'Rebuild done: {dbs} DBs scanned in {ms}ms',
         rebuildFail: 'Rebuild failed: {msg}',
         pricingSection: 'Pricing Management',
+        promoBadge: 'Promo',
+        defaultAnchorsNote: 'Default 1.00× Anchors: {list}',
         defaultsPath: 'Offline defaults (pricing_defaults.json)',
         builtinDefaults: 'Built-in defaults',
         overridesPath: 'User overrides (pricing_overrides.json)',
@@ -1022,6 +1132,38 @@
     return src || t('pricingSrc.default');
   }
 
+  function shortModelName(canonicalId) {
+    const id = String(canonicalId || '').trim();
+    const map = {
+      'gemini-4-neon': 'Neon',
+      'gemini-4-hydrogen': 'Hydrogen',
+      'gemini-4-carbon': 'Carbon',
+      'gemini-4-argon': 'Argon',
+      'gemini-3.8-flash': '3.8 Flash',
+      'gemini-3.5-flash-lite': '3.5 Lite',
+      'claude-opus-5-5': 'Opus 5.5',
+      'claude-sonnet-5-5': 'Sonnet 5.5',
+      'gpt-oss-120b': 'GPT-OSS'
+    };
+    if (map[id]) return map[id];
+    return id.replace(/^(?:gemini|claude)-/, '');
+  }
+
+  function calibLevelLabel(lvl) {
+    if (lvl === 'L1') return t('quota.levelL1');
+    if (lvl === 'L2') return t('quota.levelL2');
+    if (lvl === 'L3') return t('quota.levelL3');
+    return t('quota.levelL0');
+  }
+
+  function fmtMultWithSe(p) {
+    const v = num(p?.value, 1).toFixed(2);
+    if (p?.se != null && Number.isFinite(Number(p.se))) {
+      return `${v}±${num(p.se).toFixed(2)}×`;
+    }
+    return `${v}×`;
+  }
+
   function parseResetInput(raw) {
     const text = String(raw || '').trim();
     if (!text) return { ok: true, ts: null, preview: '' };
@@ -1090,7 +1232,9 @@
     refreshSec: 30,
     pricingAutoSync: false,
     quotaDisplayMode: 'remaining',
-    defaultRange: '7d'
+    defaultRange: '7d',
+    quotaAnchorsByPool: {},
+    quotaCalibMode: 'auto'
   };
 
   const state = {
@@ -1121,6 +1265,10 @@
     obsCopyStatus: '', // '' | 'copied' | 'failed'
     obsCopyTimer: null,
 
+    // Quota Calibration Lab & History UI state
+    quotaLabOpenByKey: new Map(),
+    quotaOlderOpen: false,
+
     session: null,
     sessionError: null,
     analytics: null,
@@ -1143,6 +1291,7 @@
     pricing: {
       expanded: false,
       loading: false,
+      prefetching: false,
       data: null,
       error: '',
       syncing: false,
@@ -1267,6 +1416,7 @@
   function normalizeConfigPayload(res) {
     if (!res) return;
     const cfg = res.config || {};
+    const validModes = new Set(['auto', 'L0', 'L1', 'L2', 'L3']);
     state.config = {
       ...DEFAULT_CONFIG,
       ...cfg,
@@ -1274,6 +1424,10 @@
       modules: { ...DEFAULT_CONFIG.modules, ...(cfg.modules || {}) },
       expanded: { ...DEFAULT_CONFIG.expanded, ...(cfg.expanded || {}) },
       sources: { ...DEFAULT_CONFIG.sources, ...(cfg.sources || {}) },
+      quotaAnchorsByPool: {
+        ...(cfg.quotaAnchorsByPool && typeof cfg.quotaAnchorsByPool === 'object' ? cfg.quotaAnchorsByPool : {})
+      },
+      quotaCalibMode: validModes.has(cfg.quotaCalibMode) ? cfg.quotaCalibMode : DEFAULT_CONFIG.quotaCalibMode,
       moduleOrder: Array.isArray(cfg.moduleOrder) && cfg.moduleOrder.length
         ? cfg.moduleOrder.filter((id) => ALL_MODULE_IDS.includes(id))
         : [...DEFAULT_CONFIG.moduleOrder]
@@ -1296,6 +1450,16 @@
       renderHeader();
       return false;
     }
+  }
+
+  async function refreshQuotaOnly() {
+    try {
+      state.quotaData = await getJson('/api/quota/anchors');
+      state.quotaError = null;
+    } catch (err) {
+      state.quotaError = err.message;
+    }
+    renderGrid();
   }
 
   async function refreshAll(manual = false) {
@@ -1356,6 +1520,20 @@
             })
             .catch((e) => {
               state.quotaError = e.message;
+            })
+        );
+      }
+
+      if (isModuleActiveForView('model-cost') && !state.pricing.data && !state.pricing.prefetching) {
+        state.pricing.prefetching = true;
+        tasks.push(
+          getJson('/api/pricing')
+            .then((d) => {
+              if (!state.pricing.data) state.pricing.data = d;
+            })
+            .catch(() => {})
+            .finally(() => {
+              state.pricing.prefetching = false;
             })
         );
       }
@@ -1968,25 +2146,33 @@
           <div class="model-list">
             ${
               state.modelView === 'models'
-                ? models.map((m) => {
-                    const totTok = num(m.uncachedIn) + num(m.cacheRead) + num(m.totalOut);
-                    const isUnpriced = m.pricingSource === 'unpriced';
-                    return `
-                      <div class="model-item">
-                        <div class="model-item-top">
-                          <div class="model-item-name">
-                            <span class="truncate" title="${esc(m.canonicalId)}">${esc(m.displayName || m.canonicalId)}</span>
-                            ${m.longContextTurns > 0 ? '<span class="pill warn">&gt;200k</span>' : ''}
+                ? (() => {
+                    const pricingById = new Map(
+                      (state.pricing.data?.models || []).map((pm) => [pm.canonicalId, pm])
+                    );
+                    return models.map((m) => {
+                      const totTok = num(m.uncachedIn) + num(m.cacheRead) + num(m.totalOut);
+                      const isUnpriced = m.pricingSource === 'unpriced';
+                      const pricingInfo = pricingById.get(m.canonicalId);
+                      const promoLabel = m.promoLabel || pricingInfo?.promoLabel || '';
+                      return `
+                        <div class="model-item">
+                          <div class="model-item-top">
+                            <div class="model-item-name">
+                              <span class="truncate" title="${esc(m.canonicalId)}">${esc(m.displayName || m.canonicalId)}</span>
+                              ${m.longContextTurns > 0 ? '<span class="pill warn">&gt;200k</span>' : ''}
+                              ${promoLabel ? `<span class="pill warn promo-pill" data-tip="${esc(promoLabel)}">${esc(t('settings.promoBadge'))}</span>` : ''}
+                            </div>
+                            <span class="model-item-cost num mono">${isUnpriced ? `<span class="pill warn">${esc(t('pricingSrc.unpriced'))}</span>` : fmtUsd(m.costUsd)}</span>
                           </div>
-                          <span class="model-item-cost num mono">${isUnpriced ? `<span class="pill warn">${esc(t('pricingSrc.unpriced'))}</span>` : fmtUsd(m.costUsd)}</span>
+                          <div class="model-item-sub num">
+                            <span>${esc(t('cost.modelSub', { turns: num(m.turns), tok: fmtTokens(totTok), cache: fmtPct(m.cacheHitRatio, 0) }))}</span>
+                            <span class="pill outline">${esc(pricingSourceLabel(m.pricingSource))}</span>
+                          </div>
                         </div>
-                        <div class="model-item-sub num">
-                          <span>${esc(t('cost.modelSub', { turns: num(m.turns), tok: fmtTokens(totTok), cache: fmtPct(m.cacheHitRatio, 0) }))}</span>
-                          <span class="pill outline">${esc(pricingSourceLabel(m.pricingSource))}</span>
-                        </div>
-                      </div>
-                    `;
-                  }).join('')
+                      `;
+                    }).join('');
+                  })()
                 : workspaces.map((w) => `
                     <div class="model-item">
                       <div class="model-item-top">
@@ -2746,6 +2932,10 @@
       expHtml += estList
         .map((s) => {
           const e = s.estimation;
+          const cal = e.calibration || null;
+          const activeLvl = cal?.activeLevel || 'L0';
+          const levels = cal?.levels || {};
+          const activeLvlObj = levels[activeLvl] || levels.L0 || null;
           const statusMap = {
             ok: { cls: 'ok', text: t('quota.statusOk') },
             low_confidence: { cls: 'warn', text: t('quota.statusLow') },
@@ -2755,10 +2945,24 @@
           const deltaPct = num(e.totalDeltaPct, 0);
           const mix = Array.isArray(e.modelMix) ? e.modelMix : [];
 
+          const calibBadgeHtml = cal
+            ? `
+              <span class="pill ${activeLvl !== 'L0' ? 'accent' : 'outline'}">${esc(calibLevelLabel(activeLvl))}</span>
+              ${helpTip(t('quota.calibBadgeHelp'))}
+            `
+            : '';
+
+          const weightStripHtml =
+            cal && activeLvl !== 'L0' && activeLvlObj ? renderCalibWeightStrip(activeLvlObj) : '';
+          const calibLabHtml = cal ? buildCalibrationLabHtml(s, cal) : '';
+
           return `
             <div class="est-card">
               <div class="est-head">
-                <span style="font-weight:600;font-size:12px">${esc(t('quota.impliedTitle', { pool: poolLabel(s.pool), wt: s.windowType }))}</span>
+                <div class="est-head-left">
+                  <span style="font-weight:600;font-size:12px">${esc(t('quota.impliedTitle', { pool: poolLabel(s.pool), wt: s.windowType }))}</span>
+                  ${calibBadgeHtml}
+                </div>
                 <span class="pill ${st.cls}">${esc(st.text)}</span>
               </div>
               ${
@@ -2772,73 +2976,521 @@
                     <div class="muted-note num">${esc(t('quota.calDesc', { du: deltaPct.toFixed(2), seg: num(e.segmentsUsed), usd: fmtUsd(e.windowSpendUsd) }))}</div>
                   `
                   : `
-                    <div class="est-total num mono">~${fmtUsd(e.estimatedPoolUsd)} <span class="muted-note" style="font-size:11px;font-weight:400">95% CI [${fmtUsd(e.ciLowUsd)}, ${fmtUsd(e.ciHighUsd)}]</span></div>
+                    <div class="est-total num mono">~${fmtUsd(e.estimatedPoolUsd)} <span class="muted-note" style="font-size:11px;font-weight:400">95% CI [${fmtUsd(e.ciLowUsd)}, ${fmtUsd(e.ciHighUsd)}]${activeLvl !== 'L0' ? ` · ${esc(t('quota.mixEqHint'))}` : ''}</span></div>
                     <div class="chart-caption-row num">
                       <span>${esc(t('quota.effDelta', { du: deltaPct.toFixed(2), seg: num(e.segmentsUsed), usd: fmtUsd(e.windowSpendUsd) }))}</span>
                       <span>${esc(t('quota.impliedRem', { usd: e.impliedRemainingUsd != null ? fmtUsd(e.impliedRemainingUsd) : '—' }))}</span>
                     </div>
                   `
               }
+              ${weightStripHtml}
               ${
                 mix.length
                   ? `<div class="top-models-pills">${mix.map((m) => `<span class="pill outline num">${esc(m.canonicalId)} ${(num(m.share) * 100).toFixed(0)}%</span>`).join('')}</div>`
                   : ''
               }
               ${
-                e.mixedModelWarning
+                e.mixedModelWarning && activeLvl === 'L0'
                   ? `<div class="banner warn" style="padding:6px 8px">${esc(t('quota.mixedWarn'))}</div>`
                   : ''
               }
+              ${calibLabHtml}
             </div>
           `;
         })
         .join('');
     }
 
-    if (anchors.length > 0) {
-      const sorted = [...anchors].sort(
+    const hasCycleSplit = summaries.some(
+      (s) => Array.isArray(s.currentCycleAnchors) || Array.isArray(s.olderCycleAnchors)
+    );
+    let currentList = [];
+    let olderList = [];
+    if (hasCycleSplit) {
+      const anchorKey = (a) => (a.id != null ? String(a.id) : `${a.pool}:${a.windowType ?? a.window_type}:${a.capturedAt ?? a.captured_at}`);
+      const curMap = new Map();
+      const oldMap = new Map();
+      for (const s of summaries) {
+        for (const a of s.currentCycleAnchors || []) curMap.set(anchorKey(a), a);
+        for (const a of s.olderCycleAnchors || []) oldMap.set(anchorKey(a), a);
+      }
+      for (const k of curMap.keys()) oldMap.delete(k);
+      const sortDesc = (a, b) => num(b.capturedAt ?? b.captured_at, 0) - num(a.capturedAt ?? a.captured_at, 0);
+      currentList = [...curMap.values()].sort(sortDesc);
+      olderList = [...oldMap.values()].sort(sortDesc);
+    } else {
+      currentList = [...anchors].sort(
         (a, b) => num(b.capturedAt ?? b.captured_at, 0) - num(a.capturedAt ?? a.captured_at, 0)
       );
+    }
+
+    if (currentList.length > 0 || olderList.length > 0) {
       expHtml += `
         <div style="display:flex;flex-direction:column;gap:6px">
-          <span class="form-title">${esc(t('quota.historyTitle', { n: sorted.length }))}</span>
-          <div class="anchor-history">
-            ${sorted
-              .map((a) => {
-                const pool = a.pool;
-                const wt = a.windowType ?? a.window_type;
-                const rem = num(a.remainingPct ?? a.remaining_pct, 0);
-                const step = num(a.precisionStep ?? a.precision_step, 1);
-                const cap = num(a.capturedAt ?? a.captured_at, 0);
-                const reset = a.resetAt ?? a.reset_at;
-                const shown = mode === 'used' ? 100 - rem : rem;
-                return `
-                  <div class="anchor-row">
-                    <div class="anchor-info">
-                      <div class="anchor-top num">
-                        <span class="pill accent">${esc(poolLabel(pool))} ${esc(wt)}</span>
-                        <strong class="mono">${esc(mode === 'used' ? t('quota.used') : t('quota.remaining'))} ${fmtPctDirect(shown, step)}</strong>
-                        <span class="pill outline">${esc(t('quota.precision', { step }))}</span>
-                        <span class="muted-note">${fmtTimeShort(cap)}</span>
-                      </div>
-                      ${
-                        reset || a.note
-                          ? `<div class="muted-note truncate">${reset ? esc(t('quota.resetAt', { time: fmtTimeShort(reset) })) : ''}${reset && a.note ? ' · ' : ''}${a.note ? esc(a.note) : ''}</div>`
-                          : ''
-                      }
-                    </div>
-                    <button type="button" class="btn-sm danger" data-action="delete-anchor" data-id="${esc(a.id)}">${esc(t('common.delete'))}</button>
-                  </div>
-                `;
-              })
-              .join('')}
-          </div>
+          <span class="form-title">${esc(t('quota.currentHistoryTitle', { n: currentList.length }))}</span>
+          ${
+            currentList.length > 0
+              ? `<div class="anchor-history">${renderAnchorRows(currentList, mode)}</div>`
+              : `<div class="muted-note" style="font-size:11px">${esc(t('quota.noCurrentAnchors'))}</div>`
+          }
+          ${
+            olderList.length > 0
+              ? `
+                <button type="button" class="older-cycles-btn" data-action="toggle-older-anchors">
+                  ${esc(state.quotaOlderOpen ? t('quota.hideOlderCycles', { m: olderList.length }) : t('quota.showOlderCycles', { m: olderList.length }))}
+                </button>
+                ${
+                  state.quotaOlderOpen
+                    ? `<div class="anchor-history">${renderAnchorRows(olderList, mode)}</div>`
+                    : ''
+                }
+              `
+              : ''
+          }
         </div>
       `;
     }
 
     expHtml += '</div>';
     return expHtml;
+  }
+
+  function renderAnchorRows(list, mode) {
+    return list
+      .map((a) => {
+        const pool = a.pool;
+        const wt = a.windowType ?? a.window_type;
+        const rem = num(a.remainingPct ?? a.remaining_pct, 0);
+        const step = num(a.precisionStep ?? a.precision_step, 1);
+        const cap = num(a.capturedAt ?? a.captured_at, 0);
+        const reset = a.resetAt ?? a.reset_at;
+        const shown = mode === 'used' ? 100 - rem : rem;
+        return `
+          <div class="anchor-row">
+            <div class="anchor-info">
+              <div class="anchor-top num">
+                <span class="pill accent">${esc(poolLabel(pool))} ${esc(wt)}</span>
+                <strong class="mono">${esc(mode === 'used' ? t('quota.used') : t('quota.remaining'))} ${fmtPctDirect(shown, step)}</strong>
+                <span class="pill outline">${esc(t('quota.precision', { step }))}</span>
+                <span class="muted-note">${fmtTimeShort(cap)}</span>
+              </div>
+              ${
+                reset || a.note
+                  ? `<div class="muted-note truncate">${reset ? esc(t('quota.resetAt', { time: fmtTimeShort(reset) })) : ''}${reset && a.note ? ' · ' : ''}${a.note ? esc(a.note) : ''}</div>`
+                  : ''
+              }
+            </div>
+            <button type="button" class="btn-sm danger" data-action="delete-anchor" data-id="${esc(a.id)}">${esc(t('common.delete'))}</button>
+          </div>
+        `;
+      })
+      .join('');
+  }
+
+  function renderCalibWeightStrip(levelObj) {
+    const models = Array.isArray(levelObj?.params?.models) ? levelObj.params.models : [];
+    const cache = levelObj?.params?.cache;
+    const output = levelObj?.params?.output;
+    const items = [];
+
+    for (const m of models) {
+      const name = shortModelName(m.canonicalId);
+      if (m.isAnchor) {
+        items.push(`<span class="calib-weight-item num"><strong>${esc(name)}</strong> 1.00× (Base)</span>`);
+      } else if (m.fitted) {
+        items.push(
+          `<span class="calib-weight-item num"><strong>${esc(name)}</strong> ${esc(fmtMultWithSe(m))}${m.clamped ? `<span class="calib-clamp-tag">${esc(t('quota.clamped'))}</span>` : ''}</span>`
+        );
+      }
+    }
+    if (cache?.fitted) {
+      items.push(
+        `<span class="calib-weight-item num"><strong>Cache</strong> ${esc(fmtMultWithSe(cache))}${cache.clamped ? `<span class="calib-clamp-tag">${esc(t('quota.clamped'))}</span>` : ''}</span>`
+      );
+    }
+    if (output?.fitted) {
+      items.push(
+        `<span class="calib-weight-item num"><strong>Output</strong> ${esc(fmtMultWithSe(output))}${output.clamped ? `<span class="calib-clamp-tag">${esc(t('quota.clamped'))}</span>` : ''}</span>`
+      );
+    }
+
+    const maeText =
+      levelObj?.maePp != null && Number.isFinite(Number(levelObj.maePp))
+        ? `<span class="calib-mae-chip num">${esc(t('quota.maeStrip', { mae: num(levelObj.maePp).toFixed(2) }))}</span>`
+        : '';
+
+    if (!items.length && !maeText) return '';
+    return `
+      <div class="calib-weight-strip">
+        ${items.join('<span class="calib-weight-sep">·</span>')}
+        ${maeText}
+      </div>
+    `;
+  }
+
+  function buildCalibrationLabHtml(summary, cal) {
+    const labKey = `${summary.pool}:${summary.windowType}`;
+    const activeLvl = cal.activeLevel || 'L0';
+    const recLvl = cal.recommendedLevel || 'L0';
+    const levels = cal.levels || {};
+    const activeLvlObj = levels[activeLvl] || levels.L0 || null;
+    const isOpen = state.quotaLabOpenByKey.has(labKey)
+      ? Boolean(state.quotaLabOpenByKey.get(labKey))
+      : activeLvl !== 'L0';
+
+    const calibMode = state.config.quotaCalibMode || 'auto';
+    const manualTag =
+      calibMode !== 'auto' ? ` · ${t('quota.modeManual', { mode: calibMode })}` : '';
+
+    return `
+      <div class="calib-lab-wrap">
+        <button type="button" class="calib-lab-toggle ${isOpen ? 'open' : ''}" data-action="toggle-calib-lab" data-key="${esc(labKey)}" aria-expanded="${isOpen}">
+          <span class="calib-lab-toggle-left">
+            <span>${esc(t('quota.labTitle'))}</span>
+            <span class="pill outline num">${esc(t('quota.labSummary', { rec: recLvl, n: num(cal.segmentsCount, 0) }))}${esc(manualTag)}</span>
+          </span>
+          <svg class="icon chevron" width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg>
+        </button>
+        ${
+          isOpen
+            ? `<div class="calib-lab-body">
+                ${renderCalibLadder(cal)}
+                ${renderCalibAnchorSelector(summary, cal, activeLvlObj)}
+                ${renderCalibParamTable(cal, activeLvlObj)}
+                ${renderCalibResidualSvg(cal, activeLvlObj)}
+              </div>`
+            : ''
+        }
+      </div>
+    `;
+  }
+
+  function renderCalibLadder(cal) {
+    const calibMode = state.config.quotaCalibMode || 'auto';
+    const activeLvl = cal.activeLevel || 'L0';
+    const recLvl = cal.recommendedLevel || 'L0';
+    const levels = cal.levels || {};
+    const order = ['L0', 'L1', 'L2', 'L3'];
+
+    const pills = order
+      .map((lvl, idx) => {
+        const obj = levels[lvl] || {};
+        const eligible = lvl === 'L0' ? true : Boolean(obj.eligible);
+        const isSelected = calibMode === lvl || (calibMode === 'auto' && activeLvl === lvl);
+        const isRec = recLvl === lvl;
+        const cls = [
+          'calib-step-btn',
+          isSelected ? 'active' : '',
+          isRec ? 'recommended' : '',
+          !eligible ? 'dimmed' : ''
+        ]
+          .filter(Boolean)
+          .join(' ');
+        const tipLines = [calibLevelLabel(lvl)];
+        if (!eligible && obj.reason) tipLines.push(obj.reason);
+        else if (obj.loocvMaePp != null) tipLines.push(`LOOCV MAE: ±${num(obj.loocvMaePp).toFixed(2)}pp`);
+        else if (obj.maePp != null) tipLines.push(`MAE: ±${num(obj.maePp).toFixed(2)}pp`);
+
+        const btn = `
+          <button type="button" class="${cls}" data-action="set-calib-mode" data-mode="${lvl}" data-tip="${esc(tipLines.join('\n'))}" ${!eligible ? 'aria-disabled="true"' : ''}>
+            ${isRec ? '<span class="calib-rec-dot" aria-hidden="true"></span>' : ''}
+            <span>${lvl}</span>
+          </button>
+        `;
+        return idx < order.length - 1 ? `${btn}<span class="calib-ladder-arrow">→</span>` : btn;
+      })
+      .join('');
+
+    const lockedReasons = ['L1', 'L2', 'L3']
+      .map((lvl) => ({ lvl, obj: levels[lvl] }))
+      .filter((x) => x.obj && !x.obj.eligible && x.obj.reason);
+
+    const unlockHint = lockedReasons.length
+      ? `${lockedReasons[0].lvl}: ${lockedReasons[0].obj.reason}`
+      : t('quota.allUnlocked');
+
+    return `
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <div class="calib-ladder-row">
+          <div class="calib-ladder">${pills}</div>
+          <button type="button" class="btn-sm ${calibMode === 'auto' ? 'primary' : ''}" style="height:22px;padding:0 8px;font-size:10.5px" data-action="set-calib-mode" data-mode="auto">
+            ${esc(t('quota.modeAuto'))} (${esc(recLvl)})
+          </button>
+        </div>
+        <div class="calib-unlock-hint">${esc(unlockHint)}</div>
+      </div>
+    `;
+  }
+
+  function renderCalibAnchorSelector(summary, cal, activeLvlObj) {
+    const avail =
+      Array.isArray(cal.availableAnchorModels) && cal.availableAnchorModels.length
+        ? cal.availableAnchorModels
+        : cal.anchorModel
+          ? [{ canonicalId: cal.anchorModel, share: 1 }]
+          : [];
+    const selId = `calib-anchor-${summary.pool}-${summary.windowType}`;
+    const srcMap = {
+      default: { cls: 'outline', text: t('quota.anchorSrcDefault') },
+      user: { cls: 'accent', text: t('quota.anchorSrcUser') },
+      fallback: { cls: 'warn', text: t('quota.anchorSrcFallback') }
+    };
+    const srcInfo = srcMap[cal.anchorSource] || srcMap.default;
+    const anchorUsd =
+      activeLvlObj?.anchorPoolUsd != null ? fmtUsd(activeLvlObj.anchorPoolUsd) : '—';
+
+    return `
+      <div class="calib-anchor-row">
+        <div class="calib-anchor-ctrl">
+          <label for="${esc(selId)}">${esc(t('quota.baseAnchorLabel'))}</label>
+          <select id="${esc(selId)}" class="calib-anchor-select mono" data-action="set-pool-anchor" data-pool="${esc(summary.pool)}">
+            ${avail
+              .map(
+                (m) => `<option value="${esc(m.canonicalId)}" ${m.canonicalId === cal.anchorModel ? 'selected' : ''}>${esc(m.canonicalId)} (${Math.round(num(m.share) * 100)}%)</option>`
+              )
+              .join('')}
+          </select>
+          <span class="pill ${srcInfo.cls}">${esc(srcInfo.text)}</span>
+        </div>
+        <div class="calib-q-anchor num mono">
+          <span>${esc(t('quota.anchorPoolQ', { usd: anchorUsd }))}</span>
+          ${helpTip(t('quota.anchorPoolQHelp'))}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderCalibParamTable(cal, activeLvlObj) {
+    const models = Array.isArray(activeLvlObj?.params?.models) ? activeLvlObj.params.models : [];
+    const cache = activeLvlObj?.params?.cache;
+    const output = activeLvlObj?.params?.output;
+    const rows = [];
+
+    for (const m of models) {
+      const val = num(m.value, 1);
+      let statusPill = `<span class="pill outline">${esc(t('quota.paramDefault'))}</span>`;
+      let interp = t('quota.interpModelUnfit');
+      if (m.isAnchor) {
+        statusPill = `<span class="pill accent">${esc(t('quota.paramBase'))}</span>`;
+        interp = t('quota.interpBase');
+      } else if (m.fitted) {
+        statusPill = `<span class="pill ok">${esc(t('quota.paramFitted'))}</span>`;
+        if (val < 0.95) interp = t('quota.interpModelEff', { v: val.toFixed(2) });
+        else if (val > 1.05) interp = t('quota.interpModelHeavy', { v: val.toFixed(2) });
+        else interp = t('quota.interpModelNeutral', { v: val.toFixed(2) });
+      }
+      rows.push({
+        name: `${m.canonicalId} (${Math.round(num(m.share) * 100)}%)`,
+        statusPill,
+        valText: m.isAnchor || !m.fitted ? '1.00×' : fmtMultWithSe(m),
+        clamped: Boolean(m.clamped),
+        interp
+      });
+    }
+
+    if (cache) {
+      const val = num(cache.value, 1);
+      const fitted = Boolean(cache.fitted);
+      const statusPill = fitted
+        ? `<span class="pill ok">${esc(t('quota.paramFitted'))}</span>`
+        : `<span class="pill outline">${esc(t('quota.paramDefault'))}</span>`;
+      let interp = t('quota.interpCacheUnfit');
+      if (fitted) {
+        if (val < 0.85) interp = t('quota.interpCacheCheap', { v: val.toFixed(2) });
+        else if (val > 1.15) interp = t('quota.interpCacheExpensive', { v: val.toFixed(2) });
+        else interp = t('quota.interpCacheNeutral', { v: val.toFixed(2) });
+      }
+      rows.push({
+        name: t('quota.paramCacheName'),
+        statusPill,
+        valText: fitted ? fmtMultWithSe(cache) : '1.00×',
+        clamped: Boolean(cache.clamped),
+        interp
+      });
+    }
+
+    if (output) {
+      const val = num(output.value, 1);
+      const fitted = Boolean(output.fitted);
+      const statusPill = fitted
+        ? `<span class="pill ok">${esc(t('quota.paramFitted'))}</span>`
+        : `<span class="pill outline">${esc(t('quota.paramDefault'))}</span>`;
+      let interp = t('quota.interpOutUnfit');
+      if (fitted) {
+        if (val > 1.15) interp = t('quota.interpOutExpensive', { v: val.toFixed(2) });
+        else if (val < 0.85) interp = t('quota.interpOutCheap', { v: val.toFixed(2) });
+        else interp = t('quota.interpOutNeutral', { v: val.toFixed(2) });
+      }
+      rows.push({
+        name: t('quota.paramOutName'),
+        statusPill,
+        valText: fitted ? fmtMultWithSe(output) : '1.00×',
+        clamped: Boolean(output.clamped),
+        interp
+      });
+    }
+
+    const promoNote =
+      cal.promoIdentifiable === false && cal.promoAssumption && cal.promoAssumption !== 'none'
+        ? `<div class="banner info" style="padding:6px 8px;font-size:11px">${esc(
+            t(cal.promoAssumption === 'list_price' ? 'quota.promoNoteList' : 'quota.promoNoteFollow')
+          )}</div>`
+        : '';
+
+    return `
+      <div class="calib-param-list">
+        ${rows
+          .map(
+            (r) => `
+            <div class="calib-param-row">
+              <div class="calib-param-top">
+                <span class="calib-param-left">
+                  <span class="mono" style="font-weight:500">${esc(r.name)}</span>
+                  ${r.statusPill}
+                </span>
+                <span class="calib-param-val num mono">
+                  <span>${esc(r.valText)}</span>
+                  ${r.clamped ? `<span class="calib-clamp-tag">${esc(t('quota.clamped'))}</span>` : ''}
+                </span>
+              </div>
+              <div class="calib-param-desc">${esc(r.interp)}</div>
+            </div>
+          `
+          )
+          .join('')}
+      </div>
+      ${promoNote}
+    `;
+  }
+
+  function renderCalibResidualSvg(cal, activeLvlObj) {
+    const activeLvl = cal.activeLevel || 'L0';
+    const l0Obj = cal.levels?.L0 || null;
+    const fits = Array.isArray(activeLvlObj?.segmentFits) ? activeLvlObj.segmentFits : [];
+
+    const hasLoocv =
+      l0Obj?.loocvMaePp != null &&
+      activeLvlObj?.loocvMaePp != null &&
+      Number.isFinite(Number(l0Obj.loocvMaePp)) &&
+      Number.isFinite(Number(activeLvlObj.loocvMaePp));
+    const l0Err = hasLoocv ? num(l0Obj.loocvMaePp, 0) : num(l0Obj?.maePp, 0);
+    const curErr = hasLoocv ? num(activeLvlObj.loocvMaePp, 0) : num(activeLvlObj?.maePp, 0);
+    const metricLbl = hasLoocv ? 'LOOCV' : 'MAE';
+    const summaryLine =
+      l0Obj && activeLvlObj
+        ? t('quota.residualSummary', {
+            l0: 'L0',
+            mae0: l0Err.toFixed(2),
+            cur: activeLvl,
+            mae1: curErr.toFixed(2),
+            metric: metricLbl
+          })
+        : '';
+
+    if (fits.length === 0) {
+      return `
+        <div class="calib-chart-box">
+          <div class="calib-chart-head">
+            <span style="font-weight:600">${esc(t('quota.residualTitle'))}</span>
+            ${summaryLine ? `<span class="muted-note num">${esc(summaryLine)}</span>` : ''}
+          </div>
+          <div class="muted-note" style="font-size:11px">${esc(t('quota.residualNoData'))}</div>
+        </div>
+      `;
+    }
+
+    const W = 360;
+    const H = 96;
+    const padL = 28;
+    const padR = 8;
+    const padT = 8;
+    const padB = 16;
+    const plotW = W - padL - padR;
+    const plotH = H - padT - padB;
+
+    let maxPp = 1;
+    for (const s of fits) {
+      maxPp = Math.max(maxPp, num(s.observedPp, 0), num(s.predL0Pp, 0), num(s.predPp, 0));
+    }
+    maxPp *= 1.15;
+
+    const showCur = activeLvl !== 'L0';
+    const barsPerSeg = showCur ? 3 : 2;
+    const slotW = plotW / fits.length;
+    const groupW = Math.min(34, slotW * 0.78);
+    const gap = 1.5;
+    const barW = Math.max(2, (groupW - gap * (barsPerSeg - 1)) / barsPerSeg);
+
+    const gridYs = [0, 0.5, 1].map((r) => {
+      const val = maxPp * r;
+      const y = padT + plotH - r * plotH;
+      return `
+        <line x1="${padL}" y1="${y.toFixed(1)}" x2="${W - padR}" y2="${y.toFixed(1)}" stroke="var(--line)" stroke-width="1"/>
+        <text x="${padL - 4}" y="${(y + 3).toFixed(1)}" text-anchor="end" font-size="8.5" fill="var(--fg-muted)" class="num">${val.toFixed(val >= 10 ? 0 : 1)}</text>
+      `;
+    }).join('');
+
+    const groupsHtml = fits
+      .map((s, idx) => {
+        const obs = Math.max(0, num(s.observedPp, 0));
+        const p0 = Math.max(0, num(s.predL0Pp, 0));
+        const p1 = Math.max(0, num(s.predPp, 0));
+        const xCenter = padL + (idx + 0.5) * slotW;
+        const x0 = xCenter - groupW / 2;
+
+        const hObs = Math.max(1, (obs / maxPp) * plotH);
+        const hL0 = Math.max(1, (p0 / maxPp) * plotH);
+        const hCur = Math.max(1, (p1 / maxPp) * plotH);
+
+        const yObs = padT + plotH - hObs;
+        const yL0 = padT + plotH - hL0;
+        const yCur = padT + plotH - hCur;
+
+        const errL0 = p0 - obs;
+        const errCur = p1 - obs;
+        const fmtSigned = (v) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}`;
+        const tipLines = [
+          t('quota.segTipTitle', { idx: s.idx ?? idx + 1, usd: fmtUsd(s.spendUsd) }),
+          t('quota.segTipObs', { v: obs.toFixed(2) }),
+          t('quota.segTipL0', { v: p0.toFixed(2), err: fmtSigned(errL0) })
+        ];
+        if (showCur) {
+          tipLines.push(t('quota.segTipCur', { lvl: activeLvl, v: p1.toFixed(2), err: fmtSigned(errCur) }));
+        }
+
+        const bx0 = x0;
+        const bx1 = x0 + barW + gap;
+        const bx2 = x0 + (barW + gap) * 2;
+
+        return `
+          <g class="calib-seg-group" data-tip="${esc(tipLines.join('\n'))}">
+            <rect class="calib-seg-bg" x="${(xCenter - slotW / 2).toFixed(1)}" y="${padT}" width="${slotW.toFixed(1)}" height="${plotH}" rx="2"/>
+            <rect x="${bx0.toFixed(1)}" y="${yObs.toFixed(1)}" width="${barW.toFixed(1)}" height="${hObs.toFixed(1)}" rx="1.5" fill="var(--accent)"/>
+            <rect x="${bx1.toFixed(1)}" y="${yL0.toFixed(1)}" width="${barW.toFixed(1)}" height="${hL0.toFixed(1)}" rx="1.5" fill="var(--fg-muted)" opacity="0.55"/>
+            ${showCur ? `<rect x="${bx2.toFixed(1)}" y="${yCur.toFixed(1)}" width="${barW.toFixed(1)}" height="${hCur.toFixed(1)}" rx="1.5" fill="var(--ok)"/>` : ''}
+            <text x="${xCenter.toFixed(1)}" y="${H - 3}" text-anchor="middle" font-size="8.5" fill="var(--fg-muted)" class="num">#${esc(s.idx ?? idx + 1)}</text>
+          </g>
+        `;
+      })
+      .join('');
+
+    return `
+      <div class="calib-chart-box">
+        <div class="calib-chart-head">
+          <span style="font-weight:600">${esc(t('quota.residualTitle'))}</span>
+          ${summaryLine ? `<span class="muted-note num">${esc(summaryLine)}</span>` : ''}
+        </div>
+        <svg class="calib-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(t('quota.residualTitle'))}">
+          ${gridYs}
+          ${groupsHtml}
+        </svg>
+        <div class="legend-inline">
+          <span class="legend-item"><span class="legend-dot" style="background:var(--accent)"></span>${esc(t('quota.legendObs'))}</span>
+          <span class="legend-item"><span class="legend-dot" style="background:var(--fg-muted);opacity:0.55"></span>${esc(t('quota.legendL0'))}</span>
+          ${showCur ? `<span class="legend-item"><span class="legend-dot" style="background:var(--ok)"></span>${esc(t('quota.legendCur', { lvl: activeLvl }))}</span>` : ''}
+        </div>
+      </div>
+    `;
   }
 
   // =========================================================================
@@ -2934,6 +3586,18 @@
     const pr = state.pricing;
     const refreshVal = String(num(state.config.refreshSec, 30));
 
+    const defAnchors = pr.data?.defaultAnchors;
+    const defAnchorsNoteHtml =
+      defAnchors && typeof defAnchors === 'object' && Object.keys(defAnchors).length > 0
+        ? `<div class="pricing-anchors-note mono">${esc(
+            t('settings.defaultAnchorsNote', {
+              list: Object.entries(defAnchors)
+                .map(([p, model]) => `${poolLabel(p)}: ${model}`)
+                .join(' · ')
+            })
+          )}</div>`
+        : '';
+
     let pricingModelsHtml = '';
     if (pr.expanded) {
       if (pr.loading) {
@@ -2951,6 +3615,7 @@
                   <div class="model-item-name">
                     <span class="mono truncate">${esc(m.canonicalId)}</span>
                     <span class="pill ${m.source === 'override' ? 'accent' : 'outline'}">${esc(pricingSourceLabel(m.source))}</span>
+                    ${m.promoLabel ? `<span class="pill warn promo-pill" data-tip="${esc(m.promoLabel)}">${esc(t('settings.promoBadge'))}</span>` : ''}
                   </div>
                   <div style="display:flex;gap:4px">
                     <button type="button" class="btn-sm" data-action="toggle-edit-price" data-id="${esc(m.canonicalId)}">${esc(isEditing ? t('common.cancel') : t('common.edit'))}</button>
@@ -3075,6 +3740,7 @@
           <h3 class="set-title">${esc(t('settings.pricingSection'))}</h3>
         </div>
         <div class="set-card">
+          ${defAnchorsNoteHtml}
           <div class="field">
             <label>${esc(t('settings.defaultsPath'))}</label>
             <div class="path-box">${esc(state.paths.defaultsFile || t('settings.builtinDefaults'))}</div>
@@ -3116,7 +3782,10 @@
     renderHeader();
     const active = document.activeElement;
     const editingQuotaForm = Boolean(
-      isBackground && active && active.closest && active.closest('#quota-anchor-form')
+      isBackground &&
+        active &&
+        active.closest &&
+        (active.closest('#quota-anchor-form') || active.closest('.calib-anchor-select'))
     );
     const editingSettingsInput = Boolean(
       isBackground && active && active.closest && active.closest('#settings-body input, #settings-body select')
@@ -3136,6 +3805,20 @@
     dom.settingsDrawer.classList.remove('hidden');
     renderSettings();
     dom.settingsDrawer.focus();
+    if (!state.pricing.data && !state.pricing.loading && !state.pricing.prefetching) {
+      state.pricing.prefetching = true;
+      getJson('/api/pricing')
+        .then((d) => {
+          if (!state.pricing.data) {
+            state.pricing.data = d;
+            if (state.settingsOpen) renderSettings();
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          state.pricing.prefetching = false;
+        });
+    }
   }
 
   function closeSettings() {
@@ -3374,6 +4057,32 @@
         return;
       }
 
+      if (action === 'toggle-calib-lab') {
+        const key = actionEl.dataset.key;
+        if (!key) return;
+        const currentlyOpen = actionEl.classList.contains('open');
+        state.quotaLabOpenByKey.set(key, !currentlyOpen);
+        renderGrid();
+        return;
+      }
+
+      if (action === 'set-calib-mode') {
+        if (actionEl.getAttribute('aria-disabled') === 'true') return;
+        const nextMode = actionEl.dataset.mode;
+        if (!nextMode || !['auto', 'L0', 'L1', 'L2', 'L3'].includes(nextMode)) return;
+        state.config.quotaCalibMode = nextMode;
+        renderGrid();
+        await saveConfigPatch({ quotaCalibMode: nextMode });
+        await refreshQuotaOnly();
+        return;
+      }
+
+      if (action === 'toggle-older-anchors') {
+        state.quotaOlderOpen = !state.quotaOlderOpen;
+        renderGrid();
+        return;
+      }
+
       if (action === 'delete-anchor') {
         const id = Number(actionEl.dataset.id);
         if (!Number.isFinite(id)) return;
@@ -3411,7 +4120,7 @@
     else if (tgt.id === 'qa-note') state.quotaForm.note = tgt.value;
   });
 
-  dom.modulesGrid.addEventListener('change', (e) => {
+  dom.modulesGrid.addEventListener('change', async (e) => {
     const tgt = e.target;
     if (tgt.id === 'qa-pool') {
       state.quotaForm.pool = tgt.value;
@@ -3419,6 +4128,14 @@
     } else if (tgt.id === 'qa-window') {
       state.quotaForm.windowType = tgt.value;
       renderGrid();
+    } else if (tgt.dataset?.action === 'set-pool-anchor') {
+      const pool = tgt.dataset.pool;
+      const modelId = tgt.value;
+      if (!pool || !modelId) return;
+      const nextAnchors = { ...(state.config.quotaAnchorsByPool || {}), [pool]: modelId };
+      state.config.quotaAnchorsByPool = nextAnchors;
+      await saveConfigPatch({ quotaAnchorsByPool: nextAnchors });
+      await refreshQuotaOnly();
     }
   });
 

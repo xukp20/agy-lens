@@ -53,6 +53,14 @@ Shown above in the dual-theme hero preview:
 
 Diagnose cross-session prompt-cache instability—such as idle-gap TTL decay, transient routing misses, and prefix boundary cuts—with a single anonymized report generator.
 
+**Live Production Capture (`Model × Idle-Gap` Hit-Rate Matrix):**
+
+<p align="center">
+  <img src="assets/screenshots/cache-matrix-real-zh.png" alt="AGY Lens Live Production Capture: Model × Idle-Gap Hit-Rate Matrix" width="100%" />
+</p>
+
+**Full Observatory Layout (KPIs + Matrix + Log Scatter + Top Anomalies):**
+
 <p align="center">
   <img src="assets/screenshots/cache-observatory.png" alt="AGY Lens Global Cache Observatory" width="100%" />
 </p>
@@ -79,9 +87,9 @@ Because Antigravity exposes no official Sidecar Quota API, AGY Lens keeps quota 
   <img src="assets/screenshots/quota-budget.png" alt="Manual Quota Alignment and Implied Cycle Budget" width="100%" />
 </p>
 
-- **Up to 2-Decimal Precision**: Auto-detects step precision (`1%`, `0.1%`, or `0.01%`) to bound interval uncertainty (`±0.005%` at 2 decimals).
-- **Automatic Reset-Cycle Inheritance**: Leave the reset countdown blank when logging another checkpoint inside the same active cycle to inherit the prior `reset_at` timestamp automatically (or enter a new value if an early reset occurred).
-- **95% CI Cycle Budget Inversion & Even-Use Pace**: Weights valid `Δu` usage segments against local API-equivalent spend to estimate implied total cycle budget with a 95% confidence interval and `Healthy / Fast / Overpace` status.
+- **Single-Cycle `7d` Focus & 2-Decimal Precision**: Auto-detects step precision (`1%`, `0.1%`, or `0.01%`), defaults to `7d`, and scopes both anchor history and calibration strictly to the current active cycle (older cycles stay cleanly collapsed).
+- **Automatic Reset-Cycle Inheritance**: Leave the reset countdown blank when logging another checkpoint inside the same active cycle to inherit the cycle's prior `reset_at` timestamp automatically (or enter a new value if an early reset occurred).
+- **Progressive Weight Calibration Lab (`L0 → L1 → L2 → L3`)**: Shares default Base anchors with `pricing_defaults.json` (`defaultAnchors`) and lets you switch the `1.00×` Base model right in the UI; as you collect varied single-cycle segments, a profile-grid WLS + LOOCV + `VIF < 10` selector progressively unlocks model multipliers (`w_m`), cache-read multiplier (`α_cache`), and output multiplier (`α_out`), with an Observed vs. Predicted (`pp`) residual chart.
 
 ### 5. Settings Drawer, Self-Explaining `?` Help & Bilingual UI
 
