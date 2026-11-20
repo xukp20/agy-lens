@@ -1,0 +1,12 @@
+{
+  "name": "agy-lens",
+  "displayName": "AGY Lens",
+  "description": "Local-first Antigravity telemetry sidecar: live context composition, prompt cache diagnostics, global cache-miss observatory, long-context API cost analytics, calendar heatmap, and 2-decimal manual quota alignment.",
+  "logo": "assets/logo.svg",
+  "version": "1.0.0",
+  "suggestedPrompts": [
+    "Open the AGY Lens panel to inspect live context and cache efficiency",
+    "Analyze my prompt cache miss rate by model and idle gap this week",
+    "Show my model token usage and API-equivalent cost breakdown"
+  ]
+}

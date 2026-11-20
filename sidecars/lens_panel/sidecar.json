@@ -1,0 +1,21 @@
+{
+  "command": "node",
+  "args": ["main.mjs"],
+  "restart_policy": "on-failure",
+  "display_name": "AGY Lens",
+  "description": "Live context composition, prompt cache diagnostics, global cache-miss observatory, long-context API cost analytics, calendar heatmap, and 2-decimal manual quota alignment.",
+  "has_web_ui": true,
+  "agent_permissions": {
+    "allows_user_interactions": false
+  },
+  "ui_config": {
+    "display_name": "AGY Lens",
+    "views": [
+      {
+        "path": "/",
+        "entrypoint": "SIDECAR_UI_ENTRYPOINT_AUX_PANE",
+        "title": "AGY Lens"
+      }
+    ]
+  }
+}
