@@ -440,6 +440,9 @@ function runBootstrapUpdatePhase(dataDir) {
           const st = readJsonSafe(stPath, {}) || {};
           st.lastError = null;
           st.rolledBackTo = backup.prevVersion || '';
+          if (backup.targetVersion) st.rolledBackFrom = backup.targetVersion;
+          st.stagedVersion = null;
+          st.stagedDir = null;
           writeJsonAtomic(stPath, st);
         } catch (err) {
           console.error(`[agy-lens/boot] Manual rollback failed: ${err.message}`);

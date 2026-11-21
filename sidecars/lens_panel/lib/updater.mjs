@@ -39,8 +39,8 @@ const ALLOWED_HOSTS = new Set([
 
 const CHECK_TTL_MS = 24 * 3600 * 1000;
 const CHECK_JITTER_MS = 30 * 60 * 1000;
-const FETCH_TIMEOUT_MS = 10000;
-const DOWNLOAD_TIMEOUT_MS = 25000;
+const FETCH_TIMEOUT_MS = 15000;
+const DOWNLOAD_TIMEOUT_MS = 60000;
 const MAX_DOWNLOAD_BYTES = 15 * 1024 * 1024;
 const MAX_REDIRECTS = 5;
 const LOCK_STALE_MS = 3 * 60 * 1000;
@@ -325,43 +325,67 @@ async function fetchWithStrictRedirects(
 }
 
 async function downloadBoundedBytes(urlStr, userAgent) {
-  const res = await fetchWithStrictRedirects(urlStr, {
-    headers: {
-      'User-Agent': userAgent,
-      Accept: 'application/octet-stream, application/gzip, */*',
-    },
-    timeoutMs: DOWNLOAD_TIMEOUT_MS,
-  });
-  if (!res.ok) {
-    throw new Error(`Download failed with HTTP ${res.status}`);
-  }
-  const reader = res.body?.getReader?.();
-  if (!reader) {
-    const arr = new Uint8Array(await res.arrayBuffer());
-    if (arr.byteLength > MAX_DOWNLOAD_BYTES) {
-      throw new Error(`Archive exceeds ${MAX_DOWNLOAD_BYTES} byte limit`);
-    }
-    return Buffer.from(arr);
-  }
-  const chunks = [];
-  let total = 0;
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (value) {
-      total += value.byteLength;
-      if (total > MAX_DOWNLOAD_BYTES) {
-        try {
-          await reader.cancel();
-        } catch {
-          // ignore
-        }
-        throw new Error(`Archive exceeds ${MAX_DOWNLOAD_BYTES} byte limit`);
+  let lastErr = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetchWithStrictRedirects(urlStr, {
+        headers: {
+          'User-Agent': userAgent,
+          Accept: 'application/octet-stream, application/gzip, */*',
+        },
+        timeoutMs: DOWNLOAD_TIMEOUT_MS,
+      });
+      if (!res.ok) {
+        throw new Error(`Download failed with HTTP ${res.status}`);
       }
-      chunks.push(Buffer.from(value));
+      const reader = res.body?.getReader?.();
+      if (!reader) {
+        const arr = new Uint8Array(await res.arrayBuffer());
+        if (arr.byteLength > MAX_DOWNLOAD_BYTES) {
+          throw new Error(`Archive exceeds ${MAX_DOWNLOAD_BYTES} byte limit`);
+        }
+        return Buffer.from(arr);
+      }
+      const chunks = [];
+      let total = 0;
+      const deadline = Date.now() + DOWNLOAD_TIMEOUT_MS;
+      while (true) {
+        if (Date.now() > deadline) {
+          try {
+            await reader.cancel();
+          } catch {
+            // ignore
+          }
+          throw new Error(`Download timed out after ${Math.round(DOWNLOAD_TIMEOUT_MS / 1000)}s`);
+        }
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) {
+          total += value.byteLength;
+          if (total > MAX_DOWNLOAD_BYTES) {
+            try {
+              await reader.cancel();
+            } catch {
+              // ignore
+            }
+            throw new Error(`Archive exceeds ${MAX_DOWNLOAD_BYTES} byte limit`);
+          }
+          chunks.push(Buffer.from(value));
+        }
+      }
+      return Buffer.concat(chunks, total);
+    } catch (err) {
+      const isAbort = err?.name === 'AbortError' || /aborted/i.test(String(err?.message || ''));
+      lastErr = isAbort
+        ? new Error(`Download timed out after ${Math.round(DOWNLOAD_TIMEOUT_MS / 1000)}s — please retry`)
+        : err;
+      if (attempt === 0) {
+        await new Promise((r) => setTimeout(r, 1500));
+        continue;
+      }
     }
   }
-  return Buffer.concat(chunks, total);
+  throw lastErr;
 }
 
 async function fetchLatestReleaseMeta(runningVersion, prevEtag = '') {
@@ -699,6 +723,7 @@ export async function checkForUpdate(dataDir, pluginRoot, config, { force = fals
         hasUpdate &&
         config?.updateMode === 'auto' &&
         st.latestVersion !== st.failedVersion &&
+        st.latestVersion !== st.rolledBackFrom &&
         st.latestVersion !== config?.dismissedUpdateVersion
       ) {
         const install = await detectInstallInfo(pluginRoot);
@@ -834,6 +859,7 @@ export function markHealthy(dataDir, runningVersion) {
       at: Date.now(),
     };
     st.failedVersion = null;
+    st.rolledBackFrom = null;
     st.lastError = null;
     st.stagedVersion = null;
     st.stagedDir = null;
