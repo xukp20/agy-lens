@@ -1826,6 +1826,8 @@
       copyStatus: ''
     },
 
+    configLoaded: false,
+    userChangedRange: false,
     rangeKey: '7d',
     customFrom: '',
     customTo: '',
@@ -2162,6 +2164,20 @@
     dom.btnRefresh.classList.add('spinning');
 
     try {
+      // Self-heal config if initial boot /api/config hit a transient sidecar restart window.
+      if (!state.configLoaded) {
+        try {
+          const cfgRes = await getJson('/api/config');
+          normalizeConfigPayload(cfgRes);
+          state.configLoaded = true;
+          if (!state.userChangedRange) {
+            state.rangeKey = state.config.defaultRange || '7d';
+          }
+        } catch {
+          // keep current fallback; will retry on next refresh
+        }
+      }
+
       const sessionMods = getNeededSessionModules();
       const analyticsMods = getNeededAnalyticsModules();
       const needQuota = isModuleActiveForView('quota-budget');
@@ -2548,6 +2564,12 @@
       state.update.lastFetchedAt = Date.now();
       renderUpdateUI();
       if (state.settingsOpen) renderSettings();
+      if (
+        state.update.data?.justUpdated &&
+        (!state.configLoaded || !state.analytics || state.analyticsError || state.sessionError)
+      ) {
+        refreshAll(true);
+      }
     } catch {
       // silent if offline or endpoint unsupported (e.g. older demo server)
     }
@@ -5819,6 +5841,7 @@
     if (!btn) return;
     const r = btn.dataset.range;
     if (!r) return;
+    state.userChangedRange = true;
     state.rangeKey = r;
     if (r === 'custom') {
       if (!state.customTo) state.customTo = fmtLocalDateStr(new Date());
@@ -7163,12 +7186,36 @@
   // 21. Bootstrap
   // =========================================================================
   async function boot() {
-    try {
-      const cfgRes = await getJson('/api/config');
-      normalizeConfigPayload(cfgRes);
-      state.rangeKey = state.config.defaultRange || '7d';
-    } catch (err) {
-      state.globalError = t('header.configLoadErr', { msg: err.message });
+    // Retry /api/config briefly so transient sidecar restart windows after self-update
+    // never fall back to DEFAULT_CONFIG ('7d') when user saved e.g. '5h'.
+    let lastCfgErr = null;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      try {
+        const cfgRes = await getJson('/api/config');
+        normalizeConfigPayload(cfgRes);
+        state.configLoaded = true;
+        if (!state.userChangedRange) {
+          state.rangeKey = state.config.defaultRange || '7d';
+        }
+        lastCfgErr = null;
+        break;
+      } catch (err) {
+        lastCfgErr = err;
+        if (attempt < 3) {
+          await new Promise((r) => setTimeout(r, 350 * (attempt + 1)));
+        }
+      }
+    }
+    if (lastCfgErr) {
+      state.globalError = t('header.configLoadErr', { msg: lastCfgErr.message });
+    }
+
+    // Load initial data before unveiling the grid so placeholder empty/7d frames do not flash.
+    // Retry once automatically if initial analytics/session requests caught a restart blip.
+    await refreshAll(true);
+    if ((!state.configLoaded || state.analyticsError || state.sessionError) && !state.refreshing) {
+      await new Promise((r) => setTimeout(r, 500));
+      await refreshAll(true);
     }
 
     dom.loadingShell.classList.add('hidden');
@@ -7177,7 +7224,6 @@
     renderAll();
     if (state.query.openSettings) openSettings();
     resetRefreshTimer();
-    await refreshAll(true);
     fetchUpdateStatus();
   }
 
