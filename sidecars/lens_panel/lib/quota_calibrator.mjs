@@ -7,15 +7,56 @@ import { calculateTurnCostBreakdown } from './pricing.mjs';
 
 const MODEL_WEIGHT_MIN = 0.15;
 const MODEL_WEIGHT_MAX = 5.0;
-const ALPHA_CACHE_MIN = 0.0;
+const ALPHA_CACHE_MIN = 0.05;
 const ALPHA_CACHE_MAX = 20.0;
 const ALPHA_OUT_MIN = 0.2;
 const ALPHA_OUT_MAX = 5.0;
 const LAMBDA_MODEL = 0.25;
 const LAMBDA_ALPHA = 0.25;
+const NU0_PRIOR = 4.0;
+const MAX_VIF_EXPLORE = 20.0;
+const MAX_VIF_AUTO = 10.0;
+const MIN_EFF_DF_AUTO = 0.35;
 const MAX_M_MODELS = 3;
 const HUBER_ITERS = 3;
 const HUBER_DOWNWEIGHT_THRESHOLD = 0.85;
+
+// Two-tailed 95% Student-t critical values t_{0.975, df} for df = 1..30
+const T_CRIT_95_TABLE = [
+  null,
+  12.7062, 4.3027, 3.1824, 2.7764, 2.5706,
+  2.4469, 2.3646, 2.3060, 2.2622, 2.2281,
+  2.2010, 2.1788, 2.1604, 2.1448, 2.1314,
+  2.1199, 2.1098, 2.1009, 2.0930, 2.0860,
+  2.0796, 2.0739, 2.0687, 2.0639, 2.0595,
+  2.0555, 2.0518, 2.0484, 2.0452, 2.0423,
+];
+
+export function studentTCrit95(df) {
+  const v = Number(df);
+  if (!Number.isFinite(v) || v <= 1) return T_CRIT_95_TABLE[1];
+  if (v >= 30) {
+    return 1.959964 + 2.37227 / v + 2.8225 / (v * v);
+  }
+  const lo = Math.floor(v);
+  const hi = Math.ceil(v);
+  if (lo === hi) return T_CRIT_95_TABLE[lo];
+  const frac = v - lo;
+  return T_CRIT_95_TABLE[lo] + frac * (T_CRIT_95_TABLE[hi] - T_CRIT_95_TABLE[lo]);
+}
+
+function countSegmentClusters(segments) {
+  if (!Array.isArray(segments) || segments.length === 0) return 1;
+  let clusters = 1;
+  for (let i = 1; i < segments.length; i++) {
+    const prevEnd = Number(segments[i - 1]?.endAt);
+    const curStart = Number(segments[i]?.startAt);
+    if (!Number.isFinite(prevEnd) || !Number.isFinite(curStart) || Math.abs(curStart - prevEnd) > 1000) {
+      clusters++;
+    }
+  }
+  return clusters;
+}
 
 export const SUBSET_DEFS = [
   { key: 'base', factors: { M: false, C: false, O: false } },
@@ -648,8 +689,8 @@ function fitSubsetCore(
   if (!fitCache && !fitOut) {
     bestFit = evalPoint(1.0, 1.0);
   } else if (fitCache && !fitOut) {
-    // 1D 36-point log profile grid + 9-point refinement on alpha_cache
-    const coarseGrid = [0, ...makeLogGrid(0.05, ALPHA_CACHE_MAX, 34, [1.0])];
+    // 1D 36-point log profile grid + 9-point refinement on alpha_cache in [ALPHA_CACHE_MIN, ALPHA_CACHE_MAX]
+    const coarseGrid = makeLogGrid(ALPHA_CACHE_MIN, ALPHA_CACHE_MAX, 35, [1.0]);
     let bestIdx = 0;
     let bestRes = Infinity;
     for (let i = 0; i < coarseGrid.length; i++) {
@@ -662,10 +703,7 @@ function fitSubsetCore(
     }
     const lo = coarseGrid[Math.max(0, bestIdx - 1)];
     const hi = coarseGrid[Math.min(coarseGrid.length - 1, bestIdx + 1)];
-    const fineGrid =
-      lo <= 0
-        ? makeLinearGrid(0, hi, 9)
-        : makeLogGrid(lo, hi, 9, [coarseGrid[bestIdx]]);
+    const fineGrid = makeLogGrid(lo, hi, 9, [coarseGrid[bestIdx]]);
     for (const ac of fineGrid) {
       const res = evalPoint(ac, 1.0);
       if (res.totalObj < bestFit.totalObj) {
@@ -673,8 +711,8 @@ function fitSubsetCore(
       }
     }
     alphaCache = bestFit.ac;
-    if (alphaCache <= 1e-4) {
-      alphaCache = 0;
+    if (alphaCache <= ALPHA_CACHE_MIN + 1e-4) {
+      alphaCache = ALPHA_CACHE_MIN;
       cacheClamped = true;
     } else if (alphaCache >= ALPHA_CACHE_MAX - 1e-4) {
       alphaCache = ALPHA_CACHE_MAX;
@@ -712,7 +750,7 @@ function fitSubsetCore(
     }
   } else {
     // 2D 18x18 coarse log grid + 5x5 local refinement on (alpha_cache, alpha_out)
-    const acCoarse = [0, ...makeLogGrid(0.05, ALPHA_CACHE_MAX, 16, [1.0])];
+    const acCoarse = makeLogGrid(ALPHA_CACHE_MIN, ALPHA_CACHE_MAX, 17, [1.0]);
     const aoCoarse = makeLogGrid(ALPHA_OUT_MIN, ALPHA_OUT_MAX, 17, [1.0]);
     let bestIc = 0;
     let bestIo = 0;
@@ -732,7 +770,7 @@ function fitSubsetCore(
     const acHi = acCoarse[Math.min(acCoarse.length - 1, bestIc + 1)];
     const aoLo = aoCoarse[Math.max(0, bestIo - 1)];
     const aoHi = aoCoarse[Math.min(aoCoarse.length - 1, bestIo + 1)];
-    const acFine = acLo <= 0 ? makeLinearGrid(0, acHi, 5) : makeLogGrid(acLo, acHi, 5, [acCoarse[bestIc]]);
+    const acFine = makeLogGrid(acLo, acHi, 5, [acCoarse[bestIc]]);
     const aoFine = makeLogGrid(aoLo, aoHi, 5, [aoCoarse[bestIo]]);
     for (const ac of acFine) {
       for (const ao of aoFine) {
@@ -744,8 +782,8 @@ function fitSubsetCore(
     }
     alphaCache = bestFit.ac;
     alphaOut = bestFit.ao;
-    if (alphaCache <= 1e-4) {
-      alphaCache = 0;
+    if (alphaCache <= ALPHA_CACHE_MIN + 1e-4) {
+      alphaCache = ALPHA_CACHE_MIN;
       cacheClamped = true;
     } else if (alphaCache >= ALPHA_CACHE_MAX - 1e-4) {
       alphaCache = ALPHA_CACHE_MAX;
@@ -764,6 +802,7 @@ function fitSubsetCore(
     subsetKey,
     beta: bestFit.fit.beta,
     modelWeights: bestFit.fit.modelWeights,
+    fittedCandidates: activeModels,
     freeCandidates: bestFit.fit.freeCandidates,
     clampedSet: bestFit.fit.clampedSet,
     alphaCache,
@@ -897,22 +936,23 @@ function computeJacobianAndStats(
   segments,
   weights,
   anchorModel,
-  { fitCache = false, fitOut = false } = {}
+  { fitCache = false, fitOut = false, cycleBuckets = null, sumCycleRaw = 0 } = {}
 ) {
   const N = segments.length;
-  const freeModels = coreFit.freeCandidates;
-  const freeCache = fitCache && !coreFit.cacheClamped;
-  const freeOut = fitOut && !coreFit.outClamped;
+  // Retain boundary-clamped columns in J and Cov so SE is conservative rather than treating clamped params as known.
+  const fittedModels = Array.isArray(coreFit.fittedCandidates)
+    ? coreFit.fittedCandidates
+    : coreFit.freeCandidates || [];
 
-  const colCount = 1 + freeModels.length + (freeCache ? 1 : 0) + (freeOut ? 1 : 0);
-  const J = Array.from({ length: N }, (_, k) => {
+  const colCount = 1 + fittedModels.length + (fitCache ? 1 : 0) + (fitOut ? 1 : 0);
+  const activeIdx = new Map();
+  fittedModels.forEach((m, idx) => activeIdx.set(m, idx + 1));
+
+  function buildJacobianRow(byModelEntries) {
     const row = new Array(colCount).fill(0);
-    const activeIdx = new Map();
-    freeModels.forEach((m, idx) => activeIdx.set(m, idx + 1));
-
     let crSum = 0;
     let outSum = 0;
-    for (const [mId, bucket] of segments[k].byModel.entries()) {
+    for (const [mId, bucket] of byModelEntries) {
       const s = modelSpendAt(bucket, coreFit.alphaCache, coreFit.alphaOut);
       if (activeIdx.has(mId)) {
         row[activeIdx.get(mId)] += s;
@@ -924,28 +964,26 @@ function computeJacobianAndStats(
       crSum += coreFit.beta * w * bucket.cacheReadUsd;
       outSum += coreFit.beta * w * bucket.outUsd;
     }
-
-    let cIdx = 1 + freeModels.length;
-    if (freeCache) row[cIdx++] = crSum;
-    if (freeOut) row[cIdx++] = outSum;
+    let cIdx = 1 + fittedModels.length;
+    if (fitCache) row[cIdx++] = crSum;
+    if (fitOut) row[cIdx++] = outSum;
     return row;
-  });
+  }
+
+  const J = Array.from({ length: N }, (_, k) => buildJacobianRow(segments[k].byModel.entries()));
 
   // Compute VIF on non-overlapping linear basis D so large alpha_cache / alpha_out
   // values do not artificially inflate collinearity between column 0 and alpha columns.
   const D = Array.from({ length: N }, (_, k) => {
     const row = new Array(colCount).fill(0);
-    const activeIdx = new Map();
-    freeModels.forEach((m, idx) => activeIdx.set(m, idx + 1));
-
     let crSum = 0;
     let outSum = 0;
     for (const [mId, bucket] of segments[k].byModel.entries()) {
       const sBase =
         bucket.inUsd +
         bucket.cacheWriteUsd +
-        (freeCache ? 0 : coreFit.alphaCache * bucket.cacheReadUsd) +
-        (freeOut ? 0 : coreFit.alphaOut * bucket.outUsd);
+        (fitCache ? 0 : coreFit.alphaCache * bucket.cacheReadUsd) +
+        (fitOut ? 0 : coreFit.alphaOut * bucket.outUsd);
       if (activeIdx.has(mId)) {
         row[activeIdx.get(mId)] += sBase;
       } else {
@@ -957,9 +995,9 @@ function computeJacobianAndStats(
       outSum += w * bucket.outUsd;
     }
 
-    let cIdx = 1 + freeModels.length;
-    if (freeCache) row[cIdx++] = crSum;
-    if (freeOut) row[cIdx++] = outSum;
+    let cIdx = 1 + fittedModels.length;
+    if (fitCache) row[cIdx++] = crSum;
+    if (fitOut) row[cIdx++] = outSum;
     return row;
   });
 
@@ -981,8 +1019,8 @@ function computeJacobianAndStats(
   }
 
   const P = Array.from({ length: colCount }, () => new Array(colCount).fill(0));
-  for (let c = 1; c <= freeModels.length; c++) {
-    const mId = freeModels[c - 1];
+  for (let c = 1; c <= fittedModels.length; c++) {
+    const mId = fittedModels[c - 1];
     const g0 = Math.max(1e-12, coreFit.beta);
     const gc = Math.max(1e-12, coreFit.beta * (coreFit.modelWeights.get(mId) ?? 1.0));
     const j0 = -1 / g0;
@@ -992,14 +1030,14 @@ function computeJacobianAndStats(
     P[c][0] += LAMBDA_MODEL * jc * j0;
     P[c][c] += LAMBDA_MODEL * jc * jc;
   }
-  let cIdx = 1 + freeModels.length;
-  if (freeCache) {
-    const ac = Math.max(0.05, coreFit.alphaCache);
+  let cIdx = 1 + fittedModels.length;
+  if (fitCache) {
+    const ac = Math.max(ALPHA_CACHE_MIN, coreFit.alphaCache);
     P[cIdx][cIdx] += LAMBDA_ALPHA / (ac * ac);
     cIdx++;
   }
-  if (freeOut) {
-    const ao = Math.max(0.05, coreFit.alphaOut);
+  if (fitOut) {
+    const ao = Math.max(ALPHA_OUT_MIN, coreFit.alphaOut);
     P[cIdx][cIdx] += LAMBDA_ALPHA / (ao * ao);
     cIdx++;
   }
@@ -1008,7 +1046,13 @@ function computeJacobianAndStats(
   const invGP = invertMatrix(GP);
 
   let effDf = colCount;
+  let minParamEffDf = 1;
+  let dof = Math.max(0, N - effDf);
+  let totalDof = NU0_PRIOR + dof;
+  let s2Post = (NU0_PRIOR * 1 + coreFit.chi2Data) / totalDof;
+  let tCrit = studentTCrit95(totalDof);
   let seBeta = null;
+  let seBetaMix = null;
   const seModels = new Map();
   let seCache = null;
   let seOut = null;
@@ -1018,14 +1062,53 @@ function computeJacobianAndStats(
     let tr = 0;
     for (let i = 0; i < colCount; i++) tr += hatMat[i][i];
     effDf = Math.max(1, Math.min(colCount, tr));
+    if (colCount > 1) {
+      minParamEffDf = 1;
+      for (let i = 1; i < colCount; i++) {
+        minParamEffDf = Math.min(minParamEffDf, Math.max(0, hatMat[i][i]));
+      }
+    }
 
-    const dof = Math.max(1, N - effDf);
-    const s2 = Math.max(1, coreFit.chi2Data / dof);
-    const cov = invGP.map((row) => row.map((v) => v * s2));
+    // Empirical Bayes scaled inverse-chi2 posterior dispersion with pseudo-df NU0_PRIOR = 4
+    dof = Math.max(0, N - effDf);
+    totalDof = NU0_PRIOR + dof;
+    s2Post = (NU0_PRIOR * 1 + coreFit.chi2Data) / totalDof;
+    tCrit = studentTCrit95(totalDof);
+    const cov = invGP.map((row) => row.map((v) => v * s2Post));
 
     seBeta = cov[0][0] >= 0 ? Math.sqrt(cov[0][0]) : null;
-    for (let c = 1; c <= freeModels.length; c++) {
-      const mId = freeModels[c - 1];
+
+    // Exact Delta Method for effective mixed-workload burn rate beta_mix = (beta * S_cycle_weighted) / sumCycleRaw
+    if (Array.isArray(cycleBuckets) && cycleBuckets.length > 0 && sumCycleRaw > 0) {
+      const mergedCycle = new Map();
+      for (const b of cycleBuckets) {
+        for (const [mId, mb] of b.byModel.entries()) {
+          let agg = mergedCycle.get(mId);
+          if (!agg) {
+            agg = { inUsd: 0, cacheReadUsd: 0, cacheWriteUsd: 0, outUsd: 0, totalUsd: 0 };
+            mergedCycle.set(mId, agg);
+          }
+          agg.inUsd += mb.inUsd;
+          agg.cacheReadUsd += mb.cacheReadUsd;
+          agg.cacheWriteUsd += mb.cacheWriteUsd;
+          agg.outUsd += mb.outUsd;
+          agg.totalUsd += mb.totalUsd;
+        }
+      }
+      const gMix = buildJacobianRow(mergedCycle.entries()).map((v) => v / sumCycleRaw);
+      let varMix = 0;
+      for (let i = 0; i < colCount; i++) {
+        for (let j = 0; j < colCount; j++) {
+          varMix += gMix[i] * cov[i][j] * gMix[j];
+        }
+      }
+      seBetaMix = varMix >= 0 ? Math.sqrt(varMix) : seBeta;
+    } else {
+      seBetaMix = seBeta;
+    }
+
+    for (let c = 1; c <= fittedModels.length; c++) {
+      const mId = fittedModels[c - 1];
       const w = coreFit.modelWeights.get(mId) ?? 1.0;
       const g0 = Math.max(1e-12, coreFit.beta);
       const d0 = -w / g0;
@@ -1037,12 +1120,12 @@ function computeJacobianAndStats(
       seModels.set(mId, varW >= 0 ? Math.sqrt(varW) : null);
     }
 
-    let pIdx = 1 + freeModels.length;
-    if (freeCache) {
+    let pIdx = 1 + fittedModels.length;
+    if (fitCache) {
       seCache = cov[pIdx][pIdx] >= 0 ? Math.sqrt(cov[pIdx][pIdx]) : null;
       pIdx++;
     }
-    if (freeOut) {
+    if (fitOut) {
       seOut = cov[pIdx][pIdx] >= 0 ? Math.sqrt(cov[pIdx][pIdx]) : null;
       pIdx++;
     }
@@ -1053,8 +1136,14 @@ function computeJacobianAndStats(
   return {
     maxVif,
     effDf,
+    minParamEffDf,
+    dof,
+    totalDof,
+    s2Post,
+    tCrit,
     chi2Score,
     seBeta,
+    seBetaMix,
     seModels,
     seCache,
     seOut,
@@ -1148,16 +1237,38 @@ function computeLoocvMaePp(
   return sumW > 0 ? (100 * sumErr) / sumW : null;
 }
 
-function buildEmptySubsetResult(def, eligible, reason, paramCount, allModels, anchorModel) {
+function buildEmptySubsetResult(
+  def,
+  eligible,
+  reasonObj,
+  paramCount,
+  allModels,
+  anchorModel
+) {
+  const r =
+    reasonObj && typeof reasonObj === 'object'
+      ? reasonObj
+      : { reason: String(reasonObj || ''), reasonCode: '', reasonParams: null };
   return {
     key: def.key,
     eligible,
-    reason,
+    autoEligible: eligible && def.key === 'base',
+    exploratory: false,
+    reason: r.reason || '',
+    reasonCode: r.reasonCode || '',
+    reasonParams: r.reasonParams || null,
+    autoReason: r.reason || '',
+    autoReasonCode: r.reasonCode || '',
+    autoReasonParams: r.reasonParams || null,
     factors: { ...def.factors },
     paramCount,
     anchorPoolUsd: null,
     equivalentMixPoolUsd: null,
     seBeta: null,
+    seBetaMix: null,
+    tCrit: null,
+    s2Post: null,
+    minParamEffDf: null,
     maePp: null,
     loocvMaePp: null,
     chi2Score: null,
@@ -1278,8 +1389,17 @@ function runSubsetsForRegime({
   }
 
   const N = usableSegments.length;
+  const segmentClusterCount = countSegmentClusters(usableSegments);
 
-  // Individual factor diagnostics (M, C, O)
+  const mkReason = (reasonCode, reasonParams, reason) => ({
+    reason: reason || '',
+    reasonCode: reasonCode || '',
+    reasonParams: reasonParams || null,
+  });
+
+  // Two-tier individual factor diagnostics (M, C, O):
+  // - eligible: relaxed exploratory threshold (manual toggle allowed with honest ±SE & exploratory badge)
+  // - autoEligible: strict statistical threshold (required for Auto mode adoption)
   const nonAnchorStats = [];
   for (const m of availableAnchorModels) {
     if (m.canonicalId === anchorModel) continue;
@@ -1293,30 +1413,83 @@ function runSubsetsForRegime({
       std: sampleStd(perSegShares),
     });
   }
+
   const candidateModels = nonAnchorStats
-    .filter((m) => m.share >= 0.10 && m.std >= 0.08)
+    .filter((m) => m.share >= 0.05 && m.std >= 0.04)
+    .sort((a, b) => b.share - a.share)
+    .slice(0, MAX_M_MODELS)
+    .map((m) => m.canonicalId);
+
+  const autoCandidateModels = nonAnchorStats
+    .filter((m) => (N >= 6 ? m.share >= 0.05 && m.std >= 0.05 : m.share >= 0.10 && m.std >= 0.08))
     .sort((a, b) => b.share - a.share)
     .slice(0, MAX_M_MODELS)
     .map((m) => m.canonicalId);
 
   const maxModelStd = nonAnchorStats.reduce((mx, m) => Math.max(mx, m.std), 0);
-  const kExtraModels = candidateModels.length;
+  const maxNonAnchorShare = nonAnchorStats.reduce((mx, m) => Math.max(mx, m.share), 0);
+  // Isolate Auto from weak exploratory-only models: when >=1 model passes Auto gate, fit only
+  // autoCandidateModels so a weak 5-9% model neither leaks into Auto nor inflates pCount.
+  const activeMModels = autoCandidateModels.length > 0 ? autoCandidateModels : candidateModels;
+  const kExtraModels = activeMModels.length;
 
   let mEligible = false;
-  let mReason = '';
+  let mAutoEligible = false;
+  let mReasonObj = mkReason('', null, '');
+  let mAutoReasonObj = mkReason('', null, '');
+
   if (availableAnchorModels.length <= 1) {
-    mReason = 'Only 1 active model in cycle';
-  } else if (candidateModels.length === 0) {
-    const hasSecondModel = nonAnchorStats.some((m) => m.share >= 0.10);
-    mReason = !hasSecondModel
-      ? 'Need >=2 models with >=10% cycle spend share'
-      : 'Model mix variation across segments too low (std < 0.08)';
+    mReasonObj = mkReason('m_single_model', null, 'Only 1 active model in cycle');
+    mAutoReasonObj = mReasonObj;
+  } else if (activeMModels.length === 0) {
+    const hasSecondModel = nonAnchorStats.some((m) => m.share >= 0.05);
+    mReasonObj = !hasSecondModel
+      ? mkReason('m_low_share', { minPct: 5 }, 'Need >=2 models with >=5% cycle spend share')
+      : mkReason(
+          'm_low_std',
+          { std: Number(maxModelStd.toFixed(2)), minStd: 0.04 },
+          `Model mix variation across segments too low (std ${maxModelStd.toFixed(2)} < 0.04)`
+        );
+    mAutoReasonObj = mReasonObj;
   } else {
-    const minNM = 1 + kExtraModels + 2;
-    if (N < minNM) {
-      mReason = `Need ${minNM - N} more smoothed segments with varied model mix (${N}/${minNM})`;
+    const minNExplore = 1 + kExtraModels + 1;
+    const minNAuto = 1 + kExtraModels + 2;
+    if (N < minNExplore) {
+      mReasonObj = mkReason(
+        'm_need_segs',
+        { need: minNExplore - N, cur: N, req: minNExplore },
+        `Need ${minNExplore - N} more smoothed segments with varied model mix (${N}/${minNExplore})`
+      );
+      mAutoReasonObj = mkReason(
+        'm_need_segs',
+        { need: minNAuto - N, cur: N, req: minNAuto },
+        `Need ${minNAuto - N} more smoothed segments with varied model mix (${N}/${minNAuto})`
+      );
     } else {
       mEligible = true;
+      if (autoCandidateModels.length === 0) {
+        if (maxNonAnchorShare < 0.10) {
+          mAutoReasonObj = mkReason(
+            'm_auto_share_or_segs',
+            { sharePct: Number((maxNonAnchorShare * 100).toFixed(1)), n: N },
+            `Secondary model share ${(maxNonAnchorShare * 100).toFixed(1)}% < 10% (auto needs >=10% or >=6 segments)`
+          );
+        } else {
+          mAutoReasonObj = mkReason(
+            'm_low_std',
+            { std: Number(maxModelStd.toFixed(2)), minStd: N >= 6 ? 0.05 : 0.08 },
+            `Model mix variation across segments too low for auto (std ${maxModelStd.toFixed(2)} < ${N >= 6 ? '0.05' : '0.08'})`
+          );
+        }
+      } else if (N < minNAuto) {
+        mAutoReasonObj = mkReason(
+          'm_need_segs',
+          { need: minNAuto - N, cur: N, req: minNAuto },
+          `Need ${minNAuto - N} more smoothed segments for auto (${N}/${minNAuto})`
+        );
+      } else {
+        mAutoEligible = true;
+      }
     }
   }
 
@@ -1328,15 +1501,55 @@ function runSubsetsForRegime({
   const cacheStd = sampleStd(cacheShares);
 
   let cEligible = false;
-  let cReason = '';
+  let cAutoEligible = false;
+  let cReasonObj = mkReason('', null, '');
+  let cAutoReasonObj = mkReason('', null, '');
   if (N < 2) {
-    cReason = `Need ${4 - N} more smoothed segments with varied cache-read share (${N}/4)`;
-  } else if (cacheStd < 0.05) {
-    cReason = `Cache-read share variation too low (std ${cacheStd.toFixed(2)} < 0.05)`;
-  } else if (N < 4) {
-    cReason = `Need ${4 - N} more smoothed segments with varied cache-read share (${N}/4)`;
+    cReasonObj = mkReason(
+      'c_need_segs',
+      { need: 3 - N, cur: N, req: 3 },
+      `Need ${3 - N} more smoothed segments with varied cache-read share (${N}/3)`
+    );
+    cAutoReasonObj = mkReason(
+      'c_need_segs',
+      { need: 4 - N, cur: N, req: 4 },
+      `Need ${4 - N} more smoothed segments with varied cache-read share (${N}/4)`
+    );
+  } else if (cacheStd < 0.03) {
+    cReasonObj = mkReason(
+      'c_low_std',
+      { std: Number(cacheStd.toFixed(2)), minStd: 0.03 },
+      `Cache-read share variation too low (std ${cacheStd.toFixed(2)} < 0.03)`
+    );
+    cAutoReasonObj = cReasonObj;
+  } else if (N < 3) {
+    cReasonObj = mkReason(
+      'c_need_segs',
+      { need: 3 - N, cur: N, req: 3 },
+      `Need ${3 - N} more smoothed segments with varied cache-read share (${N}/3)`
+    );
+    cAutoReasonObj = mkReason(
+      'c_need_segs',
+      { need: 4 - N, cur: N, req: 4 },
+      `Need ${4 - N} more smoothed segments with varied cache-read share (${N}/4)`
+    );
   } else {
     cEligible = true;
+    if (cacheStd < 0.05) {
+      cAutoReasonObj = mkReason(
+        'c_low_std',
+        { std: Number(cacheStd.toFixed(2)), minStd: 0.05 },
+        `Cache-read share variation too low for auto (std ${cacheStd.toFixed(2)} < 0.05)`
+      );
+    } else if (N < 4) {
+      cAutoReasonObj = mkReason(
+        'c_need_segs',
+        { need: 4 - N, cur: N, req: 4 },
+        `Need ${4 - N} more smoothed segments for auto (${N}/4)`
+      );
+    } else {
+      cAutoEligible = true;
+    }
   }
 
   const outShares = usableSegments.map((s) => {
@@ -1347,32 +1560,87 @@ function runSubsetsForRegime({
   const outStd = sampleStd(outShares);
 
   let oEligible = false;
-  let oReason = '';
+  let oAutoEligible = false;
+  let oReasonObj = mkReason('', null, '');
+  let oAutoReasonObj = mkReason('', null, '');
   if (N < 2) {
-    oReason = `Need ${4 - N} more smoothed segments with varied output share (${N}/4)`;
-  } else if (outStd < 0.06) {
-    oReason = `Output share variation too low (std ${outStd.toFixed(2)} < 0.06)`;
-  } else if (N < 4) {
-    oReason = `Need ${4 - N} more smoothed segments with varied output share (${N}/4)`;
+    oReasonObj = mkReason(
+      'o_need_segs',
+      { need: 3 - N, cur: N, req: 3 },
+      `Need ${3 - N} more smoothed segments with varied output share (${N}/3)`
+    );
+    oAutoReasonObj = mkReason(
+      'o_need_segs',
+      { need: 4 - N, cur: N, req: 4 },
+      `Need ${4 - N} more smoothed segments with varied output share (${N}/4)`
+    );
+  } else if (outStd < 0.03) {
+    oReasonObj = mkReason(
+      'o_low_std',
+      { std: Number(outStd.toFixed(2)), minStd: 0.03 },
+      `Output share variation too low (std ${outStd.toFixed(2)} < 0.03)`
+    );
+    oAutoReasonObj = oReasonObj;
+  } else if (N < 3) {
+    oReasonObj = mkReason(
+      'o_need_segs',
+      { need: 3 - N, cur: N, req: 3 },
+      `Need ${3 - N} more smoothed segments with varied output share (${N}/3)`
+    );
+    oAutoReasonObj = mkReason(
+      'o_need_segs',
+      { need: 4 - N, cur: N, req: 4 },
+      `Need ${4 - N} more smoothed segments with varied output share (${N}/4)`
+    );
   } else {
     oEligible = true;
+    if (outStd < 0.06) {
+      oAutoReasonObj = mkReason(
+        'o_low_std',
+        { std: Number(outStd.toFixed(2)), minStd: 0.06 },
+        `Output share variation too low for auto (std ${outStd.toFixed(2)} < 0.06)`
+      );
+    } else if (N < 4) {
+      oAutoReasonObj = mkReason(
+        'o_need_segs',
+        { need: 4 - N, cur: N, req: 4 },
+        `Need ${4 - N} more smoothed segments for auto (${N}/4)`
+      );
+    } else {
+      oAutoEligible = true;
+    }
   }
 
   const factorsMeta = {
     M: {
       eligible: mEligible,
-      reason: mReason,
-      candidateModels,
+      autoEligible: mAutoEligible,
+      exploratory: mEligible && !mAutoEligible,
+      ...mReasonObj,
+      autoReason: mAutoReasonObj.reason,
+      autoReasonCode: mAutoReasonObj.reasonCode,
+      autoReasonParams: mAutoReasonObj.reasonParams,
+      candidateModels: activeMModels,
       std: Number(maxModelStd.toFixed(4)),
     },
     C: {
       eligible: cEligible,
-      reason: cReason,
+      autoEligible: cAutoEligible,
+      exploratory: cEligible && !cAutoEligible,
+      ...cReasonObj,
+      autoReason: cAutoReasonObj.reason,
+      autoReasonCode: cAutoReasonObj.reasonCode,
+      autoReasonParams: cAutoReasonObj.reasonParams,
       std: Number(cacheStd.toFixed(4)),
     },
     O: {
       eligible: oEligible,
-      reason: oReason,
+      autoEligible: oAutoEligible,
+      exploratory: oEligible && !oAutoEligible,
+      ...oReasonObj,
+      autoReason: oAutoReasonObj.reason,
+      autoReasonCode: oAutoReasonObj.reasonCode,
+      autoReasonParams: oAutoReasonObj.reasonParams,
       std: Number(outStd.toFixed(4)),
     },
   };
@@ -1390,7 +1658,9 @@ function runSubsetsForRegime({
         const res = buildEmptySubsetResult(
           def,
           baseOk,
-          baseOk ? '' : 'Need at least 2 anchors with positive quota delta',
+          baseOk
+            ? mkReason('', null, '')
+            : mkReason('need_anchors', null, 'Need at least 2 anchors with positive quota delta'),
           1,
           availableAnchorModels,
           anchorModel
@@ -1399,10 +1669,11 @@ function runSubsetsForRegime({
           const qPool = fallbackPooled.sumC / fallbackPooled.sumDeltaU;
           res.anchorPoolUsd = qPool;
           res.equivalentMixPoolUsd = qPool;
+          res.tCrit = Number(studentTCrit95(NU0_PRIOR).toFixed(4));
         }
         subsets[def.key] = res;
       } else {
-        const firstIneligible = def.factors.M ? mReason : def.factors.C ? cReason : oReason;
+        const firstIneligible = def.factors.M ? mReasonObj : def.factors.C ? cReasonObj : oReasonObj;
         subsets[def.key] = buildEmptySubsetResult(
           def,
           false,
@@ -1423,6 +1694,8 @@ function runSubsetsForRegime({
       promoIdentifiable: !anyPromo || anyNonPromoSameModel,
       rawSegmentsCount: coalescedResult.rawSegmentsCount,
       segmentsCount: 0,
+      segmentClusterCount: 1,
+      sumCycleRaw: fallbackPooled?.sumC || 0,
       coalescedCount: coalescedResult.coalescedCount,
       reboundMergedCount: coalescedResult.reboundMergedCount,
       factors: factorsMeta,
@@ -1465,7 +1738,7 @@ function runSubsetsForRegime({
   );
   const baseCore = baseFitBundle.coreFit;
 
-  function finalizeSubset(def, fitBundle, paramCount, reason = '') {
+  function finalizeSubset(def, fitBundle, paramCount, { computeLoocv = true } = {}) {
     const { coreFit, effectiveWeights, huberFactors } = fitBundle;
     const fitModels = def.factors.M;
     const fitCache = def.factors.C;
@@ -1474,16 +1747,22 @@ function runSubsetsForRegime({
     const stats = computeJacobianAndStats(coreFit, usableSegments, effectiveWeights, anchorModel, {
       fitCache,
       fitOut,
+      cycleBuckets,
+      sumCycleRaw,
     });
     const maePp = computeWeightedMaePp(usableSegments, effectiveWeights, coreFit.yHat);
-    const loocvMaePp = computeLoocvMaePp(
-      def.key,
-      usableSegments,
-      effectiveWeights,
-      anchorModel,
-      fitModels ? candidateModels : [],
-      { fitModels, fitCache, fitOut }
-    );
+    // Skip LOOCV when N < paramCount + 2 (dof <= 1 -> each leave-one-out fold has dof = 0)
+    const loocvMaePp =
+      computeLoocv && N >= paramCount + 2
+        ? computeLoocvMaePp(
+            def.key,
+            usableSegments,
+            effectiveWeights,
+            anchorModel,
+            fitModels ? activeMModels : [],
+            { fitModels, fitCache, fitOut }
+          )
+        : null;
     const anchorPoolUsd = coreFit.beta > 0 ? 1 / coreFit.beta : null;
     let sumCycleWeighted = 0;
     for (const b of cycleBuckets) {
@@ -1496,10 +1775,10 @@ function runSubsetsForRegime({
 
     const modelParams = availableAnchorModels.map((m) => {
       const isAnchor = m.canonicalId === anchorModel;
-      const isCandidate = fitModels && candidateModels.includes(m.canonicalId);
+      const isCandidate = fitModels && activeMModels.includes(m.canonicalId);
       const isClamped = isCandidate && coreFit.clampedSet.has(m.canonicalId);
       const val = isAnchor ? 1.0 : (coreFit.modelWeights.get(m.canonicalId) ?? 1.0);
-      const se = isCandidate && !isClamped ? (stats.seModels.get(m.canonicalId) ?? null) : null;
+      const se = isCandidate ? (stats.seModels.get(m.canonicalId) ?? null) : null;
       return {
         canonicalId: m.canonicalId,
         value: Number(val.toFixed(4)),
@@ -1532,18 +1811,32 @@ function runSubsetsForRegime({
     return {
       key: def.key,
       eligible: true,
-      reason,
+      autoEligible: def.key === 'base',
+      exploratory: false,
+      reason: '',
+      reasonCode: '',
+      reasonParams: null,
+      autoReason: '',
+      autoReasonCode: '',
+      autoReasonParams: null,
       factors: { ...def.factors },
       paramCount,
       anchorPoolUsd,
       equivalentMixPoolUsd,
       seBeta: stats.seBeta,
+      seBetaMix: stats.seBetaMix,
+      tCrit: Number(stats.tCrit.toFixed(4)),
+      s2Post: Number(stats.s2Post.toFixed(4)),
+      minParamEffDf: Number(stats.minParamEffDf.toFixed(3)),
       maePp: Number(maePp.toFixed(4)),
       loocvMaePp: loocvMaePp != null ? Number(loocvMaePp.toFixed(4)) : null,
       chi2Score: Number(stats.chi2Score.toFixed(4)),
       maxVif: Number(Number.isFinite(stats.maxVif) ? stats.maxVif.toFixed(3) : 9999),
       _rawMaxVif: stats.maxVif,
       _chi2Data: coreFit.chi2Data,
+      _effDf: stats.effDf,
+      _s2Post: stats.s2Post,
+      _minParamEffDf: stats.minParamEffDf,
       _modelWeights: coreFit.modelWeights,
       _alphaCache: coreFit.alphaCache,
       _alphaOut: coreFit.alphaOut,
@@ -1551,13 +1844,13 @@ function runSubsetsForRegime({
         models: modelParams,
         cache: {
           value: Number(coreFit.alphaCache.toFixed(4)),
-          se: fitCache && !coreFit.cacheClamped && stats.seCache != null ? Number(stats.seCache.toFixed(4)) : null,
+          se: fitCache && stats.seCache != null ? Number(stats.seCache.toFixed(4)) : null,
           fitted: fitCache,
           clamped: fitCache && coreFit.cacheClamped,
         },
         output: {
           value: Number(coreFit.alphaOut.toFixed(4)),
-          se: fitOut && !coreFit.outClamped && stats.seOut != null ? Number(stats.seOut.toFixed(4)) : null,
+          se: fitOut && stats.seOut != null ? Number(stats.seOut.toFixed(4)) : null,
           fitted: fitOut,
           clamped: fitOut && coreFit.outClamped,
         },
@@ -1567,7 +1860,7 @@ function runSubsetsForRegime({
   }
 
   const subsets = {};
-  subsets.base = finalizeSubset(SUBSET_DEFS[0], baseFitBundle, 1);
+  subsets.base = finalizeSubset(SUBSET_DEFS[0], baseFitBundle, 1, { computeLoocv: N >= 2 });
 
   for (const def of SUBSET_DEFS) {
     if (def.key === 'base') continue;
@@ -1577,17 +1870,17 @@ function runSubsetsForRegime({
       (def.factors.C ? 1 : 0) +
       (def.factors.O ? 1 : 0);
 
-    // Check individual factor eligibility first
-    const failedFactorReasons = [];
-    if (def.factors.M && !mEligible) failedFactorReasons.push(mReason);
-    if (def.factors.C && !cEligible) failedFactorReasons.push(cReason);
-    if (def.factors.O && !oEligible) failedFactorReasons.push(oReason);
+    // Tier 1: Manual explore eligibility
+    const failedExploreReasons = [];
+    if (def.factors.M && !mEligible) failedExploreReasons.push(mReasonObj);
+    if (def.factors.C && !cEligible) failedExploreReasons.push(cReasonObj);
+    if (def.factors.O && !oEligible) failedExploreReasons.push(oReasonObj);
 
-    if (failedFactorReasons.length > 0) {
+    if (failedExploreReasons.length > 0) {
       subsets[def.key] = buildEmptySubsetResult(
         def,
         false,
-        failedFactorReasons[0],
+        failedExploreReasons[0],
         pCount,
         availableAnchorModels,
         anchorModel
@@ -1595,12 +1888,16 @@ function runSubsetsForRegime({
       continue;
     }
 
-    const minN = pCount + 2;
-    if (N < minN) {
+    const minNExplore = pCount + 1;
+    if (N < minNExplore) {
       subsets[def.key] = buildEmptySubsetResult(
         def,
         false,
-        `Need ${minN - N} more smoothed segments for ${def.key} (${N}/${minN})`,
+        mkReason(
+          'subset_need_segs',
+          { subset: def.key, need: minNExplore - N, cur: N, req: minNExplore },
+          `Need ${minNExplore - N} more smoothed segments for ${def.key} (${N}/${minNExplore})`
+        ),
         pCount,
         availableAnchorModels,
         anchorModel
@@ -1614,7 +1911,7 @@ function runSubsetsForRegime({
       baseWeights,
       sigmaVec,
       anchorModel,
-      def.factors.M ? candidateModels : [],
+      def.factors.M ? activeMModels : [],
       {
         fitModels: def.factors.M,
         fitCache: def.factors.C,
@@ -1623,28 +1920,100 @@ function runSubsetsForRegime({
       baseFitBundle.huberFactors
     );
 
-    const cand = finalizeSubset(def, fitBundle, pCount);
-    if (cand._rawMaxVif >= 10) {
+    const cand = finalizeSubset(def, fitBundle, pCount, { computeLoocv: N >= pCount + 2 });
+    if (cand._rawMaxVif >= MAX_VIF_EXPLORE) {
+      const vifReason = mkReason(
+        'subset_collinear',
+        { subset: def.key, vif: cand.maxVif, maxVif: MAX_VIF_EXPLORE },
+        `Collinear ${def.key} dimensions rejected (VIF ${cand.maxVif} >= ${MAX_VIF_EXPLORE})`
+      );
       subsets[def.key] = {
         ...cand,
         eligible: false,
-        reason: `Collinear ${def.key} dimensions rejected (VIF ${cand.maxVif} >= 10)`,
+        autoEligible: false,
+        exploratory: false,
+        ...vifReason,
+        autoReason: vifReason.reason,
+        autoReasonCode: vifReason.reasonCode,
+        autoReasonParams: vifReason.reasonParams,
       };
-      // If a single-factor subset itself fails VIF, mark that factor ineligible too
       if (factorCount(def.factors) === 1) {
         const fKey = def.factors.M ? 'M' : def.factors.C ? 'C' : 'O';
         factorsMeta[fKey].eligible = false;
-        factorsMeta[fKey].reason = subsets[def.key].reason;
+        factorsMeta[fKey].autoEligible = false;
+        factorsMeta[fKey].exploratory = false;
+        factorsMeta[fKey].reason = vifReason.reason;
+        factorsMeta[fKey].reasonCode = vifReason.reasonCode;
+        factorsMeta[fKey].reasonParams = vifReason.reasonParams;
+        factorsMeta[fKey].autoReason = vifReason.reason;
+        factorsMeta[fKey].autoReasonCode = vifReason.reasonCode;
+        factorsMeta[fKey].autoReasonParams = vifReason.reasonParams;
       }
-    } else {
-      subsets[def.key] = cand;
+      continue;
+    }
+
+    // Tier 2: Strict Auto adoption gate
+    const failedAutoReasons = [];
+    if (def.factors.M && !mAutoEligible) failedAutoReasons.push(mAutoReasonObj);
+    if (def.factors.C && !cAutoEligible) failedAutoReasons.push(cAutoReasonObj);
+    if (def.factors.O && !oAutoEligible) failedAutoReasons.push(oAutoReasonObj);
+
+    const minNAuto = pCount + 2;
+    if (failedAutoReasons.length === 0 && N < minNAuto) {
+      failedAutoReasons.push(
+        mkReason(
+          'subset_need_segs',
+          { subset: def.key, need: minNAuto - N, cur: N, req: minNAuto },
+          `Need ${minNAuto - N} more smoothed segments for auto ${def.key} (${N}/${minNAuto})`
+        )
+      );
+    }
+    if (failedAutoReasons.length === 0 && cand._rawMaxVif >= MAX_VIF_AUTO) {
+      failedAutoReasons.push(
+        mkReason(
+          'subset_collinear',
+          { subset: def.key, vif: cand.maxVif, maxVif: MAX_VIF_AUTO },
+          `Collinear ${def.key} dimensions rejected for auto (VIF ${cand.maxVif} >= ${MAX_VIF_AUTO})`
+        )
+      );
+    }
+    if (failedAutoReasons.length === 0 && cand._minParamEffDf < MIN_EFF_DF_AUTO) {
+      failedAutoReasons.push(
+        mkReason(
+          'subset_low_effdf',
+          { subset: def.key, effDf: cand.minParamEffDf, minEffDf: MIN_EFF_DF_AUTO },
+          `Prior-dominated ${def.key} fit (data dominance ${cand.minParamEffDf} < ${MIN_EFF_DF_AUTO})`
+        )
+      );
+    }
+
+    const isAutoOk = failedAutoReasons.length === 0 && cand.loocvMaePp != null;
+    const autoFail = failedAutoReasons[0] || mkReason('', null, '');
+    subsets[def.key] = {
+      ...cand,
+      eligible: true,
+      autoEligible: isAutoOk,
+      exploratory: !isAutoOk,
+      autoReason: isAutoOk ? '' : autoFail.reason,
+      autoReasonCode: isAutoOk ? '' : autoFail.reasonCode,
+      autoReasonParams: isAutoOk ? null : autoFail.reasonParams,
+    };
+
+    if (factorCount(def.factors) === 1 && !isAutoOk) {
+      const fKey = def.factors.M ? 'M' : def.factors.C ? 'C' : 'O';
+      factorsMeta[fKey].autoEligible = false;
+      factorsMeta[fKey].exploratory = factorsMeta[fKey].eligible;
+      factorsMeta[fKey].autoReason = autoFail.reason;
+      factorsMeta[fKey].autoReasonCode = autoFail.reasonCode;
+      factorsMeta[fKey].autoReasonParams = autoFail.reasonParams;
     }
   }
 
-  // Auto subset selection across all eligible subsets sorted by paramCount ascending (Occam's razor)
+  // Auto subset selection across strictly autoEligible subsets sorted by paramCount ascending (Occam's razor)
+  // Uses overdispersion-scaled Quasi-AIC (QAIC) with empirical Bayes s2Post so high s2 does not trigger false selection.
   let recommendedSubset = 'base';
   const eligibleCandidates = Object.values(subsets)
-    .filter((s) => s.key !== 'base' && s.eligible && s.loocvMaePp != null)
+    .filter((s) => s.key !== 'base' && s.autoEligible && s.loocvMaePp != null)
     .sort(
       (a, b) =>
         a.paramCount - b.paramCount ||
@@ -1661,8 +2030,11 @@ function runSubsetsForRegime({
     const loocvImproved =
       cand.loocvMaePp <= best.loocvMaePp * reqFactor &&
       best.loocvMaePp - cand.loocvMaePp > qEff * 50;
-    const chi2Improved = cand.chi2Score <= best.chi2Score - 2.0;
-    const vifOk = cand._rawMaxVif < 10;
+    const s2Scale = Math.max(1, cand._s2Post || 1);
+    const qAicBest = best._chi2Data / s2Scale + 2 * (best._effDf ?? best.paramCount);
+    const qAicCand = cand._chi2Data / s2Scale + 2 * (cand._effDf ?? cand.paramCount);
+    const chi2Improved = qAicCand <= qAicBest - 2.0;
+    const vifOk = cand._rawMaxVif < MAX_VIF_AUTO;
     if (loocvImproved && chi2Improved && vifOk) {
       recommendedSubset = cand.key;
     }
@@ -1677,6 +2049,8 @@ function runSubsetsForRegime({
     promoIdentifiable: !anyPromo || anyNonPromoSameModel,
     rawSegmentsCount: coalescedResult.rawSegmentsCount,
     segmentsCount: N,
+    segmentClusterCount,
+    sumCycleRaw,
     coalescedCount: coalescedResult.coalescedCount,
     reboundMergedCount: coalescedResult.reboundMergedCount,
     factors: factorsMeta,
@@ -1689,6 +2063,9 @@ function stripInternalSubsetFields(sub) {
   const copy = { ...sub };
   delete copy._rawMaxVif;
   delete copy._chi2Data;
+  delete copy._effDf;
+  delete copy._s2Post;
+  delete copy._minParamEffDf;
   delete copy._modelWeights;
   delete copy._alphaCache;
   delete copy._alphaOut;
@@ -1838,6 +2215,16 @@ export function calibrateQuotaCycle({
       anchorPoolUsd: activeSubObj.anchorPoolUsd,
       equivalentMixPoolUsd: activeSubObj.equivalentMixPoolUsd,
       seBeta: activeSubObj.seBeta,
+      seBetaMix: activeSubObj.seBetaMix,
+      tCrit: activeSubObj.tCrit,
+      s2Post: activeSubObj.s2Post,
+      segmentClusterCount: chosen.segmentClusterCount || 1,
+      sumCycleRaw: chosen.sumCycleRaw || 0,
+      exploratory: Boolean(activeSubObj.exploratory),
+      autoEligible: Boolean(activeSubObj.autoEligible),
+      autoReason: activeSubObj.autoReason || '',
+      autoReasonCode: activeSubObj.autoReasonCode || '',
+      autoReasonParams: activeSubObj.autoReasonParams || null,
       tailWeightedUsd,
       tailRawUsd: tailAgg.rawSpendUsd,
       segmentFits: activeSubObj.segmentFits,

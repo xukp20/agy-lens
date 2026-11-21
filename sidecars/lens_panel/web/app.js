@@ -189,6 +189,9 @@
         themeToggleTitle: '切换浅色 / 深色主题',
         readonlyTitle: '只读模式：写操作与后台同步已禁用',
         readonlyBadge: '只读',
+        switchSessionAria: '切换对话会话',
+        matrixPopoverAria: '矩阵单元格详情',
+        updatePopoverAria: '更新详情',
         rangeGroupAria: '全局时间范围',
         rangeToday: '今日',
         rangeAll: '全部',
@@ -482,7 +485,7 @@
         emptyDesc: '尚未记录订阅额度对齐点。展开卡片后可记录当前的精确剩余百分比（如 94.25%），自动反推周期隐含总额度。',
         formTitle: '快速记录对齐点',
         poolLabel: '额度池',
-        pool3p: 'Third-Party (3P)',
+        pool3p: '第三方 (3P)',
         windowLabel: '统计窗口',
         win5h: '5h 窗口',
         win7d: '7d 周期',
@@ -550,18 +553,38 @@
         factorM: '模型倍率 (M)',
         factorC: '缓存倍率 (C)',
         factorO: '输出倍率 (O)',
-        calibBadgeHelp: '正交 3 因子校准：模型倍率 (M)、缓存倍率 (C)、输出倍率 (O) 彼此独立，随各自变异度独立解锁。\n系统在全部 8 个子集中用留一交叉验证（LOOCV-MAE）与 χ² 准则自动择优，并对微小滞后/回弹进行保守平滑归并，防止过拟合。',
+        calibBadgeHelp: '正交 3 因子校准：模型倍率 (M)、缓存倍率 (C)、输出倍率 (O) 彼此独立，按双层门槛（手动探索 / 自动择优）独立解锁。\n自动模式仅在满足严格数据量与共线性门槛的子集中，按 LOOCV-MAE 与过离散校正 χ² 准则择优；所有子集的 95% CI 均按统一残差与完整 Delta 法协方差计算。',
         mixEqHint: '当前配比等效',
         clamped: '受限',
+        exploratoryBadge: '探索性',
+        exploratoryTip: '当前组合处于手动探索区间（未达自动择优门槛：{reason}），参数方差较大，结果仅供参考。',
+        stripBase: '基准',
+        stripCache: '缓存',
+        stripOutput: '输出',
         maeStrip: 'MAE ±{mae}pp',
         labTitle: '权重校准实验室',
         labSummary: '推荐 {rec} · {n} 段',
         modeAuto: '自动择优',
-        modeAutoHelp: '评估全部 8 个正交子集，按 LOOCV-MAE 改善与 χ² 准则自动选择最优模型。',
+        modeAutoHelp: '在通过严格准入的子集中按 LOOCV-MAE 与过离散校正 χ² 准则自动选择最优模型。',
         modeManual: '手动 {mode}',
         allFactorsUnlocked: '全部 3 个正交因子已就绪，可自由组合或使用自动择优。',
+        exploreOnlyHint: '探索可手动点选（未达自动门槛）：{list}',
         manualFallbackHint: '组合 {subset} 暂不可用（{reason}），已回退至 {fallback}。',
         subsetIneligible: '样本量或共线性条件未满足',
+        reasonNeedAnchors: '至少需要 2 条含有效额度消耗的对齐记录',
+        reasonMSingleModel: '本周期仅使用 1 个活跃模型',
+        reasonMLowShare: '需至少 2 个模型且副模型占比 ≥ {minPct}%',
+        reasonMLowStd: '各段模型配比变化偏低（std {std} < {minStd}）',
+        reasonMNeedSegs: '还需 {need} 个模型配比有变化的平滑段（{cur}/{req}）',
+        reasonMAutoShareOrSegs: '副模型占比 {sharePct}% < 10%（自动采纳需 ≥10% 或 ≥6 段）',
+        reasonCLowStd: '各段缓存占比变化偏低（std {std} < {minStd}）',
+        reasonCNeedSegs: '还需 {need} 个缓存占比有变化的平滑段（{cur}/{req}）',
+        reasonOLowStd: '各段输出占比变化偏低（std {std} < {minStd}）',
+        reasonONeedSegs: '还需 {need} 个输出占比有变化的平滑段（{cur}/{req}）',
+        reasonSubsetNeedSegs: '组合 {subset} 还需 {need} 个平滑段（{cur}/{req}）',
+        reasonSubsetCollinear: '组合 {subset} 维度共线性过高（VIF {vif} ≥ {maxVif}）',
+        reasonSubsetLowEffDf: '组合 {subset} 数据主导度偏低（{effDf} < {minEffDf}，主要由先验决定）',
+        promoIntro: '首销 {pct}% 优惠，截至 {date}',
         smoothSegSummary: '{anchors} 锚点 → {segs} 平滑段 (合并 {merged} 处抖动)',
         smoothHuberTag: 'Huber 降权 {n} 处跳变',
         smoothTipInfo: '保守区间平滑：自动归并微小结算滞后与微幅回弹，保持总花费与 Δu 守恒；Huber 权重自动抑制偶发滞后异常点。',
@@ -574,21 +597,21 @@
         paramBase: '基准 1.00×',
         paramFitted: '已拟合',
         paramDefault: '默认 1.00×',
-        paramCacheName: 'Cache Read (α_cache)',
-        paramOutName: 'Output / Thinking (α_out)',
+        paramCacheName: '缓存读取 (α_cache)',
+        paramOutName: '输出 / 思考 (α_out)',
         interpBase: '以该模型 API 单价作为本池 1.00× 基准标尺。',
         interpModelEff: '同 API 花费下，额度消耗约为基准模型的 {v}×（更省额度）。',
         interpModelHeavy: '同 API 花费下，额度消耗约为基准模型的 {v}×（更费额度）。',
         interpModelNeutral: '与基准模型额度消耗速率基本一致（~{v}×）。',
         interpModelUnfit: '沿用 API 标价 1.00×（启用因子 M 后拟合）。',
-        interpCacheCheap: '缓存读取按 API 折扣的 {v}× 扣额（命中更划算）。',
-        interpCacheExpensive: '缓存读取按 API 折扣的 {v}× 扣额（折扣低于 API）。',
-        interpCacheNeutral: '缓存读取扣额与官方 API 定价基本一致（~{v}×）。',
-        interpCacheUnfit: '按官方 API 缓存折扣计算（启用因子 C 后拟合）。',
-        interpOutExpensive: '输出 / 思考 Token 权重为 API 价的 {v}×（输出更贵）。',
-        interpOutCheap: '输出 / 思考 Token 权重仅为 API 价的 {v}×（输出更省）。',
-        interpOutNeutral: '输出与输入消耗比基本符合官方 API 定价（~{v}×）。',
-        interpOutUnfit: '按官方 API 输出比例计算（启用因子 O 后拟合）。',
+        interpCacheCheap: '同池消费加权平均：缓存读取按 API 缓存价的 {v}× 扣额（命中更划算）。',
+        interpCacheExpensive: '同池消费加权平均：缓存读取按 API 缓存价的 {v}× 扣额（折扣低于 API）。',
+        interpCacheNeutral: '同池消费加权平均：缓存读取扣额与官方 API 定价基本一致（~{v}×）。',
+        interpCacheUnfit: '按官方 API 缓存折扣计算（启用因子 C 后拟合池平均倍率）。',
+        interpOutExpensive: '同池消费加权平均：输出 / 思考按 API 输出价的 {v}× 扣额（输出更贵）。',
+        interpOutCheap: '同池消费加权平均：输出 / 思考按 API 输出价的 {v}× 扣额（输出更省）。',
+        interpOutNeutral: '同池消费加权平均：输出与输入消耗比基本符合官方 API 定价（~{v}×）。',
+        interpOutUnfit: '按官方 API 输出比例计算（启用因子 O 后拟合池平均倍率）。',
         trialNotAdopted: '未采纳 · 试算 {val}{clamped}（{reason}）',
         trialReasonWorse: 'LOOCV ±{trial}pp 差于基准 ±{base}pp',
         trialReasonMarginal: 'LOOCV ±{trial}pp 较基准 ±{base}pp 降幅不足 15%',
@@ -599,7 +622,7 @@
         residualNoData: '当前周期分段拟合数据不足。',
         residualSummary: '{l0} ±{mae0}pp → {cur} ±{mae1}pp ({metric})',
         residualBaseOnly: '{base} ±{mae0}pp ({metric})',
-        legendObs: '实测 Observed',
+        legendObs: '实测',
         legendBase: '基准预测',
         legendCur: '{lvl} 预测',
         legendHuber: 'Huber 降权',
@@ -757,6 +780,9 @@
         themeToggleTitle: 'Toggle light / dark theme',
         readonlyTitle: 'Read-only mode: write operations and background sync are disabled',
         readonlyBadge: 'Read-Only',
+        switchSessionAria: 'Switch conversation',
+        matrixPopoverAria: 'Matrix cell details',
+        updatePopoverAria: 'Update details',
         rangeGroupAria: 'Global time range',
         rangeToday: 'Today',
         rangeAll: 'All',
@@ -1118,18 +1144,38 @@
         factorM: 'Models (M)',
         factorC: 'Cache (C)',
         factorO: 'Output (O)',
-        calibBadgeHelp: 'Orthogonal 3-factor calibration: Models (M), Cache (C), and Output (O) unlock independently based on each dimension’s observed variation.\nAuto mode evaluates all 8 subsets using LOOCV-MAE + χ² criteria with conservative lag coalescing to prevent overfitting.',
+        calibBadgeHelp: 'Orthogonal 3-factor calibration: Models (M), Cache (C), and Output (O) use two-tier gates (manual exploration vs strict auto adoption).\nAuto evaluates auto-eligible subsets using LOOCV-MAE and overdispersion-scaled χ²; all 95% CIs use unified residual dispersion and full Delta-Method covariance.',
         mixEqHint: 'Current-mix eq.',
         clamped: 'clamped',
+        exploratoryBadge: 'Exploratory',
+        exploratoryTip: 'Manual exploratory fit (below auto threshold: {reason}). Wider parameter variance; treat as directional only.',
+        stripBase: 'Base',
+        stripCache: 'Cache',
+        stripOutput: 'Output',
         maeStrip: 'MAE ±{mae}pp',
         labTitle: 'Weight Calibration Lab',
         labSummary: 'Rec {rec} · {n} segs',
         modeAuto: 'Auto',
-        modeAutoHelp: 'Evaluates all 8 orthogonal subsets via LOOCV-MAE & χ² criteria to pick the optimal model.',
+        modeAutoHelp: 'Evaluates strictly auto-eligible subsets via LOOCV-MAE & overdispersion-scaled χ² to pick the optimal model.',
         modeManual: 'Manual {mode}',
         allFactorsUnlocked: 'All 3 orthogonal factors are eligible.',
+        exploreOnlyHint: 'Manual explore only (below auto gate): {list}',
         manualFallbackHint: 'Subset {subset} is ineligible ({reason}); showing {fallback}.',
         subsetIneligible: 'insufficient segments or collinearity',
+        reasonNeedAnchors: 'Need at least 2 anchors with positive quota delta',
+        reasonMSingleModel: 'Only 1 active model in cycle',
+        reasonMLowShare: 'Need >=2 models with >={minPct}% cycle spend share',
+        reasonMLowStd: 'Model mix variation across segments too low (std {std} < {minStd})',
+        reasonMNeedSegs: 'Need {need} more smoothed segments with varied model mix ({cur}/{req})',
+        reasonMAutoShareOrSegs: 'Secondary model share {sharePct}% < 10% (auto needs >=10% or >=6 segments)',
+        reasonCLowStd: 'Cache-read share variation too low (std {std} < {minStd})',
+        reasonCNeedSegs: 'Need {need} more smoothed segments with varied cache-read share ({cur}/{req})',
+        reasonOLowStd: 'Output share variation too low (std {std} < {minStd})',
+        reasonONeedSegs: 'Need {need} more smoothed segments with varied output share ({cur}/{req})',
+        reasonSubsetNeedSegs: 'Need {need} more smoothed segments for {subset} ({cur}/{req})',
+        reasonSubsetCollinear: 'Collinear {subset} dimensions rejected (VIF {vif} >= {maxVif})',
+        reasonSubsetLowEffDf: 'Prior-dominated {subset} fit (data share {effDf} < {minEffDf})',
+        promoIntro: '{pct}% intro through {date}',
         smoothSegSummary: '{anchors} anchors → {segs} smoothed segs ({merged} merged)',
         smoothHuberTag: 'Huber downweighted {n}',
         smoothTipInfo: 'Conservative smoothing merges tiny settlement-lag & micro-rebound intervals while conserving total spend & Δu; Huber IRLS downweights lag outliers.',
@@ -1149,18 +1195,18 @@
         interpModelHeavy: 'Consumes ~{v}× quota per API $ vs base (heavier drain).',
         interpModelNeutral: 'Drains at nearly 1:1 rate vs base (~{v}×).',
         interpModelUnfit: 'Uses 1.00× API list ratio (enable M to fit).',
-        interpCacheCheap: 'Cache reads drain {v}× their API price (extra savings).',
-        interpCacheExpensive: 'Cache reads drain {v}× their API price (smaller discount).',
-        interpCacheNeutral: 'Cache read discount aligns with API pricing (~{v}×).',
-        interpCacheUnfit: 'Follows public API cache discount (enable C to fit).',
-        interpOutExpensive: 'Output / thinking weight is {v}× its API price (costlier).',
-        interpOutCheap: 'Output / thinking weight is {v}× its API price (cheaper).',
-        interpOutNeutral: 'Output-to-input weight aligns with API pricing (~{v}×).',
-        interpOutUnfit: 'Follows public API output ratio (enable O to fit).',
+        interpCacheCheap: 'Spend-weighted pool avg: cache reads drain {v}× their API price (extra savings).',
+        interpCacheExpensive: 'Spend-weighted pool avg: cache reads drain {v}× their API price (smaller discount).',
+        interpCacheNeutral: 'Spend-weighted pool avg: cache read discount aligns with API pricing (~{v}×).',
+        interpCacheUnfit: 'Follows public API cache discount (enable C to fit pool average).',
+        interpOutExpensive: 'Spend-weighted pool avg: output / thinking weight is {v}× its API price (costlier).',
+        interpOutCheap: 'Spend-weighted pool avg: output / thinking weight is {v}× its API price (cheaper).',
+        interpOutNeutral: 'Spend-weighted pool avg: output-to-input weight aligns with API pricing (~{v}×).',
+        interpOutUnfit: 'Follows public API output ratio (enable O to fit pool average).',
         trialNotAdopted: 'Not adopted · Trial {val}{clamped} ({reason})',
         trialReasonWorse: 'LOOCV ±{trial}pp worse than base ±{base}pp',
         trialReasonMarginal: 'LOOCV ±{trial}pp <15% gain vs base ±{base}pp',
-        trialReasonChi2: 'χ² + 2·df gain below threshold',
+        trialReasonChi2: 'Overdispersed χ² gain below threshold',
         promoNoteFollow: 'Note: Current segments have not crossed a price transition; promo pass-through is unidentifiable and assumed to follow the API promo price.',
         promoNoteList: 'Note: Current segments have not crossed a price transition; currently assumed to follow standard list price.',
         residualTitle: 'Observed vs Predicted Residuals (pp)',
@@ -2301,6 +2347,12 @@
       dom.btnThemeToggle.title = t('header.themeToggleTitle');
       dom.btnThemeToggle.setAttribute('aria-label', t('header.themeToggleTitle'));
     }
+    if (dom.obsCellPopover) {
+      dom.obsCellPopover.setAttribute('aria-label', t('header.matrixPopoverAria'));
+    }
+    if (dom.updatePopover) {
+      dom.updatePopover.setAttribute('aria-label', t('header.updatePopoverAria'));
+    }
 
     dom.rangePills.setAttribute('aria-label', t('header.rangeGroupAria'));
     const pillLabels = {
@@ -2623,7 +2675,7 @@
       options.push(`<option value="${esc(rs.conversationId)}" ${selected}>[${srcTag}] ${esc(lbl.slice(0, 56))}</option>`);
     }
     return `<div class="session-picker-bar" data-stop-card>
-      <select class="session-picker-select" data-action="select-session" aria-label="Switch conversation">
+      <select class="session-picker-select" data-action="select-session" aria-label="${esc(t('header.switchSessionAria'))}">
         ${options.join('')}
       </select>
     </div>`;
@@ -3084,7 +3136,7 @@
                             <div class="model-item-name">
                               <span class="truncate" title="${esc(m.canonicalId)}">${esc(m.displayName || m.canonicalId)}</span>
                               ${m.longContextTurns > 0 ? '<span class="pill warn">&gt;200k</span>' : ''}
-                              ${promoLabel ? `<span class="pill warn promo-pill" data-tip="${esc(promoLabel)}">${esc(t('settings.promoBadge'))}</span>` : ''}
+                              ${promoLabel ? `<span class="pill warn promo-pill" data-tip="${esc(formatPromoLabel(promoLabel))}">${esc(t('settings.promoBadge'))}</span>` : ''}
                             </div>
                             <span class="model-item-cost num mono">${isUnpriced ? `<span class="pill warn">${esc(t('pricingSrc.unpriced'))}</span>` : fmtUsd(m.costUsd)}</span>
                           </div>
@@ -4652,6 +4704,51 @@
       .join('');
   }
 
+  function formatPromoLabel(label) {
+    const raw = String(label || '').trim();
+    if (!raw) return '';
+    const m = raw.match(/^(\d+)%\s+intro\s+through\s+(\d{4}-\d{2}-\d{2})$/i);
+    if (m) {
+      return t('quota.promoIntro', { pct: m[1], date: m[2] });
+    }
+    return raw;
+  }
+
+  function formatCalibReason(code, params, fallback = '') {
+    const p = params && typeof params === 'object' ? params : {};
+    const subLabel = p.subset ? calibSubsetShort(p.subset) : '';
+    switch (code) {
+      case 'need_anchors':
+        return t('quota.reasonNeedAnchors');
+      case 'm_single_model':
+        return t('quota.reasonMSingleModel');
+      case 'm_low_share':
+        return t('quota.reasonMLowShare', { minPct: p.minPct ?? 5 });
+      case 'm_low_std':
+        return t('quota.reasonMLowStd', { std: p.std ?? '0.00', minStd: p.minStd ?? 0.04 });
+      case 'm_need_segs':
+        return t('quota.reasonMNeedSegs', { need: p.need ?? 1, cur: p.cur ?? 0, req: p.req ?? 3 });
+      case 'm_auto_share_or_segs':
+        return t('quota.reasonMAutoShareOrSegs', { sharePct: p.sharePct ?? 0, n: p.n ?? 0 });
+      case 'c_low_std':
+        return t('quota.reasonCLowStd', { std: p.std ?? '0.00', minStd: p.minStd ?? 0.03 });
+      case 'c_need_segs':
+        return t('quota.reasonCNeedSegs', { need: p.need ?? 1, cur: p.cur ?? 0, req: p.req ?? 3 });
+      case 'o_low_std':
+        return t('quota.reasonOLowStd', { std: p.std ?? '0.00', minStd: p.minStd ?? 0.03 });
+      case 'o_need_segs':
+        return t('quota.reasonONeedSegs', { need: p.need ?? 1, cur: p.cur ?? 0, req: p.req ?? 3 });
+      case 'subset_need_segs':
+        return t('quota.reasonSubsetNeedSegs', { subset: subLabel || p.subset || '', need: p.need ?? 1, cur: p.cur ?? 0, req: p.req ?? 3 });
+      case 'subset_collinear':
+        return t('quota.reasonSubsetCollinear', { subset: subLabel || p.subset || '', vif: p.vif ?? '', maxVif: p.maxVif ?? 10 });
+      case 'subset_low_effdf':
+        return t('quota.reasonSubsetLowEffDf', { subset: subLabel || p.subset || '', effDf: p.effDf ?? '', minEffDf: p.minEffDf ?? 0.35 });
+      default:
+        return fallback || '';
+    }
+  }
+
   function renderCalibWeightStrip(subsetObj) {
     const models = Array.isArray(subsetObj?.params?.models) ? subsetObj.params.models : [];
     const cache = subsetObj?.params?.cache;
@@ -4661,7 +4758,7 @@
     for (const m of models) {
       const name = shortModelName(m.canonicalId);
       if (m.isAnchor) {
-        items.push(`<span class="calib-weight-item num"><strong>${esc(name)}</strong> 1.00× (Base)</span>`);
+        items.push(`<span class="calib-weight-item num"><strong>${esc(name)}</strong> 1.00× (${esc(t('quota.stripBase'))})</span>`);
       } else if (m.fitted) {
         items.push(
           `<span class="calib-weight-item num"><strong>${esc(name)}</strong> ${esc(fmtMultWithSe(m))}${m.clamped ? `<span class="calib-clamp-tag">${esc(t('quota.clamped'))}</span>` : ''}</span>`
@@ -4670,24 +4767,33 @@
     }
     if (cache?.fitted) {
       items.push(
-        `<span class="calib-weight-item num"><strong>Cache</strong> ${esc(fmtMultWithSe(cache))}${cache.clamped ? `<span class="calib-clamp-tag">${esc(t('quota.clamped'))}</span>` : ''}</span>`
+        `<span class="calib-weight-item num"><strong>${esc(t('quota.stripCache'))}</strong> ${esc(fmtMultWithSe(cache))}${cache.clamped ? `<span class="calib-clamp-tag">${esc(t('quota.clamped'))}</span>` : ''}</span>`
       );
     }
     if (output?.fitted) {
       items.push(
-        `<span class="calib-weight-item num"><strong>Output</strong> ${esc(fmtMultWithSe(output))}${output.clamped ? `<span class="calib-clamp-tag">${esc(t('quota.clamped'))}</span>` : ''}</span>`
+        `<span class="calib-weight-item num"><strong>${esc(t('quota.stripOutput'))}</strong> ${esc(fmtMultWithSe(output))}${output.clamped ? `<span class="calib-clamp-tag">${esc(t('quota.clamped'))}</span>` : ''}</span>`
       );
     }
+
+    const expBadge = subsetObj?.exploratory
+      ? `<span class="pill warn" data-tip="${esc(
+          t('quota.exploratoryTip', {
+            reason: formatCalibReason(subsetObj.autoReasonCode, subsetObj.autoReasonParams, subsetObj.autoReason) || t('quota.subsetIneligible')
+          })
+        )}">${esc(t('quota.exploratoryBadge'))}</span>`
+      : '';
 
     const maeText =
       subsetObj?.maePp != null && Number.isFinite(Number(subsetObj.maePp))
         ? `<span class="calib-mae-chip num">${esc(t('quota.maeStrip', { mae: num(subsetObj.maePp).toFixed(2) }))}</span>`
         : '';
 
-    if (!items.length && !maeText) return '';
+    if (!items.length && !maeText && !expBadge) return '';
     return `
       <div class="calib-weight-strip">
         ${items.join('<span class="calib-weight-sep">·</span>')}
+        ${expBadge}
         ${maeText}
       </div>
     `;
@@ -4789,12 +4895,19 @@
           .join(' ');
 
         const tipLines = [fd.label];
-        if (!eligible && fMeta.reason) {
-          tipLines.push(fMeta.reason);
-        } else if (subObj.loocvMaePp != null) {
-          tipLines.push(`LOOCV MAE: ±${num(subObj.loocvMaePp).toFixed(2)}pp`);
-        } else if (subObj.maePp != null) {
-          tipLines.push(`MAE: ±${num(subObj.maePp).toFixed(2)}pp`);
+        if (!eligible && (fMeta.reasonCode || fMeta.reason)) {
+          tipLines.push(formatCalibReason(fMeta.reasonCode, fMeta.reasonParams, fMeta.reason));
+        } else {
+          if (fMeta.exploratory && (fMeta.autoReasonCode || fMeta.autoReason)) {
+            tipLines.push(
+              `${t('quota.exploratoryBadge')}: ${formatCalibReason(fMeta.autoReasonCode, fMeta.autoReasonParams, fMeta.autoReason)}`
+            );
+          }
+          if (subObj.loocvMaePp != null) {
+            tipLines.push(`LOOCV MAE: ±${num(subObj.loocvMaePp).toFixed(2)}pp`);
+          } else if (subObj.maePp != null) {
+            tipLines.push(`MAE: ±${num(subObj.maePp).toFixed(2)}pp`);
+          }
         }
 
         return `
@@ -4814,7 +4927,9 @@
         ? `<div class="calib-subset-warn">${esc(
             t('quota.manualFallbackHint', {
               subset: calibSubsetShort(requestedSubset),
-              reason: reqSubObj.reason || t('quota.subsetIneligible'),
+              reason:
+                formatCalibReason(reqSubObj.reasonCode, reqSubObj.reasonParams, reqSubObj.reason) ||
+                t('quota.subsetIneligible'),
               fallback: calibSubsetShort(activeSubset)
             })
           )}</div>`
@@ -4822,11 +4937,30 @@
 
     const lockedReasons = factorDefs
       .map((fd) => ({ key: fd.key, obj: factorsMeta[fd.key] }))
-      .filter((x) => x.obj && !x.obj.eligible && x.obj.reason);
+      .filter((x) => x.obj && !x.obj.eligible && (x.obj.reasonCode || x.obj.reason));
 
-    const unlockHint = lockedReasons.length
-      ? lockedReasons.map((x) => `${x.key}: ${x.obj.reason}`).join(' · ')
-      : t('quota.allFactorsUnlocked');
+    const exploratoryReasons = factorDefs
+      .map((fd) => ({ key: fd.key, obj: factorsMeta[fd.key] }))
+      .filter((x) => x.obj && x.obj.eligible && x.obj.exploratory && (x.obj.autoReasonCode || x.obj.autoReason));
+
+    const hintParts = [];
+    if (lockedReasons.length) {
+      hintParts.push(
+        lockedReasons
+          .map((x) => `${x.key}: ${formatCalibReason(x.obj.reasonCode, x.obj.reasonParams, x.obj.reason)}`)
+          .join(' · ')
+      );
+    }
+    if (exploratoryReasons.length) {
+      hintParts.push(
+        t('quota.exploreOnlyHint', {
+          list: exploratoryReasons
+            .map((x) => `${x.key} (${formatCalibReason(x.obj.autoReasonCode, x.obj.autoReasonParams, x.obj.autoReason)})`)
+            .join(' · ')
+        })
+      );
+    }
+    const unlockHint = hintParts.length ? hintParts.join(' · ') : t('quota.allFactorsUnlocked');
 
     return `
       <div class="calib-controls-wrap">
@@ -4885,6 +5019,7 @@
     const cache = activeSubObj?.params?.cache;
     const output = activeSubObj?.params?.output;
     const baseSub = cal?.subsets?.base || null;
+    const recFactors = subsetKeyToFactors(cal?.recommendedSubset || 'base');
     const trialM = cal?.subsets?.M || null;
     const trialC = cal?.subsets?.C || null;
     const trialO = cal?.subsets?.O || null;
@@ -4894,7 +5029,9 @@
       const baseLoocv = baseSub?.loocvMaePp;
       const triLoocv = trialSub.loocvMaePp;
       let reason = t('quota.trialReasonChi2');
-      if (baseLoocv != null && triLoocv != null) {
+      if (trialSub.autoEligible === false && (trialSub.autoReasonCode || trialSub.autoReason)) {
+        reason = formatCalibReason(trialSub.autoReasonCode, trialSub.autoReasonParams, trialSub.autoReason);
+      } else if (baseLoocv != null && triLoocv != null) {
         const bStr = num(baseLoocv).toFixed(2);
         const tStr = num(triLoocv).toFixed(2);
         if (triLoocv >= baseLoocv) {
@@ -4926,7 +5063,7 @@
         if (val < 0.95) interp = t('quota.interpModelEff', { v: val.toFixed(2) });
         else if (val > 1.05) interp = t('quota.interpModelHeavy', { v: val.toFixed(2) });
         else interp = t('quota.interpModelNeutral', { v: val.toFixed(2) });
-      } else if (trialM?.eligible) {
+      } else if (!recFactors.M && trialM?.eligible) {
         const tm = (trialM.params?.models || []).find((x) => x.canonicalId === m.canonicalId);
         trialNote = buildTrialHint(trialM, tm);
       }
@@ -4952,7 +5089,7 @@
         if (val < 0.85) interp = t('quota.interpCacheCheap', { v: val.toFixed(2) });
         else if (val > 1.15) interp = t('quota.interpCacheExpensive', { v: val.toFixed(2) });
         else interp = t('quota.interpCacheNeutral', { v: val.toFixed(2) });
-      } else if (trialC?.eligible) {
+      } else if (!recFactors.C && trialC?.eligible) {
         trialNote = buildTrialHint(trialC, trialC.params?.cache);
       }
       rows.push({
@@ -4977,7 +5114,7 @@
         if (val > 1.15) interp = t('quota.interpOutExpensive', { v: val.toFixed(2) });
         else if (val < 0.85) interp = t('quota.interpOutCheap', { v: val.toFixed(2) });
         else interp = t('quota.interpOutNeutral', { v: val.toFixed(2) });
-      } else if (trialO?.eligible) {
+      } else if (!recFactors.O && trialO?.eligible) {
         trialNote = buildTrialHint(trialO, trialO.params?.output);
       }
       rows.push({
@@ -5305,7 +5442,7 @@
                   <div class="model-item-name">
                     <span class="mono truncate">${esc(m.canonicalId)}</span>
                     <span class="pill ${m.source === 'override' ? 'accent' : 'outline'}">${esc(pricingSourceLabel(m.source))}</span>
-                    ${m.promoLabel ? `<span class="pill warn promo-pill" data-tip="${esc(m.promoLabel)}">${esc(t('settings.promoBadge'))}</span>` : ''}
+                    ${m.promoLabel ? `<span class="pill warn promo-pill" data-tip="${esc(formatPromoLabel(m.promoLabel))}">${esc(t('settings.promoBadge'))}</span>` : ''}
                   </div>
                   <div style="display:flex;gap:4px">
                     <button type="button" class="btn-sm" data-action="toggle-edit-price" data-id="${esc(m.canonicalId)}" ${ro ? 'disabled' : ''}>${esc(isEditing ? t('common.cancel') : t('common.edit'))}</button>

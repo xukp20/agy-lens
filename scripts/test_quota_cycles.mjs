@@ -22,6 +22,7 @@ import {
   WINDOW_DURATION_MS,
 } from '../sidecars/lens_panel/lib/quota.mjs';
 import { loadPricingState } from '../sidecars/lens_panel/lib/pricing.mjs';
+import { calibrateQuotaCycle, studentTCrit95 } from '../sidecars/lens_panel/lib/quota_calibrator.mjs';
 import { openTelemetryCacheDb } from '../sidecars/lens_panel/lib/indexer.mjs';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -665,5 +666,300 @@ test('I6: legacy DB migration adds reset_source/reset_precision_ms, deduplicates
   } finally {
     rmSync(tmpDir, { recursive: true, force: true });
   }
+});
+
+test('v1.8.0: unified Delta Method CI aligns base & C, covariance cancels collinearity, and log-scale CI stays positive', () => {
+  // Synthetic pricing state: $10/1M input, $10/1M output, $1/1M cacheRead (exact easy USD math)
+  const mkModel = () => ({
+    pool: 'gemini',
+    rates: [
+      {
+        effective_from: '2026-01-01',
+        input_per_1m: 10,
+        output_per_1m: 10,
+        thinking_per_1m: 10,
+        cache_read_per_1m: 1,
+        cache_write_per_1m: 10,
+        discount_multiplier: 1.0,
+      },
+    ],
+  });
+  const syntheticPricing = {
+    defaults: {
+      defaultAnchors: { gemini: 'gemini-test-a' },
+      models: {
+        'gemini-test-a': mkModel(),
+        'gemini-test-b': mkModel(),
+      },
+    },
+    remote: { models: {} },
+    overrides: {},
+  };
+
+  // True quota pool: anchor non-cache Q = $100, true alpha_cache = 0.08 (cache reads drain 8% of API cache price)
+  // 4 contiguous segments with varied cacheRead share (20%, 50%, 30%, 55%) and slight realistic noise
+  const t0 = Date.parse('2026-11-10T00:00:00Z');
+  const mkTurn = (ts, model, inUsd, crUsd) => ({
+    completed_at_ms: ts,
+    canonical_model_id: model,
+    raw_model_id: model,
+    pool: 'gemini',
+    uncached_in: Math.round((inUsd / 10) * 1e6),
+    cache_read: Math.round((crUsd / 1) * 1e6),
+    cache_create: 0,
+    total_out: 0,
+    thinking_out: 0,
+    visible_out: 0,
+  });
+
+  const segDefs = [
+    { nc: 1.6, cr: 0.4, noise: 0.0005 },
+    { nc: 2.0, cr: 3.5, noise: -0.0004 },
+    { nc: 7.5, cr: 1.5, noise: 0.0003 },
+    { nc: 10.0, cr: 14.0, noise: -0.0002 },
+  ];
+
+  let rem = 100.0;
+  const anchors = [
+    {
+      id: 1,
+      pool: 'gemini',
+      window_type: '7d',
+      remaining_pct: rem,
+      precision_step: 0.01,
+      captured_at: t0,
+      reset_at: t0 + W7D,
+      reset_source: 'explicit',
+      reset_precision_ms: HOUR,
+      created_at: t0,
+    },
+  ];
+  const allTurns = [];
+  for (let i = 0; i < segDefs.length; i++) {
+    const s = segDefs[i];
+    const segStart = t0 + i * 2 * HOUR;
+    const segEnd = t0 + (i + 1) * 2 * HOUR;
+    const trueDelta = (s.nc + 0.08 * s.cr) / 100 + s.noise;
+    rem = Number((rem - trueDelta * 100).toFixed(2));
+    allTurns.push(mkTurn(segStart + HOUR, 'gemini-test-a', s.nc, s.cr));
+    anchors.push({
+      id: i + 2,
+      pool: 'gemini',
+      window_type: '7d',
+      remaining_pct: rem,
+      precision_step: 0.01,
+      captured_at: segEnd,
+      reset_at: null,
+      reset_source: '',
+      reset_precision_ms: null,
+      created_at: segEnd,
+    });
+  }
+
+  const db = createTestDb();
+  const insTurn = db.prepare(`
+    INSERT INTO turns (conversation_id, step_idx, source, completed_at_ms, raw_model_id, canonical_model_id, pool, uncached_in, cache_read, cache_create, total_out)
+    VALUES ('conv1', ?, 'cli', ?, ?, ?, 'gemini', ?, ?, 0, 0)
+  `);
+  allTurns.forEach((tr, idx) =>
+    insTurn.run(idx + 1, tr.completed_at_ms, tr.raw_model_id, tr.canonical_model_id, tr.uncached_in, tr.cache_read)
+  );
+
+  const sumAuto = computeSummaryForPair(db, syntheticPricing, 'gemini', '7d', anchors, t0 + 9 * HOUR, {
+    quotaCalibMode: 'auto',
+  });
+  const sumBase = computeSummaryForPair(db, syntheticPricing, 'gemini', '7d', anchors, t0 + 9 * HOUR, {
+    quotaCalibMode: 'manual',
+    forceSubset: 'base',
+  });
+
+  // Auto should pick C and produce a tighter 95% CI than base (no more base ±$0.10 vs C ±$150 inversion!)
+  assert.equal(sumAuto.estimation.calibration.recommendedSubset, 'C');
+  assert.equal(sumAuto.estimation.calibration.activeSubset, 'C');
+  const baseWidth = sumBase.estimation.ciHighUsd - sumBase.estimation.ciLowUsd;
+  const cWidth = sumAuto.estimation.ciHighUsd - sumAuto.estimation.ciLowUsd;
+  assert.ok(baseWidth > 5, `base CI must reflect residual dispersion, not quantization-only (width=${baseWidth})`);
+  assert.ok(cWidth < baseWidth, `better-fitting C CI (${cWidth.toFixed(2)}) must be narrower than base (${baseWidth.toFixed(2)})`);
+  assert.ok(sumAuto.estimation.ciLowUsd > 0 && sumAuto.estimation.ciHighUsd > sumAuto.estimation.estimatedPoolUsd);
+
+  // Delta Method covariance cancellation: seBetaMix must be smaller than marginal seBeta rescaled
+  const subC = sumAuto.estimation.calibration.subsets.C;
+  const marginalRescaled = subC.seBeta * (subC.anchorPoolUsd / subC.equivalentMixPoolUsd);
+  assert.ok(
+    subC.seBetaMix < marginalRescaled * 0.7,
+    `Delta Method seBetaMix (${subC.seBetaMix}) must cancel beta/alpha_cache collinearity vs marginal (${marginalRescaled})`
+  );
+
+  // Student-t critical value smooth check
+  assert.ok(Math.abs(studentTCrit95(5) - 2.5706) < 0.01);
+  assert.ok(Math.abs(studentTCrit95(6) - 2.4469) < 0.01);
+  assert.ok(Math.abs(studentTCrit95(1000) - 1.96) < 0.01);
+
+  db.close();
+});
+
+test('v1.8.0: two-tier Manual Explore vs Auto Adopt gates, clamped boundary SE, N=p+1 LOOCV skip, and full i18n reasonCode coverage', () => {
+  const mkModel = () => ({
+    pool: 'gemini',
+    rates: [
+      {
+        effective_from: '2026-01-01',
+        input_per_1m: 10,
+        output_per_1m: 10,
+        thinking_per_1m: 10,
+        cache_read_per_1m: 1,
+        cache_write_per_1m: 10,
+        discount_multiplier: 1.0,
+      },
+    ],
+  });
+  const syntheticPricing = {
+    defaults: {
+      defaultAnchors: { gemini: 'gemini-main' },
+      models: {
+        'gemini-main': mkModel(),
+        'gemini-sub': mkModel(),
+      },
+    },
+    remote: { models: {} },
+    overrides: {},
+  };
+
+  const t0 = Date.parse('2026-11-12T00:00:00Z');
+  const mkTurn = (ts, model, inUsd, crUsd) => ({
+    completed_at_ms: ts,
+    canonical_model_id: model,
+    raw_model_id: model,
+    pool: 'gemini',
+    uncached_in: Math.round((inUsd / 10) * 1e6),
+    cache_read: Math.round((crUsd / 1) * 1e6),
+    cache_create: 0,
+    total_out: 0,
+  });
+
+  // Case 1: N = 3 segments with C variation std >= 0.03 -> C is eligible (exploratory), autoEligible = false, LOOCV = null
+  const segs3 = [
+    { startAt: t0, endAt: t0 + HOUR, deltaU: 0.05, qK: 0.0001, turns: [mkTurn(t0 + 1000, 'gemini-main', 4.5, 0.5)] },
+    { startAt: t0 + HOUR, endAt: t0 + 2 * HOUR, deltaU: 0.04, qK: 0.0001, turns: [mkTurn(t0 + HOUR + 1000, 'gemini-main', 2.0, 3.0)] },
+    { startAt: t0 + 2 * HOUR, endAt: t0 + 3 * HOUR, deltaU: 0.07, qK: 0.0001, turns: [mkTurn(t0 + 2 * HOUR + 1000, 'gemini-main', 6.0, 1.5)] },
+  ];
+  const cal3 = calibrateQuotaCycle({
+    pool: 'gemini',
+    windowType: '7d',
+    pricingState: syntheticPricing,
+    rawSegments: segs3,
+    quotaCalibMode: 'manual',
+    forceSubset: 'C',
+    minDurationMs: 0,
+  });
+  assert.equal(cal3.subsets.C.eligible, true, 'N=3 should unlock C for manual exploration');
+  assert.equal(cal3.subsets.C.autoEligible, false, 'N=3 must NOT pass Auto gate');
+  assert.equal(cal3.subsets.C.exploratory, true);
+  assert.equal(cal3.subsets.C.loocvMaePp, null, 'N=p+1 must skip degenerate dof=0 LOOCV');
+  assert.equal(cal3.recommendedSubset, 'base', 'Auto must stay on base at N=3');
+  assert.equal(cal3.activeSubset, 'C', 'Manual forceSubset=C should activate exploratory C');
+
+  // Case 2: N = 4 segments with 8% secondary model (std ~0.055) -> M is exploratory (manual OK, Auto skips)
+  const segs4M = [
+    { startAt: t0, endAt: t0 + HOUR, deltaU: 0.02, qK: 0.0001, turns: [mkTurn(t0 + 1000, 'gemini-main', 2.0, 0)] },
+    { startAt: t0 + HOUR, endAt: t0 + 2 * HOUR, deltaU: 0.04, qK: 0.0001, turns: [mkTurn(t0 + HOUR + 1000, 'gemini-main', 4.0, 0)] },
+    {
+      startAt: t0 + 2 * HOUR,
+      endAt: t0 + 3 * HOUR,
+      deltaU: 0.085,
+      qK: 0.0001,
+      turns: [mkTurn(t0 + 2 * HOUR + 1000, 'gemini-main', 7.4, 0), mkTurn(t0 + 2 * HOUR + 2000, 'gemini-sub', 0.6, 0)],
+    },
+    {
+      startAt: t0 + 3 * HOUR,
+      endAt: t0 + 4 * HOUR,
+      deltaU: 0.27,
+      qK: 0.0001,
+      turns: [mkTurn(t0 + 3 * HOUR + 1000, 'gemini-main', 21.6, 0), mkTurn(t0 + 3 * HOUR + 2000, 'gemini-sub', 2.6, 0)],
+    },
+  ];
+  const cal4M = calibrateQuotaCycle({
+    pool: 'gemini',
+    windowType: '7d',
+    pricingState: syntheticPricing,
+    rawSegments: segs4M,
+    quotaCalibMode: 'auto',
+    minDurationMs: 0,
+  });
+  assert.equal(cal4M.factors.M.eligible, true, '8% secondary model should unlock M for manual explore');
+  assert.equal(cal4M.factors.M.autoEligible, false, '8% secondary model at N=4 must not pass Auto gate');
+  assert.equal(cal4M.factors.M.autoReasonCode, 'm_auto_share_or_segs');
+  assert.equal(cal4M.subsets.M.exploratory, true);
+  assert.equal(cal4M.recommendedSubset, 'base', 'Auto must not adopt exploratory M at N=4');
+
+  // Case 3: Clamped alpha_cache at lower bound 0.05 still retains conservative SE (column not dropped)
+  const segsClamp = [
+    { startAt: t0, endAt: t0 + HOUR, deltaU: 0.02, qK: 0.0001, turns: [mkTurn(t0 + 1000, 'gemini-main', 2.0, 0.2)] },
+    { startAt: t0 + HOUR, endAt: t0 + 2 * HOUR, deltaU: 0.03, qK: 0.0001, turns: [mkTurn(t0 + HOUR + 1000, 'gemini-main', 3.0, 18.0)] },
+    { startAt: t0 + 2 * HOUR, endAt: t0 + 3 * HOUR, deltaU: 0.05, qK: 0.0001, turns: [mkTurn(t0 + 2 * HOUR + 1000, 'gemini-main', 5.0, 1.0)] },
+    { startAt: t0 + 3 * HOUR, endAt: t0 + 4 * HOUR, deltaU: 0.08, qK: 0.0001, turns: [mkTurn(t0 + 3 * HOUR + 1000, 'gemini-main', 8.0, 35.0)] },
+  ];
+  const calClamp = calibrateQuotaCycle({
+    pool: 'gemini',
+    windowType: '7d',
+    pricingState: syntheticPricing,
+    rawSegments: segsClamp,
+    quotaCalibMode: 'auto',
+    minDurationMs: 0,
+  });
+  assert.equal(calClamp.subsets.C.params.cache.value, 0.05, 'lower bound must clamp at ALPHA_CACHE_MIN=0.05');
+  assert.equal(calClamp.subsets.C.params.cache.clamped, true);
+  assert.ok(calClamp.subsets.C.params.cache.se != null && calClamp.subsets.C.params.cache.se > 0, 'clamped cache param must retain conservative SE');
+  assert.ok(calClamp.subsets.C.seBetaMix > 0);
+
+  // Case 4: Every reasonCode emitted in quota_calibrator.mjs is handled in app.js formatCalibReason
+  const calSrc = readFileSync(join(__dirname, '..', 'sidecars', 'lens_panel', 'lib', 'quota_calibrator.mjs'), 'utf-8');
+  const appSrc = readFileSync(join(__dirname, '..', 'sidecars', 'lens_panel', 'web', 'app.js'), 'utf-8');
+  const codes = new Set([...calSrc.matchAll(/mkReason\(\s*'([a-z0-9_]+)'/g)].map((m) => m[1]));
+  assert.ok(codes.size >= 10, 'expected structured reason codes in quota_calibrator.mjs');
+  for (const code of codes) {
+    assert.ok(appSrc.includes(`case '${code}':`), `app.js formatCalibReason missing case '${code}'`);
+  }
+
+  // Case 5: Strong Auto model + weak exploratory model must isolate Auto (weak model never leaks into Auto M fit)
+  const pricing3 = {
+    defaults: {
+      defaultAnchors: { gemini: 'gemini-main' },
+      models: {
+        'gemini-main': mkModel(),
+        'gemini-strong': mkModel(),
+        'gemini-weak': mkModel(),
+      },
+    },
+    remote: { models: {} },
+    overrides: {},
+  };
+  const segsStrongWeak = [
+    { startAt: t0, endAt: t0 + HOUR, deltaU: 0.04, qK: 0.0001, turns: [mkTurn(t0 + 1000, 'gemini-main', 4.0, 0)] },
+    { startAt: t0 + HOUR, endAt: t0 + 2 * HOUR, deltaU: 0.08, qK: 0.0001, turns: [mkTurn(t0 + HOUR + 1000, 'gemini-main', 2.0, 0), mkTurn(t0 + HOUR + 2000, 'gemini-strong', 3.0, 0)] },
+    { startAt: t0 + 2 * HOUR, endAt: t0 + 3 * HOUR, deltaU: 0.075, qK: 0.0001, turns: [mkTurn(t0 + 2 * HOUR + 1000, 'gemini-main', 5.0, 0), mkTurn(t0 + 2 * HOUR + 2000, 'gemini-strong', 1.0, 0), mkTurn(t0 + 2 * HOUR + 3000, 'gemini-weak', 0.5, 0)] },
+    { startAt: t0 + 3 * HOUR, endAt: t0 + 4 * HOUR, deltaU: 0.135, qK: 0.0001, turns: [mkTurn(t0 + 3 * HOUR + 1000, 'gemini-main', 4.5, 0), mkTurn(t0 + 3 * HOUR + 2000, 'gemini-strong', 4.0, 0), mkTurn(t0 + 3 * HOUR + 3000, 'gemini-weak', 1.0, 0)] },
+  ];
+  const calSW = calibrateQuotaCycle({
+    pool: 'gemini',
+    windowType: '7d',
+    pricingState: pricing3,
+    rawSegments: segsStrongWeak,
+    quotaCalibMode: 'auto',
+    minDurationMs: 0,
+  });
+  assert.deepEqual(calSW.factors.M.candidateModels, ['gemini-strong'], 'weak exploratory model must not leak into Auto M candidate set');
+  assert.equal(calSW.factors.M.autoEligible, true);
+
+  // Case 6: N=0 fallbackPooled uses prior tCrit = studentTCrit95(4) (2.7764), not 1.96
+  const calN0 = calibrateQuotaCycle({
+    pool: 'gemini',
+    windowType: '7d',
+    pricingState: syntheticPricing,
+    rawSegments: [],
+    fallbackPooled: { sumDeltaU: 0.03, sumC: 3.0 },
+    minDurationMs: 0,
+  });
+  assert.ok(Math.abs(calN0.subsets.base.tCrit - 2.7764) < 0.001, 'N=0 fallbackPooled must use t_{0.975, 4}');
 });
 

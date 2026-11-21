@@ -1333,19 +1333,30 @@ export function computeSummaryForPair(
     const tailWeighted = activeMeta.tailWeightedUsd ?? spendSinceLastUsd;
     estimatedPoolUsd = activeEquiv;
 
-    if (calibration.activeSubset === 'base' || activeMeta.seBeta == null || activeMeta.seBeta <= 0) {
-      const segCountForErr = Math.max(1, calRaw.segmentsCount || 1);
-      const err95 = 0.776 * Math.sqrt(segCountForErr * qEff * qEff);
-      ciLowUsd = activeEquiv * (sumDeltaU / (sumDeltaU + err95));
-      ciHighUsd = sumDeltaU - err95 > 0.0001 ? activeEquiv * (sumDeltaU / (sumDeltaU - err95)) : null;
-    } else {
-      const beta = 1 / activeAnchor;
-      const margin = 1.96 * activeMeta.seBeta;
-      const betaHigh = beta + margin;
-      const betaLow = beta - margin;
-      ciLowUsd = activeEquiv * (beta / betaHigh);
-      ciHighUsd = betaLow > 1e-9 ? activeEquiv * (beta / betaLow) : null;
-    }
+    // Unified log-scale 95% CI across ALL subsets (base + M/C/O):
+    // combines full Delta Method covariance-aware seBetaMix with telescoping quantization floor
+    // and empirical Bayes pseudo-df Student-t critical value t_{0.975, nu0 + dof}.
+    const betaMix = 1 / activeEquiv;
+    const clusterCount = Math.max(1, activeMeta.segmentClusterCount || 1);
+    const diffRawScale = Math.max(1e-9, sumC > 0 ? sumC : activeMeta.sumCycleRaw || 1);
+    const seQuantFloor = (Math.sqrt(clusterCount / 6) * qEff) / diffRawScale;
+    const seStat =
+      activeMeta.seBetaMix != null && activeMeta.seBetaMix > 0
+        ? activeMeta.seBetaMix
+        : activeMeta.seBeta != null && activeMeta.seBeta > 0
+          ? activeMeta.seBeta * (activeAnchor / activeEquiv)
+          : 0;
+    const seEff = Math.max(seStat, seQuantFloor);
+    // Fallback to prior t_{0.975, nu0=4} (2.7764) when N=0 fallbackPooled is used
+    const tCrit =
+      activeMeta.tCrit != null && Number.isFinite(activeMeta.tCrit) && activeMeta.tCrit > 0
+        ? activeMeta.tCrit
+        : 2.7764;
+    const relMargin = tCrit * (seEff / betaMix);
+    const rawLow = activeEquiv * Math.exp(-relMargin);
+    const rawHigh = activeEquiv * Math.exp(relMargin);
+    ciLowUsd = Number.isFinite(rawLow) && rawLow > 0 ? rawLow : 0;
+    ciHighUsd = Number.isFinite(rawHigh) ? rawHigh : null;
 
     status = sumDeltaU >= highThreshold ? 'ok' : 'low_confidence';
 
