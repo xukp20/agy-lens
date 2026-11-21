@@ -365,6 +365,18 @@
         matrixPrimaryTag: '主',
         matrixSubTag: '副',
         matrixCfgNote: '可自由勾选任意项作为格内小字（每项一行）；切换主指标时原主指标会自动保留为小字；全部指标均在悬浮/点击弹窗中完整展示。',
+        gapBtnLabel: '区间 · ≤{max}',
+        gapCfgTitle: '时间区间断点',
+        gapPresetsLabel: '常用断点（勾选即生效）',
+        gapCustomLabel: '自定义断点（支持 s / m / h）',
+        gapCustomPlaceholder: '如 45s、3m、45m、4h',
+        gapAddBtn: '添加',
+        gapCustomTags: '自定义：',
+        gapPreviewLabel: '当前区间（{n} 档）：',
+        gapCfgNote: '最小点左侧为 <=min，最大点右侧为 >max，相邻两点自动组成中间区间（1~12 个断点）。',
+        gapErrInvalid: '无法解析时长，请输入如 45s、3m、45m、2h（范围 1s~24h）',
+        gapErrMinOne: '至少需要保留 1 个时间断点',
+        gapErrMax: '最多支持 12 个时间断点，请先取消部分再添加',
         metricFull: {
           keepRate: '缓存保活率',
           weightedHit: 'Token 实际命中率',
@@ -885,6 +897,18 @@
         matrixPrimaryTag: 'Main',
         matrixSubTag: 'Sub',
         matrixCfgNote: 'Check any metrics to stack as in-cell rows. Switching primary keeps the previous primary as a sub-row. All metrics appear in the detail card.',
+        gapBtnLabel: 'Gaps · ≤{max}',
+        gapCfgTitle: 'Idle-Gap Breakpoints',
+        gapPresetsLabel: 'Preset Breakpoints (toggle to apply)',
+        gapCustomLabel: 'Custom Breakpoint (s / m / h)',
+        gapCustomPlaceholder: 'e.g. 45s, 3m, 45m, 4h',
+        gapAddBtn: 'Add',
+        gapCustomTags: 'Custom:',
+        gapPreviewLabel: 'Buckets ({n}):',
+        gapCfgNote: 'Left of min becomes <=min, right of max becomes >max, adjacent pairs form middle intervals (1–12 breakpoints).',
+        gapErrInvalid: 'Invalid duration — use e.g. 45s, 3m, 45m, 2h (1s to 24h)',
+        gapErrMinOne: 'Keep at least 1 breakpoint',
+        gapErrMax: 'Maximum 12 breakpoints allowed; uncheck one first',
         metricFull: {
           keepRate: 'Cache Keep Rate',
           weightedHit: 'Token Hit Ratio',
@@ -1472,6 +1496,8 @@
   // 6. Default Config & Application State
   // =========================================================================
   const OBS_MATRIX_METRIC_IDS = ['weightedHit', 'keepRate', 'avgCost', 'totalCost', 'missPenalty', 'turns'];
+  const DEFAULT_OBS_GAP_BREAKPOINTS = [10, 60, 300, 600, 3600];
+  const OBS_GAP_PRESETS = [2, 5, 10, 20, 60, 300, 600, 900, 1800, 3600, 7200, 21600];
 
   const DEFAULT_CONFIG = {
     lang: 'zh-CN',
@@ -1504,6 +1530,7 @@
     quotaManualFactors: { M: false, C: false, O: false },
     obsMatrixPrimary: 'weightedHit',
     obsMatrixSubMetrics: ['keepRate', 'avgCost'],
+    obsGapBreakpointsSec: [...DEFAULT_OBS_GAP_BREAKPOINTS],
     updateMode: 'auto',
     dismissedUpdateVersion: ''
   };
@@ -1547,6 +1574,9 @@
     obsModelFilter: 'all',
     obsAnomaliesOpen: false,
     obsMetricMenuOpen: false,
+    obsGapMenuOpen: false,
+    obsGapDraft: '',
+    obsGapError: '',
     obsPinnedCell: null, // { modelIdx, bucketKey } | null
     obsCopyStatus: '', // '' | 'copied' | 'failed'
     obsCopyTimer: null,
@@ -1771,6 +1801,10 @@
       }
     }
     const obsMatrixSubMetrics = OBS_MATRIX_METRIC_IDS.filter((id) => obsSubSet.has(id));
+    const rawGapBps = Array.isArray(cfg.obsGapBreakpointsSec)
+      ? cfg.obsGapBreakpointsSec
+      : DEFAULT_CONFIG.obsGapBreakpointsSec;
+    const obsGapBreakpointsSec = sanitizeObsGapBreakpoints(rawGapBps);
     state.config = {
       ...DEFAULT_CONFIG,
       ...cfg,
@@ -1785,6 +1819,7 @@
       quotaManualFactors,
       obsMatrixPrimary,
       obsMatrixSubMetrics,
+      obsGapBreakpointsSec,
       updateMode: ['auto', 'notify', 'off'].includes(cfg.updateMode) ? cfg.updateMode : DEFAULT_CONFIG.updateMode,
       dismissedUpdateVersion: typeof cfg.dismissedUpdateVersion === 'string' ? cfg.dismissedUpdateVersion : '',
       moduleOrder: Array.isArray(cfg.moduleOrder) && cfg.moduleOrder.length
@@ -3031,6 +3066,70 @@
   // =========================================================================
   // 15. Rendering: Module 6 — Global Cache Observatory
   // =========================================================================
+  function sanitizeObsGapBreakpoints(raw) {
+    if (!Array.isArray(raw)) return [...DEFAULT_OBS_GAP_BREAKPOINTS];
+    const set = new Set();
+    for (const v of raw) {
+      const n = Math.round(Number(v));
+      if (Number.isFinite(n) && n >= 1 && n <= 86400) set.add(n);
+    }
+    const sorted = [...set].sort((a, b) => a - b).slice(0, 12);
+    return sorted.length > 0 ? sorted : [...DEFAULT_OBS_GAP_BREAKPOINTS];
+  }
+
+  function fmtGapBpSec(sec) {
+    const s = Math.max(1, Math.round(num(sec, 0)));
+    if (s < 60) return `${s}s`;
+    if (s < 3600) {
+      const m = Math.floor(s / 60);
+      const rem = s % 60;
+      return rem === 0 ? `${m}m` : `${m}m${rem}s`;
+    }
+    const h = Math.floor(s / 3600);
+    const remM = Math.round((s % 3600) / 60);
+    return remM === 0 ? `${h}h` : `${h}h${remM}m`;
+  }
+
+  function parseGapDurationInput(raw) {
+    const s = String(raw || '').trim().toLowerCase().replace(/\s+/g, '');
+    if (!s) return null;
+    // Supports: "45", "45s", "3m", "1.5m", "45m", "2h", "1.5h", "1m30s", "1h30m"
+    const hm = s.match(/^(\d+)h(\d+)m$/);
+    if (hm) {
+      const sec = Number(hm[1]) * 3600 + Number(hm[2]) * 60;
+      return sec >= 1 && sec <= 86400 ? Math.round(sec) : null;
+    }
+    const ms = s.match(/^(\d+)m(\d+)s$/);
+    if (ms) {
+      const sec = Number(ms[1]) * 60 + Number(ms[2]);
+      return sec >= 1 && sec <= 86400 ? Math.round(sec) : null;
+    }
+    const single = s.match(/^(\d+(?:\.\d+)?)(s|sec|m|min|h|hr)?$/);
+    if (!single) return null;
+    const val = Number(single[1]);
+    if (!Number.isFinite(val) || val <= 0) return null;
+    const unit = single[2] || 's';
+    const mult = unit.startsWith('h') ? 3600 : unit.startsWith('m') ? 60 : 1;
+    const sec = Math.round(val * mult);
+    return sec >= 1 && sec <= 86400 ? sec : null;
+  }
+
+  function buildGapPreviewLabels(bps) {
+    const arr = sanitizeObsGapBreakpoints(bps);
+    const fmtPair = (a, b) => {
+      if (a < 60 && b < 60) return `${a}-${b}s`;
+      if (a < 60 && b === 60) return `${a}-60s`;
+      if (a >= 60 && a < 3600 && a % 60 === 0 && b < 3600 && b % 60 === 0) return `${a / 60}-${b / 60}m`;
+      if (a >= 60 && a < 3600 && a % 60 === 0 && b === 3600) return `${a / 60}-60m`;
+      if (a >= 3600 && a % 3600 === 0 && b >= 3600 && b % 3600 === 0) return `${a / 3600}-${b / 3600}h`;
+      return `${fmtGapBpSec(a)}-${fmtGapBpSec(b)}`;
+    };
+    const out = [`<=${fmtGapBpSec(arr[0])}`];
+    for (let i = 1; i < arr.length; i++) out.push(fmtPair(arr[i - 1], arr[i]));
+    out.push(`>${fmtGapBpSec(arr[arr.length - 1])}`);
+    return out;
+  }
+
   function getObsMatrixPrefs() {
     const primary = OBS_MATRIX_METRIC_IDS.includes(state.config.obsMatrixPrimary)
       ? state.config.obsMatrixPrimary
@@ -3204,9 +3303,14 @@
   }
 
   function renderCacheObservatoryExpanded(co) {
+    const activeBps = sanitizeObsGapBreakpoints(
+      Array.isArray(state.config.obsGapBreakpointsSec) && state.config.obsGapBreakpointsSec.length
+        ? state.config.obsGapBreakpointsSec
+        : co.gapBreakpointsSec
+    );
     const buckets = Array.isArray(co.gapBuckets) && co.gapBuckets.length
       ? co.gapBuckets
-      : ['<=2s', '2-5s', '5-10s', '10-20s', '20-60s', '1-5m', '>5m'];
+      : buildGapPreviewLabels(activeBps);
     const matrix = Array.isArray(co.matrix) ? co.matrix : [];
     const scatterAll = Array.isArray(co.scatterPoints) ? co.scatterPoints : [];
     const anomalies = Array.isArray(co.topAnomalies) ? co.topAnomalies : [];
@@ -3313,16 +3417,72 @@
         `
         : '';
 
+      const maxBpLabel = fmtGapBpSec(activeBps[activeBps.length - 1]);
+      const gapTriggerLabel = t('obs.gapBtnLabel', { max: maxBpLabel });
+      const customBps = activeBps.filter((s) => !OBS_GAP_PRESETS.includes(s));
+      const previewLabels = buildGapPreviewLabels(activeBps);
+
+      const gapMenuHtml = state.obsGapMenuOpen
+        ? `
+          <div class="obs-metric-popover obs-gap-popover" data-stop-card role="dialog" aria-label="${esc(t('obs.gapCfgTitle'))}">
+            <div class="obs-mp-head">
+              <span class="obs-mp-title">${esc(t('obs.gapCfgTitle'))}</span>
+              <button type="button" class="obs-mp-reset" data-action="reset-obs-gaps">${esc(t('obs.matrixReset'))}</button>
+            </div>
+            <div class="obs-gap-subhead">${esc(t('obs.gapPresetsLabel'))}</div>
+            <div class="obs-gap-chips">
+              ${OBS_GAP_PRESETS.map((sec) => {
+                const on = activeBps.includes(sec);
+                return `<button type="button" class="obs-gap-chip mono ${on ? 'active' : ''}" data-action="toggle-obs-gap-preset" data-sec="${sec}" aria-pressed="${on ? 'true' : 'false'}">${esc(fmtGapBpSec(sec))}</button>`;
+              }).join('')}
+            </div>
+            <div class="obs-gap-subhead">${esc(t('obs.gapCustomLabel'))}</div>
+            <div class="obs-gap-input-row">
+              <input type="text" class="obs-gap-input mono" data-obs-gap-input="1" value="${esc(state.obsGapDraft)}" placeholder="${esc(t('obs.gapCustomPlaceholder'))}">
+              <button type="button" class="btn-sm" data-action="add-obs-gap-custom">${esc(t('obs.gapAddBtn'))}</button>
+            </div>
+            ${state.obsGapError ? `<div class="obs-gap-err">${esc(state.obsGapError)}</div>` : ''}
+            ${
+              customBps.length > 0
+                ? `<div class="obs-gap-custom-list">
+                    <span class="obs-gap-subhead" style="margin:0">${esc(t('obs.gapCustomTags'))}</span>
+                    ${customBps
+                      .map(
+                        (sec) =>
+                          `<button type="button" class="obs-gap-chip active custom mono" data-action="remove-obs-gap-custom" data-sec="${sec}">${esc(fmtGapBpSec(sec))} ×</button>`
+                      )
+                      .join('')}
+                  </div>`
+                : ''
+            }
+            <div class="obs-gap-preview">
+              <div class="obs-gap-subhead" style="margin:0 0 3px">${esc(t('obs.gapPreviewLabel', { n: previewLabels.length }))}</div>
+              <div class="obs-gap-preview-list mono">${esc(previewLabels.join(' · '))}</div>
+            </div>
+            <div class="obs-mp-note">${esc(t('obs.gapCfgNote'))}</div>
+          </div>
+        `
+        : '';
+
       matrixHtml = `
         <div class="obs-section">
           <div class="obs-section-head">
             <span class="obs-section-title">${esc(t('obs.matrixTitle'))}</span>
-            <div class="obs-metric-ctrl" data-stop-card>
-              <button type="button" class="obs-metric-trigger ${state.obsMetricMenuOpen ? 'active' : ''}" data-action="toggle-obs-metric-menu" aria-expanded="${state.obsMetricMenuOpen ? 'true' : 'false'}">
-                <span>${esc(triggerLabel)}</span>
-                <span class="obs-caret" aria-hidden="true">▾</span>
-              </button>
-              ${menuHtml}
+            <div class="obs-matrix-ctrls" data-stop-card>
+              <div class="obs-metric-ctrl">
+                <button type="button" class="obs-metric-trigger ${state.obsGapMenuOpen ? 'active' : ''}" data-action="toggle-obs-gap-menu" aria-expanded="${state.obsGapMenuOpen ? 'true' : 'false'}">
+                  <span>${esc(gapTriggerLabel)}</span>
+                  <span class="obs-caret" aria-hidden="true">▾</span>
+                </button>
+                ${gapMenuHtml}
+              </div>
+              <div class="obs-metric-ctrl">
+                <button type="button" class="obs-metric-trigger ${state.obsMetricMenuOpen ? 'active' : ''}" data-action="toggle-obs-metric-menu" aria-expanded="${state.obsMetricMenuOpen ? 'true' : 'false'}">
+                  <span>${esc(triggerLabel)}</span>
+                  <span class="obs-caret" aria-hidden="true">▾</span>
+                </button>
+                ${menuHtml}
+              </div>
             </div>
           </div>
           <div class="obs-matrix-legend">${esc(legendText)}</div>
@@ -3365,23 +3525,39 @@
     const padB = 22;
     const plotW = W - padL - padR;
     const plotH = H - padT - padB;
+    const maxBpMs = (activeBps[activeBps.length - 1] || 3600) * 1000;
+    const MAX_X_MS = Math.max(600000, Math.min(86400000 * 1.25, Math.round(maxBpMs * 1.5)));
     const LOG_MIN = Math.log10(500);     // 0.5s
-    const LOG_MAX = Math.log10(600000);  // 10m
+    const LOG_MAX = Math.log10(MAX_X_MS);
 
     const xForMs = (ms) => {
-      const clamped = clamp(num(ms, 500), 500, 600000);
+      const clamped = clamp(num(ms, 500), 500, MAX_X_MS);
       const frac = (Math.log10(clamped) - LOG_MIN) / (LOG_MAX - LOG_MIN);
       return padL + frac * plotW;
     };
     const yForRatio = (r) => padT + (1 - clamp(num(r, 0), 0, 1)) * plotH;
 
-    const xTicks = [
+    const candidateTicks = [
       { ms: 1000, label: '1s' },
       { ms: 5000, label: '5s' },
+      { ms: 10000, label: '10s' },
       { ms: 20000, label: '20s' },
       { ms: 60000, label: '1m' },
-      { ms: 300000, label: '5m' }
+      { ms: 300000, label: '5m' },
+      { ms: 900000, label: '15m' },
+      { ms: 3600000, label: '1h' },
+      { ms: 7200000, label: '2h' },
+      { ms: 21600000, label: '6h' },
+      { ms: 86400000, label: '24h' }
     ];
+    const xTicks = [];
+    for (const tk of candidateTicks) {
+      if (tk.ms > MAX_X_MS * 0.96) continue;
+      const xPos = xForMs(tk.ms);
+      if (xTicks.length === 0 || xPos - xForMs(xTicks[xTicks.length - 1].ms) >= 48) {
+        xTicks.push(tk);
+      }
+    }
     const yTicks = [
       { r: 1, label: '100%' },
       { r: 0.5, label: '50%' },
@@ -4758,7 +4934,9 @@
       isBackground &&
         active &&
         active.closest &&
-        (active.closest('#quota-anchor-form') || active.closest('.calib-anchor-select'))
+        (active.closest('#quota-anchor-form') ||
+          active.closest('.calib-anchor-select') ||
+          active.closest('[data-obs-gap-input="1"]'))
     );
     const editingSettingsInput = Boolean(
       isBackground && active && active.closest && active.closest('#settings-body input, #settings-body select')
@@ -4987,9 +5165,107 @@
 
       if (action === 'toggle-obs-metric-menu') {
         e.stopPropagation();
-        if (!state.obsMetricMenuOpen) dismissObsCellPopover();
+        if (!state.obsMetricMenuOpen) {
+          dismissObsCellPopover();
+          state.obsGapMenuOpen = false;
+        }
         state.obsMetricMenuOpen = !state.obsMetricMenuOpen;
         renderGrid();
+        return;
+      }
+
+      if (action === 'toggle-obs-gap-menu') {
+        e.stopPropagation();
+        if (!state.obsGapMenuOpen) {
+          dismissObsCellPopover();
+          state.obsMetricMenuOpen = false;
+          state.obsGapError = '';
+        }
+        state.obsGapMenuOpen = !state.obsGapMenuOpen;
+        renderGrid();
+        return;
+      }
+
+      if (action === 'toggle-obs-gap-preset') {
+        e.stopPropagation();
+        const sec = Math.round(Number(actionEl.dataset.sec));
+        if (!Number.isFinite(sec) || sec < 1) return;
+        const cur = sanitizeObsGapBreakpoints(state.config.obsGapBreakpointsSec);
+        state.obsGapError = '';
+        let next;
+        if (cur.includes(sec)) {
+          if (cur.length <= 1) {
+            state.obsGapError = t('obs.gapErrMinOne');
+            renderGrid();
+            return;
+          }
+          next = cur.filter((x) => x !== sec);
+        } else {
+          if (cur.length >= 12) {
+            state.obsGapError = t('obs.gapErrMax');
+            renderGrid();
+            return;
+          }
+          next = sanitizeObsGapBreakpoints([...cur, sec]);
+        }
+        state.config.obsGapBreakpointsSec = next;
+        renderGrid();
+        await saveConfigPatch({ obsGapBreakpointsSec: next });
+        await refreshAll(true);
+        return;
+      }
+
+      if (action === 'add-obs-gap-custom') {
+        e.stopPropagation();
+        const sec = parseGapDurationInput(state.obsGapDraft);
+        if (!sec) {
+          state.obsGapError = t('obs.gapErrInvalid');
+          renderGrid();
+          return;
+        }
+        const cur = sanitizeObsGapBreakpoints(state.config.obsGapBreakpointsSec);
+        if (!cur.includes(sec) && cur.length >= 12) {
+          state.obsGapError = t('obs.gapErrMax');
+          renderGrid();
+          return;
+        }
+        state.obsGapError = '';
+        state.obsGapDraft = '';
+        const next = sanitizeObsGapBreakpoints([...cur, sec]);
+        state.config.obsGapBreakpointsSec = next;
+        renderGrid();
+        await saveConfigPatch({ obsGapBreakpointsSec: next });
+        await refreshAll(true);
+        return;
+      }
+
+      if (action === 'remove-obs-gap-custom') {
+        e.stopPropagation();
+        const sec = Math.round(Number(actionEl.dataset.sec));
+        const cur = sanitizeObsGapBreakpoints(state.config.obsGapBreakpointsSec);
+        if (cur.length <= 1) {
+          state.obsGapError = t('obs.gapErrMinOne');
+          renderGrid();
+          return;
+        }
+        state.obsGapError = '';
+        const next = cur.filter((x) => x !== sec);
+        state.config.obsGapBreakpointsSec = next;
+        renderGrid();
+        await saveConfigPatch({ obsGapBreakpointsSec: next });
+        await refreshAll(true);
+        return;
+      }
+
+      if (action === 'reset-obs-gaps') {
+        e.stopPropagation();
+        state.obsGapError = '';
+        state.obsGapDraft = '';
+        const next = [...DEFAULT_OBS_GAP_BREAKPOINTS];
+        state.config.obsGapBreakpointsSec = next;
+        renderGrid();
+        await saveConfigPatch({ obsGapBreakpointsSec: next });
+        await refreshAll(true);
         return;
       }
 
@@ -5151,9 +5427,13 @@
     }
   });
 
-  // Preserve Quota Form input values across light edits & handle submit
+  // Preserve Quota Form & Gap Breakpoint input values across light edits
   dom.modulesGrid.addEventListener('input', (e) => {
     const tgt = e.target;
+    if (tgt.dataset?.obsGapInput === '1') {
+      state.obsGapDraft = tgt.value;
+      return;
+    }
     if (tgt.id === 'qa-pool') state.quotaForm.pool = tgt.value;
     else if (tgt.id === 'qa-window') state.quotaForm.windowType = tgt.value;
     else if (tgt.id === 'qa-pct') state.quotaForm.remainingPct = tgt.value;
@@ -5706,7 +5986,7 @@
   document.addEventListener('pointerover', (e) => {
     const obsCell = e.target.closest?.('[data-obs-cell="1"]');
     if (obsCell) {
-      if (!state.obsPinnedCell && !state.obsMetricMenuOpen) {
+      if (!state.obsPinnedCell && !state.obsMetricMenuOpen && !state.obsGapMenuOpen) {
         showObsCellPopover(obsCell, false);
       }
       return;
@@ -5779,8 +6059,9 @@
     if (obsCell) {
       e.preventDefault();
       e.stopPropagation();
-      if (state.obsMetricMenuOpen) {
+      if (state.obsMetricMenuOpen || state.obsGapMenuOpen) {
         state.obsMetricMenuOpen = false;
+        state.obsGapMenuOpen = false;
         renderGrid();
       }
       const mIdx = Number(obsCell.dataset.modelIdx);
@@ -5810,8 +6091,9 @@
       dismissObsCellPopover();
     }
 
-    if (state.obsMetricMenuOpen && !e.target.closest?.('.obs-metric-ctrl')) {
+    if ((state.obsMetricMenuOpen || state.obsGapMenuOpen) && !e.target.closest?.('.obs-matrix-ctrls')) {
       state.obsMetricMenuOpen = false;
+      state.obsGapMenuOpen = false;
       renderGrid();
     }
 
@@ -5912,14 +6194,21 @@
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       if (state.obsPinnedCell) dismissObsCellPopover();
-      if (state.obsMetricMenuOpen) {
+      if (state.obsMetricMenuOpen || state.obsGapMenuOpen) {
         state.obsMetricMenuOpen = false;
+        state.obsGapMenuOpen = false;
         renderGrid();
       }
       if (state.update.popoverOpen) {
         state.update.popoverOpen = false;
         renderUpdateUI();
       }
+      return;
+    }
+    if (e.key === 'Enter' && e.target?.matches?.('[data-obs-gap-input="1"]')) {
+      e.preventDefault();
+      const addBtn = dom.modulesGrid.querySelector('[data-action="add-obs-gap-custom"]');
+      if (addBtn) addBtn.click();
       return;
     }
     if (e.key === 'Enter' || e.key === ' ') {

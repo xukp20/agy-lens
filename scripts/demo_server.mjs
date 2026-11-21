@@ -121,6 +121,7 @@ const demoConfig = {
   quotaManualFactors: { M: false, C: false, O: false },
   obsMatrixPrimary: 'weightedHit',
   obsMatrixSubMetrics: ['keepRate', 'avgCost'],
+  obsGapBreakpointsSec: [10, 60, 300, 600, 3600],
   updateMode: 'auto',
   dismissedUpdateVersion: '',
   defaultRange: '7d',
@@ -1155,6 +1156,7 @@ function buildAnalyticsResponse(query) {
     cacheObservatory = analyzeTurnsForObservatory(obsRows, pricingState, {
       fromMs: rangeObj.fromMs,
       toMs: rangeObj.toMs,
+      gapBreakpointsSec: demoConfig.obsGapBreakpointsSec,
     });
   }
 
@@ -1472,6 +1474,10 @@ const server = createServer(async (req, res) => {
         if (Array.isArray(body.obsMatrixSubMetrics)) {
           const s = new Set(body.obsMatrixSubMetrics.filter((k) => obsMetricOrder.includes(k) && k !== demoConfig.obsMatrixPrimary));
           demoConfig.obsMatrixSubMetrics = obsMetricOrder.filter((k) => s.has(k));
+        }
+        if (Array.isArray(body.obsGapBreakpointsSec)) {
+          const uniq = [...new Set(body.obsGapBreakpointsSec.map((n) => Math.round(Number(n))).filter((n) => Number.isFinite(n) && n >= 1 && n <= 86400))].sort((a, b) => a - b).slice(0, 12);
+          if (uniq.length > 0) demoConfig.obsGapBreakpointsSec = uniq;
         }
         if (['auto', 'notify', 'off'].includes(body.updateMode)) demoConfig.updateMode = body.updateMode;
         if (typeof body.dismissedUpdateVersion === 'string') {

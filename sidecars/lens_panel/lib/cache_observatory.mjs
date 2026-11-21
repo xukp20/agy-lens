@@ -5,17 +5,76 @@
  */
 import { calcMissPenaltyUsd, calculateTurnCost } from './pricing.mjs';
 
-export const GAP_BUCKETS = ['<=2s', '2-5s', '5-10s', '10-20s', '20-60s', '1-5m', '>5m'];
-const GAP_THRESHOLDS_MS = [2000, 5000, 10000, 20000, 60000, 300000];
+export const DEFAULT_GAP_BREAKPOINTS_SEC = [10, 60, 300, 600, 3600];
+const MAX_GAP_BREAKPOINTS = 12;
+const MAX_BREAKPOINT_SEC = 24 * 3600;
 const MAX_SCATTER_POINTS = 450;
 const MAX_TOP_ANOMALIES = 20;
 
-export function classifyGapBucket(idleGapMs) {
-  if (idleGapMs === null || idleGapMs === undefined || !Number.isFinite(idleGapMs)) return null;
-  for (let i = 0; i < GAP_THRESHOLDS_MS.length; i++) {
-    if (idleGapMs <= GAP_THRESHOLDS_MS[i]) return GAP_BUCKETS[i];
+export function sanitizeGapBreakpointsSec(raw) {
+  if (!Array.isArray(raw)) return [...DEFAULT_GAP_BREAKPOINTS_SEC];
+  const uniq = new Set();
+  for (const item of raw) {
+    const n = Math.round(Number(item));
+    if (Number.isFinite(n) && n >= 1 && n <= MAX_BREAKPOINT_SEC) {
+      uniq.add(n);
+    }
   }
-  return '>5m';
+  const sorted = [...uniq].sort((a, b) => a - b).slice(0, MAX_GAP_BREAKPOINTS);
+  return sorted.length > 0 ? sorted : [...DEFAULT_GAP_BREAKPOINTS_SEC];
+}
+
+export function formatBreakpointSec(sec) {
+  const s = Math.max(1, Math.round(Number(sec || 0)));
+  if (s < 60) return `${s}s`;
+  if (s < 3600) {
+    const m = Math.floor(s / 60);
+    const rem = s % 60;
+    return rem === 0 ? `${m}m` : `${m}m${rem}s`;
+  }
+  const h = Math.floor(s / 3600);
+  const remM = Math.round((s % 3600) / 60);
+  return remM === 0 ? `${h}h` : `${h}h${remM}m`;
+}
+
+function formatGapRangeLabel(aSec, bSec) {
+  if (aSec < 60 && bSec < 60) return `${aSec}-${bSec}s`;
+  if (aSec < 60 && bSec === 60) return `${aSec}-60s`;
+  if (aSec >= 60 && aSec < 3600 && aSec % 60 === 0 && bSec < 3600 && bSec % 60 === 0) {
+    return `${aSec / 60}-${bSec / 60}m`;
+  }
+  if (aSec >= 60 && aSec < 3600 && aSec % 60 === 0 && bSec === 3600) {
+    return `${aSec / 60}-60m`;
+  }
+  if (aSec >= 3600 && aSec % 3600 === 0 && bSec >= 3600 && bSec % 3600 === 0) {
+    return `${aSec / 3600}-${bSec / 3600}h`;
+  }
+  return `${formatBreakpointSec(aSec)}-${formatBreakpointSec(bSec)}`;
+}
+
+export function buildGapBucketSpec(rawBreakpointsSec) {
+  const breakpointsSec = sanitizeGapBreakpointsSec(rawBreakpointsSec);
+  const keys = [];
+  const thresholdsMs = breakpointsSec.map((s) => s * 1000);
+  keys.push(`<=${formatBreakpointSec(breakpointsSec[0])}`);
+  for (let i = 1; i < breakpointsSec.length; i++) {
+    keys.push(formatGapRangeLabel(breakpointsSec[i - 1], breakpointsSec[i]));
+  }
+  keys.push(`>${formatBreakpointSec(breakpointsSec[breakpointsSec.length - 1])}`);
+  return { breakpointsSec, keys, thresholdsMs };
+}
+
+const DEFAULT_SPEC = buildGapBucketSpec(DEFAULT_GAP_BREAKPOINTS_SEC);
+export const GAP_BUCKETS = DEFAULT_SPEC.keys;
+
+export function classifyGapBucket(idleGapMs, spec = DEFAULT_SPEC) {
+  if (idleGapMs === null || idleGapMs === undefined || !Number.isFinite(idleGapMs)) return null;
+  const thresholds = spec?.thresholdsMs || DEFAULT_SPEC.thresholdsMs;
+  const keys = spec?.keys || DEFAULT_SPEC.keys;
+  for (let i = 0; i < thresholds.length; i++) {
+    if (idleGapMs <= thresholds[i]) return keys[i];
+  }
+  return keys[keys.length - 1];
 }
 
 function formatDurationShort(ms) {
@@ -55,7 +114,7 @@ function downsampleEvenly(items, limit) {
   return out;
 }
 
-export function buildIssueMarkdown({ summary, matrix, topAnomalies }) {
+export function buildIssueMarkdown({ summary, matrix, topAnomalies, gapBuckets = GAP_BUCKETS }) {
   const lines = [];
   lines.push('### Prompt Cache Diagnostics (AGY Lens)');
   lines.push('');
@@ -76,8 +135,8 @@ export function buildIssueMarkdown({ summary, matrix, topAnomalies }) {
   if (matrix.length > 0) {
     lines.push('#### Model × Idle-Gap Hit Rate Matrix');
     lines.push('');
-    lines.push(`| Model | Follow-ups | Hit % | Misses | ${GAP_BUCKETS.join(' | ')} |`);
-    lines.push(`| --- | ---: | ---: | ---: | ${GAP_BUCKETS.map(() => '---:').join(' | ')} |`);
+    lines.push(`| Model | Follow-ups | Hit % | Misses | ${gapBuckets.join(' | ')} |`);
+    lines.push(`| --- | ---: | ---: | ---: | ${gapBuckets.map(() => '---:').join(' | ')} |`);
     for (const row of matrix) {
       const cells = row.buckets.map((b) =>
         b.total > 0 && b.hitRate !== null ? `${Math.round(b.hitRate * 100)}% (${b.hits}/${b.total})` : '—'
@@ -113,7 +172,7 @@ export function buildIssueMarkdown({ summary, matrix, topAnomalies }) {
   return lines.join('\n');
 }
 
-function emptyObservatory() {
+function emptyObservatory(spec = DEFAULT_SPEC) {
   const summary = {
     followUpTurns: 0,
     weightedFollowUpHitRatio: 0,
@@ -127,11 +186,12 @@ function emptyObservatory() {
   };
   return {
     summary,
-    gapBuckets: [...GAP_BUCKETS],
+    gapBreakpointsSec: [...spec.breakpointsSec],
+    gapBuckets: [...spec.keys],
     matrix: [],
     scatterPoints: [],
     topAnomalies: [],
-    issueMarkdown: buildIssueMarkdown({ summary, matrix: [], topAnomalies: [] }),
+    issueMarkdown: buildIssueMarkdown({ summary, matrix: [], topAnomalies: [], gapBuckets: spec.keys }),
   };
 }
 
@@ -174,9 +234,15 @@ function queryConversationTurns(cacheDb, { sources, fromMs, toMs, workspace = ''
  * Analyze turns grouped by conversation and produce the Cache Observatory payload.
  * Pure aggregation helper `analyzeTurnsForObservatory` is exported for reuse by demo_server.
  */
-export function analyzeTurnsForObservatory(rows, pricingState, { fromMs = 0, toMs = Date.now() } = {}) {
+export function analyzeTurnsForObservatory(
+  rows,
+  pricingState,
+  { fromMs = 0, toMs = Date.now(), gapBreakpointsSec = null } = {}
+) {
+  const gapSpec = buildGapBucketSpec(gapBreakpointsSec);
+  const bucketKeys = gapSpec.keys;
   if (!rows || rows.length === 0) {
-    return emptyObservatory();
+    return emptyObservatory(gapSpec);
   }
 
   // Group turns by conversation_id (preserving step_idx ASC order).
@@ -326,7 +392,7 @@ export function analyzeTurnsForObservatory(rows, pricingState, { fromMs = 0, toM
       let m = modelStats.get(modelId);
       if (!m) {
         const bucketMap = new Map();
-        for (const key of GAP_BUCKETS) {
+        for (const key of bucketKeys) {
           bucketMap.set(key, {
             key,
             total: 0,
@@ -380,7 +446,7 @@ export function analyzeTurnsForObservatory(rows, pricingState, { fromMs = 0, toM
       m.wastedTokens += wastedTokens;
       m.missPenaltyUsd += penaltyUsd;
 
-      const bucketKey = classifyGapBucket(idleGapMs);
+      const bucketKey = classifyGapBucket(idleGapMs, gapSpec);
       if (bucketKey) {
         const b = m.bucketMap.get(bucketKey);
         b.total++;
@@ -474,7 +540,7 @@ export function analyzeTurnsForObservatory(rows, pricingState, { fromMs = 0, toM
       missPenaltyUsd: m.missPenaltyUsd,
       avgMissPenaltyUsd: m.followUpTurns > 0 ? m.missPenaltyUsd / m.followUpTurns : 0,
       unbucketedTurns: m.unbucketedTurns,
-      buckets: GAP_BUCKETS.map((key) => {
+      buckets: bucketKeys.map((key) => {
         const b = m.bucketMap.get(key);
         return {
           key,
@@ -536,19 +602,20 @@ export function analyzeTurnsForObservatory(rows, pricingState, { fromMs = 0, toM
 
   return {
     summary,
-    gapBuckets: [...GAP_BUCKETS],
+    gapBreakpointsSec: [...gapSpec.breakpointsSec],
+    gapBuckets: [...bucketKeys],
     matrix,
     scatterPoints,
     topAnomalies,
-    issueMarkdown: buildIssueMarkdown({ summary, matrix, topAnomalies }),
+    issueMarkdown: buildIssueMarkdown({ summary, matrix, topAnomalies, gapBuckets: bucketKeys }),
   };
 }
 
 export function computeCacheObservatory(
   cacheDb,
   pricingState,
-  { sources = ['desktop', 'cli'], fromMs = 0, toMs = Date.now(), workspace = '' } = {}
+  { sources = ['desktop', 'cli'], fromMs = 0, toMs = Date.now(), workspace = '', gapBreakpointsSec = null } = {}
 ) {
   const rows = queryConversationTurns(cacheDb, { sources, fromMs, toMs, workspace });
-  return analyzeTurnsForObservatory(rows, pricingState, { fromMs, toMs });
+  return analyzeTurnsForObservatory(rows, pricingState, { fromMs, toMs, gapBreakpointsSec });
 }

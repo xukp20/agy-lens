@@ -914,7 +914,15 @@ function queryTurnsWithWorkspace(cacheDb, { sources, fromMs, toMs, workspace = '
 export function getAnalytics(
   cacheDb,
   pricingState,
-  { range = '7d', from = null, to = null, sources = ['desktop', 'cli'], modules = null, workspace = '' } = {}
+  {
+    range = '7d',
+    from = null,
+    to = null,
+    sources = ['desktop', 'cli'],
+    modules = null,
+    workspace = '',
+    gapBreakpointsSec = null,
+  } = {}
 ) {
   const nowMs = Date.now();
   const activeSources = sources.filter((s) => s === 'desktop' || s === 'cli');
@@ -1176,6 +1184,7 @@ export function getAnalytics(
         fromMs: rangeObj.fromMs,
         toMs: rangeObj.toMs,
         workspace,
+        gapBreakpointsSec,
       })
     : null;
 

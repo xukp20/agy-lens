@@ -31,6 +31,10 @@ import {
   getQuotaStatus,
 } from './lib/quota.mjs';
 import {
+  DEFAULT_GAP_BREAKPOINTS_SEC,
+  sanitizeGapBreakpointsSec,
+} from './lib/cache_observatory.mjs';
+import {
   ackJustUpdated,
   checkForUpdate,
   getRunningVersion,
@@ -97,6 +101,7 @@ const DEFAULT_CONFIG = {
   quotaManualFactors: { M: false, C: false, O: false },
   obsMatrixPrimary: 'weightedHit',
   obsMatrixSubMetrics: ['keepRate', 'avgCost'],
+  obsGapBreakpointsSec: [...DEFAULT_GAP_BREAKPOINTS_SEC],
   updateMode: 'auto',
   dismissedUpdateVersion: '',
   defaultRange: '7d',
@@ -244,6 +249,9 @@ function deepMergeConfig(base, patch) {
     quotaManualFactors: calib.quotaManualFactors,
     obsMatrixPrimary: obsMatrix.obsMatrixPrimary,
     obsMatrixSubMetrics: obsMatrix.obsMatrixSubMetrics,
+    obsGapBreakpointsSec: Array.isArray(patch.obsGapBreakpointsSec)
+      ? sanitizeGapBreakpointsSec(patch.obsGapBreakpointsSec)
+      : sanitizeGapBreakpointsSec(base.obsGapBreakpointsSec),
     updateMode:
       typeof patch.updateMode === 'string' && UPDATE_MODES.has(patch.updateMode)
         ? patch.updateMode
@@ -512,6 +520,7 @@ app.api('/api/analytics', (data) => {
     sources,
     modules,
     workspace: typeof data.workspace === 'string' ? data.workspace : '',
+    gapBreakpointsSec: config.obsGapBreakpointsSec,
   });
 }, 'GET');
 
