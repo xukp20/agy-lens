@@ -1,6 +1,6 @@
 {
   "command": "node",
-  "args": ["main.mjs"],
+  "args": ["boot.mjs"],
   "restart_policy": "on-failure",
   "display_name": "AGY Lens",
   "description": "Live context composition, prompt cache diagnostics, global cache-miss observatory, long-context API cost analytics, calendar heatmap, and 2-decimal manual quota alignment.",

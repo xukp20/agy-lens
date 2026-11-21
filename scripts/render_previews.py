@@ -1443,142 +1443,221 @@ def render_quota_budget() -> Path:
 # ---------------------------------------------------------------------------
 def build_settings_drawer_svg() -> str:
     th = DARK
-    W, H = 900, 636
+    W, H = 940, 710
     parts: list[str] = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}">',
         f'<rect width="{W}" height="{H}" fill="{th["bg"]}"/>',
     ]
 
-    # Dimmed background panel strip on the left so the right drawer feels native
-    parts.append(f'<rect x="16" y="16" width="380" height="604" rx="10" fill="{th["surface"]}" opacity="0.45"/>')
-    parts.append(f'<text x="34" y="48" font-family="{FONT_UI}" font-size="14" font-weight="700" fill="{th["fg"]}" opacity="0.45">AGY Lens</text>')
-    parts.append(f'<rect x="34" y="72" width="340" height="120" rx="8" fill="{th["field"]}" opacity="0.45"/>')
-    parts.append(f'<rect x="34" y="206" width="340" height="160" rx="8" fill="{th["field"]}" opacity="0.45"/>')
-    parts.append(f'<rect x="34" y="380" width="340" height="140" rx="8" fill="{th["field"]}" opacity="0.45"/>')
+    # Left panel preview: live main header with compact ↑ v1.4.1 micro-pill + update popover + help callout
+    lx, ly, lw, lh = 16, 16, 434, H - 32
+    parts.append(f'<rect x="{lx}" y="{ly}" width="{lw}" height="{lh}" rx="10" fill="{th["surface"]}" stroke="{th["card_border"]}" stroke-width="1"/>')
+    # Header bar on left panel
+    parts.append(f'<rect x="{lx + 1}" y="{ly + 1}" width="{lw - 2}" height="44" rx="9" fill="{th["header_bg"]}"/>')
+    parts.append(f'<line x1="{lx}" y1="{ly + 45}" x2="{lx + lw}" y2="{ly + 45}" stroke="{th["border"]}" stroke-width="1"/>')
+    # Logo + title + ↑ v1.4.1 micro-pill right next to AGY Lens
+    parts.append(f'<g transform="translate({lx + 12}, {ly + 12}) scale(0.156)">{extract_logo_inner("set_logo")}</g>')
+    parts.append(f'<text x="{lx + 38}" y="{ly + 27}" font-family="{FONT_UI}" font-size="13.5" font-weight="700" fill="{th["fg"]}">AGY Lens</text>')
+    pill_x = lx + 38 + text_w("AGY Lens", 13.5, bold=True) + 8
+    pill_y = ly + 13.5
+    p_upd, p_upd_w = svg_pill(pill_x, pill_y, "↑ v1.4.1", th["ok_bg"], th["ok"], font_size=9.5, h=17, pad_x=6, mono=True)
+    parts.append(p_upd)
+    # Right header controls (freshness, 15s, refresh, settings)
+    parts.append(f'<circle cx="{lx + lw - 122}" cy="{ly + 22.5}" r="3" fill="{th["ok"]}"/>')
+    parts.append(f'<text x="{lx + lw - 115}" y="{ly + 26}" font-family="{FONT_MONO}" font-size="10" fill="{th["fg_muted"]}">3s</text>')
+    parts.append(f'<rect x="{lx + lw - 92}" y="{ly + 12}" width="38" height="20" rx="5" fill="{th["field"]}" stroke="{th["border"]}" stroke-width="1"/>')
+    parts.append(f'<text x="{lx + lw - 73}" y="{ly + 25.5}" text-anchor="middle" font-family="{FONT_MONO}" font-size="9.5" fill="{th["fg"]}">15s</text>')
+    parts.append(svg_refresh(lx + lw - 46, ly + 15.5, 13, th["fg_muted"]))
+    parts.append(svg_gear(lx + lw - 24, ly + 15.5, 13, th["accent"]))
 
-    # Backdrop overlay
-    parts.append(f'<rect x="0" y="0" width="440" height="{H}" fill="#000000" fill-opacity="0.32"/>')
+    # Subtle dimmed card silhouettes behind popovers on left panel
+    parts.append(f'<rect x="{lx + 14}" y="{ly + 58}" width="{lw - 28}" height="108" rx="8" fill="{th["field"]}" opacity="0.35"/>')
+    parts.append(f'<rect x="{lx + 14}" y="{ly + 178}" width="{lw - 28}" height="164" rx="8" fill="{th["field"]}" opacity="0.35"/>')
+    parts.append(f'<rect x="{lx + 14}" y="{ly + 354}" width="{lw - 28}" height="186" rx="8" fill="{th["field"]}" opacity="0.35"/>')
+    parts.append(f'<rect x="{lx + 14}" y="{ly + 552}" width="{lw - 28}" height="110" rx="8" fill="{th["field"]}" opacity="0.35"/>')
 
-    # Drawer on the right (460px wide)
-    dx, dw = 440, 460
+    # Floating Update Available Popover anchored cleanly below ↑ v1.4.1 micro-pill
+    ux, uy, uw, uh = lx + 16, ly + 66, lw - 32, 232
+    parts.append(
+        f'<path d="M {pill_x + p_upd_w/2:.1f} {pill_y + 17:.1f} L {pill_x + p_upd_w/2:.1f} {uy:.1f}" '
+        f'fill="none" stroke="{th["ok"]}" stroke-width="1.3" stroke-dasharray="3,2"/>'
+    )
+    parts.append(f'<circle cx="{pill_x + p_upd_w/2:.1f}" cy="{uy:.1f}" r="2.8" fill="{th["ok"]}"/>')
+    parts.append(f'<rect x="{ux}" y="{uy}" width="{uw}" height="{uh}" rx="10" fill="{th["surface"]}" stroke="{th["accent_border"]}" stroke-width="1.4"/>')
+    parts.append(f'<text x="{ux + 14}" y="{uy + 23}" font-family="{FONT_UI}" font-size="12" font-weight="700" fill="{th["fg"]}">Update Available</text>')
+    parts.append(f'<text x="{ux + 132}" y="{uy + 23}" font-family="{FONT_MONO}" font-size="11" font-weight="700" fill="{th["accent"]}">v1.4.0 → v1.4.1</text>')
+    parts.append(f'<text x="{ux + uw - 16}" y="{uy + 24}" text-anchor="middle" font-family="{FONT_UI}" font-size="14" fill="{th["fg_muted"]}">×</text>')
+    parts.append(f'<line x1="{ux + 12}" y1="{uy + 34}" x2="{ux + uw - 12}" y2="{uy + 34}" stroke="{th["line"]}" stroke-width="1"/>')
+
+    # Green staged-ready pill inside update popover
+    parts.append(f'<rect x="{ux + 12}" y="{uy + 44}" width="{uw - 24}" height="34" rx="6" fill="{th["ok_bg"]}"/>')
+    parts.append(f'<text x="{ux + 20}" y="{uy + 58}" font-family="{FONT_UI}" font-size="10" font-weight="600" fill="{th["ok"]}">Verified &amp; smoke-tested — restart now to apply, or it</text>')
+    parts.append(f'<text x="{ux + 20}" y="{uy + 71}" font-family="{FONT_UI}" font-size="10" font-weight="600" fill="{th["ok"]}">will apply automatically on next cold start.</text>')
+
+    # Release notes box
+    parts.append(f'<rect x="{ux + 12}" y="{uy + 88}" width="{uw - 24}" height="88" rx="6" fill="{th["field"]}" stroke="{th["line"]}" stroke-width="1"/>')
+    notes = [
+        "What's New in v1.4.1",
+        "• Configurable 6-metric Cache Observatory matrix",
+        "• boot.mjs cold-start apply & crash auto-rollback",
+        "• Supports both Git clone & Standalone installs",
+    ]
+    ny = uy + 105
+    for idx_n, nline in enumerate(notes):
+        fw_n = "700" if idx_n == 0 else "400"
+        col_n = th["fg"] if idx_n == 0 else th["fg2"]
+        parts.append(f'<text x="{ux + 22}" y="{ny}" font-family="{FONT_UI}" font-size="10.2" font-weight="{fw_n}" fill="{col_n}">{esc(nline)}</text>')
+        ny += 19
+
+    # Action buttons inside update popover
+    by_u = uy + 188
+    parts.append(f'<rect x="{ux + 12}" y="{by_u}" width="166" height="28" rx="6" fill="{th["accent"]}"/>')
+    parts.append(f'<text x="{ux + 95}" y="{by_u + 18}" text-anchor="middle" font-family="{FONT_UI}" font-size="10.8" font-weight="700" fill="#ffffff">Restart to Apply v1.4.1</text>')
+    parts.append(f'<rect x="{ux + 186}" y="{by_u}" width="92" height="28" rx="6" fill="{th["field"]}" stroke="{th["border"]}" stroke-width="1"/>')
+    parts.append(f'<text x="{ux + 232}" y="{by_u + 18}" text-anchor="middle" font-family="{FONT_UI}" font-size="10.5" fill="{th["fg"]}">Skip Version</text>')
+    parts.append(f'<rect x="{ux + 286}" y="{by_u}" width="102" height="28" rx="6" fill="{th["field"]}" stroke="{th["border"]}" stroke-width="1"/>')
+    parts.append(f'<text x="{ux + 337}" y="{by_u + 18}" text-anchor="middle" font-family="{FONT_UI}" font-size="10.5" fill="{th["fg"]}">View GitHub</text>')
+
+    # One-time post-update toast preview at bottom of left panel
+    toast_y = ly + lh - 68
+    parts.append(f'<rect x="{ux}" y="{toast_y}" width="{uw}" height="44" rx="8" fill="{th["accent_bg"]}" stroke="{th["accent_border"]}" stroke-width="1"/>')
+    parts.append(f'<text x="{ux + 14}" y="{toast_y + 26}" font-family="{FONT_UI}" font-size="11" font-weight="600" fill="{th["fg"]}">Updated to v1.4.0 (from v1.3.0)</text>')
+    parts.append(f'<rect x="{ux + uw - 74}" y="{toast_y + 10}" width="60" height="24" rx="5" fill="{th["surface"]}" stroke="{th["border"]}" stroke-width="1"/>')
+    parts.append(f'<text x="{ux + uw - 44}" y="{toast_y + 25.5}" text-anchor="middle" font-family="{FONT_UI}" font-size="10.5" fill="{th["fg"]}">Got it</text>')
+
+    # Right Settings Drawer (474px wide)
+    dx, dw = 466, W - 466
     parts.append(f'<rect x="{dx}" y="0" width="{dw}" height="{H}" fill="{th["bg"]}"/>')
     parts.append(f'<line x1="{dx}" y1="0" x2="{dx}" y2="{H}" stroke="{th["border"]}" stroke-width="1"/>')
 
     # Drawer Header
-    parts.append(f'<rect x="{dx + 1}" y="0" width="{dw - 1}" height="46" fill="{th["surface"]}"/>')
-    parts.append(f'<line x1="{dx}" y1="46" x2="{W}" y2="46" stroke="{th["border"]}" stroke-width="1"/>')
-    parts.append(f'<text x="{dx + 16}" y="28" font-family="{FONT_UI}" font-size="14" font-weight="700" fill="{th["fg"]}">Settings</text>')
-    parts.append(f'<text x="{W - 22}" y="29" text-anchor="middle" font-family="{FONT_UI}" font-size="16" fill="{th["fg_muted"]}">×</text>')
+    parts.append(f'<rect x="{dx + 1}" y="0" width="{dw - 1}" height="44" fill="{th["surface"]}"/>')
+    parts.append(f'<line x1="{dx}" y1="44" x2="{W}" y2="44" stroke="{th["border"]}" stroke-width="1"/>')
+    parts.append(f'<text x="{dx + 16}" y="27" font-family="{FONT_UI}" font-size="14" font-weight="700" fill="{th["fg"]}">Settings</text>')
+    parts.append(f'<text x="{W - 22}" y="28" text-anchor="middle" font-family="{FONT_UI}" font-size="16" fill="{th["fg_muted"]}">×</text>')
 
-    y = 62
-    # Section 1: Language + Refresh side-by-side
-    parts.append(f'<text x="{dx + 16}" y="{y}" font-family="{FONT_UI}" font-size="10.5" font-weight="700" fill="{th["fg_muted"]}">LANGUAGE &amp; POLLING</text>')
-    y += 8
-    parts.append(f'<rect x="{dx + 16}" y="{y}" width="{dw - 32}" height="74" rx="8" fill="{th["surface"]}" stroke="{th["card_border"]}" stroke-width="1"/>')
-
-    # Language row
-    parts.append(f'<text x="{dx + 28}" y="{y + 22}" font-family="{FONT_UI}" font-size="12" font-weight="600" fill="{th["fg"]}">UI Language</text>')
-    parts.append(f'<rect x="{W - 150}" y="{y + 7}" width="122" height="22" rx="6" fill="{th["fill"]}"/>')
-    parts.append(f'<rect x="{W - 148}" y="{y + 9}" width="60" height="18" rx="4" fill="{th["surface"]}"/>')
-    parts.append(f'<text x="{W - 118}" y="{y + 21.5}" text-anchor="middle" font-family="{FONT_UI}" font-size="10.5" font-weight="600" fill="{th["fg"]}">English</text>')
-    parts.append(f'<text x="{W - 58}" y="{y + 21.5}" text-anchor="middle" font-family="{FONT_CJK}" font-size="10.5" fill="{th["fg_muted"]}">中文</text>')
-
-    parts.append(f'<line x1="{dx + 28}" y1="{y + 37}" x2="{W - 28}" y2="{y + 37}" stroke="{th["line"]}" stroke-width="1"/>')
+    y = 60
+    # Section 1: Language + Polling
+    parts.append(f'<text x="{dx + 16}" y="{y}" font-family="{FONT_UI}" font-size="10.2" font-weight="700" fill="{th["fg_muted"]}">LANGUAGE &amp; POLLING</text>')
+    y += 7
+    parts.append(f'<rect x="{dx + 16}" y="{y}" width="{dw - 32}" height="68" rx="8" fill="{th["surface"]}" stroke="{th["card_border"]}" stroke-width="1"/>')
+    parts.append(f'<text x="{dx + 28}" y="{y + 21}" font-family="{FONT_UI}" font-size="11.5" font-weight="600" fill="{th["fg"]}">UI Language</text>')
+    parts.append(f'<rect x="{W - 150}" y="{y + 6}" width="122" height="22" rx="6" fill="{th["fill"]}"/>')
+    parts.append(f'<rect x="{W - 148}" y="{y + 8}" width="60" height="18" rx="4" fill="{th["surface"]}"/>')
+    parts.append(f'<text x="{W - 118}" y="{y + 20.5}" text-anchor="middle" font-family="{FONT_UI}" font-size="10.5" font-weight="600" fill="{th["fg"]}">English</text>')
+    parts.append(f'<text x="{W - 58}" y="{y + 20.5}" text-anchor="middle" font-family="{FONT_CJK}" font-size="10.5" fill="{th["fg_muted"]}">中文</text>')
+    parts.append(f'<line x1="{dx + 28}" y1="{y + 34}" x2="{W - 28}" y2="{y + 34}" stroke="{th["line"]}" stroke-width="1"/>')
     ar_lbl = "Auto-Refresh Interval"
-    parts.append(f'<text x="{dx + 28}" y="{y + 57}" font-family="{FONT_UI}" font-size="12" font-weight="600" fill="{th["fg"]}">{ar_lbl}</text>')
-    parts.append(svg_help_dot(dx + 28 + text_w(ar_lbl, 12, bold=True) + 12, y + 53, th))
-    parts.append(f'<rect x="{W - 92}" y="{y + 43}" width="64" height="22" rx="5" fill="{th["field"]}" stroke="{th["border"]}" stroke-width="1"/>')
-    parts.append(f'<text x="{W - 60}" y="{y + 58}" text-anchor="middle" font-family="{FONT_MONO}" font-size="11" fill="{th["fg"]}">30s ▾</text>')
+    parts.append(f'<text x="{dx + 28}" y="{y + 54}" font-family="{FONT_UI}" font-size="11.5" font-weight="600" fill="{th["fg"]}">{ar_lbl}</text>')
+    parts.append(svg_help_dot(dx + 28 + text_w(ar_lbl, 11.5, bold=True) + 12, y + 50, th))
+    parts.append(f'<rect x="{W - 92}" y="{y + 40}" width="64" height="22" rx="5" fill="{th["field"]}" stroke="{th["border"]}" stroke-width="1"/>')
+    parts.append(f'<text x="{W - 60}" y="{y + 54.5}" text-anchor="middle" font-family="{FONT_MONO}" font-size="10.5" fill="{th["fg"]}">30s ▾</text>')
 
-    # Section 2: Modules & Order (all 7 modules)
-    y += 92
-    parts.append(f'<text x="{dx + 16}" y="{y}" font-family="{FONT_UI}" font-size="10.5" font-weight="700" fill="{th["fg_muted"]}">MODULES &amp; ORDER (7 INDEPENDENT MODULES)</text>')
-    y += 8
-
+    # Section 2: Modules & Order (all 7 enabled by default)
+    y += 84
+    parts.append(f'<text x="{dx + 16}" y="{y}" font-family="{FONT_UI}" font-size="10.2" font-weight="700" fill="{th["fg_muted"]}">MODULES &amp; ORDER (ALL 7 ON BY DEFAULT)</text>')
+    y += 7
     modules = [
         ("Live Context", "Auto-compact ceiling & token breakdown", True, False),
         ("Prompt Cache Diagnostics", "Last turn & cumulative hit trajectory", True, False),
         ("Input/Output & Token Flow", "4-bucket token split & TTFT latency", True, False),
         ("Models & API-Eq. Cost", "Model/workspace spend & >200k tiering", True, False),
         ("Calendar Heatmap & Trends", "Active streak, sparkbars & day drill-down", True, False),
-        ("Global Cache Observatory", "Model × Idle-Gap decay & #1533 anomalies", True, True),
-        ("Quota & Cycle Budget", "2-decimal anchors & 95% CI cycle budget", True, False),
+        ("Global Cache Observatory", "Configurable 6-metric matrix & detail card", True, True),
+        ("Quota & Cycle Budget", "2-decimal anchors & 95% CI calibration", True, False),
     ]
-    mod_row_h = 34
-    parts.append(f'<rect x="{dx + 16}" y="{y}" width="{dw - 32}" height="{len(modules) * mod_row_h + 8}" rx="8" fill="{th["surface"]}" stroke="{th["card_border"]}" stroke-width="1"/>')
-
-    my = y + 4
+    mod_row_h = 33
+    parts.append(f'<rect x="{dx + 16}" y="{y}" width="{dw - 32}" height="{len(modules) * mod_row_h + 6}" rx="8" fill="{th["surface"]}" stroke="{th["card_border"]}" stroke-width="1"/>')
+    my = y + 3
     tip_anchor_x = 0.0
     tip_anchor_y = 0.0
     for idx, (mtitle, mdesc, is_on, tip_active) in enumerate(modules):
         if idx > 0:
             parts.append(f'<line x1="{dx + 28}" y1="{my}" x2="{W - 28}" y2="{my}" stroke="{th["line"]}" stroke-width="1"/>')
-        parts.append(f'<text x="{dx + 28}" y="{my + 15}" font-family="{FONT_UI}" font-size="11.5" font-weight="600" fill="{th["fg"]}">{esc(mtitle)}</text>')
-        q_x = dx + 28 + text_w(mtitle, 11.5, bold=True) + 12
-        parts.append(svg_help_dot(q_x, my + 11, th, active=tip_active))
+        parts.append(f'<text x="{dx + 28}" y="{my + 14.5}" font-family="{FONT_UI}" font-size="11.2" font-weight="600" fill="{th["fg"]}">{esc(mtitle)}</text>')
+        q_x = dx + 28 + text_w(mtitle, 11.2, bold=True) + 11
+        parts.append(svg_help_dot(q_x, my + 10.5, th, active=tip_active))
         if tip_active:
             tip_anchor_x = q_x
-            tip_anchor_y = my + 11
-        parts.append(f'<text x="{dx + 28}" y="{my + 27.5}" font-family="{FONT_UI}" font-size="9.5" fill="{th["fg_muted"]}">{esc(mdesc)}</text>')
-
-        # Up / Down reorder buttons + switch
-        parts.append(f'<text x="{W - 86}" y="{my + 20}" text-anchor="middle" font-family="{FONT_MONO}" font-size="11" fill="{th["fg_muted"]}">↑</text>')
-        parts.append(f'<text x="{W - 70}" y="{my + 20}" text-anchor="middle" font-family="{FONT_MONO}" font-size="11" fill="{th["fg_muted"]}">↓</text>')
-        parts.append(svg_switch(W - 56, my + 10, is_on, th))
+            tip_anchor_y = my + 10.5
+        parts.append(f'<text x="{dx + 28}" y="{my + 26.5}" font-family="{FONT_UI}" font-size="9.3" fill="{th["fg_muted"]}">{esc(mdesc)}</text>')
+        parts.append(f'<text x="{W - 86}" y="{my + 19}" text-anchor="middle" font-family="{FONT_MONO}" font-size="10.5" fill="{th["fg_muted"]}">↑</text>')
+        parts.append(f'<text x="{W - 70}" y="{my + 19}" text-anchor="middle" font-family="{FONT_MONO}" font-size="10.5" fill="{th["fg_muted"]}">↓</text>')
+        parts.append(svg_switch(W - 56, my + 9, is_on, th))
         my += mod_row_h
 
-    # Section 3: Data Sources & Local Index
-    y += len(modules) * mod_row_h + 24
-    ds_hdr = "DATA SOURCES & LOCAL INDEX"
-    parts.append(f'<text x="{dx + 16}" y="{y}" font-family="{FONT_UI}" font-size="10.5" font-weight="700" fill="{th["fg_muted"]}">{esc(ds_hdr)}</text>')
-    parts.append(svg_help_dot(dx + 16 + text_w(ds_hdr, 10.5, bold=True) + 12, y - 4, th))
-    y += 8
-    parts.append(f'<rect x="{dx + 16}" y="{y}" width="{dw - 32}" height="92" rx="8" fill="{th["surface"]}" stroke="{th["card_border"]}" stroke-width="1"/>')
-    parts.append(f'<text x="{dx + 28}" y="{y + 20}" font-family="{FONT_UI}" font-size="11.5" font-weight="600" fill="{th["fg"]}">Antigravity Desktop</text>')
-    parts.append(f'<text x="{dx + 28}" y="{y + 33}" font-family="{FONT_MONO}" font-size="9.5" fill="{th["fg_muted"]}">Read-only scan of conversations/*.db (18 DBs)</text>')
-    parts.append(svg_switch(W - 56, y + 13, True, th))
-
+    # Section 3: Data Sources & Pricing (compact)
+    y += len(modules) * mod_row_h + 22
+    parts.append(f'<text x="{dx + 16}" y="{y}" font-family="{FONT_UI}" font-size="10.2" font-weight="700" fill="{th["fg_muted"]}">DATA SOURCES &amp; 3-TIER PRICING</text>')
+    y += 7
+    parts.append(f'<rect x="{dx + 16}" y="{y}" width="{dw - 32}" height="96" rx="8" fill="{th["surface"]}" stroke="{th["card_border"]}" stroke-width="1"/>')
+    parts.append(f'<text x="{dx + 28}" y="{y + 20}" font-family="{FONT_UI}" font-size="11.2" font-weight="600" fill="{th["fg"]}">Antigravity Desktop &amp; CLI</text>')
+    parts.append(f'<text x="{dx + 28}" y="{y + 33}" font-family="{FONT_MONO}" font-size="9.3" fill="{th["fg_muted"]}">Read-only SQLite scan (Desktop 18 DBs · CLI 42 DBs)</text>')
+    parts.append(svg_switch(W - 56, y + 12, True, th))
     parts.append(f'<line x1="{dx + 28}" y1="{y + 44}" x2="{W - 28}" y2="{y + 44}" stroke="{th["line"]}" stroke-width="1"/>')
-    parts.append(f'<text x="{dx + 28}" y="{y + 62}" font-family="{FONT_UI}" font-size="11.5" font-weight="600" fill="{th["fg"]}">Antigravity CLI</text>')
-    parts.append(f'<text x="{dx + 28}" y="{y + 75}" font-family="{FONT_MONO}" font-size="9.5" fill="{th["fg_muted"]}">Read-only scan of antigravity-cli/*.db (42 DBs)</text>')
-    parts.append(svg_switch(W - 56, y + 55, True, th))
+    parts.append(f'<text x="{dx + 28}" y="{y + 62}" font-family="{FONT_UI}" font-size="11.2" font-weight="600" fill="{th["fg"]}">Auto-Sync Remote Pricing (LiteLLM / OpenRouter)</text>')
+    parts.append(svg_switch(W - 56, y + 51, False, th))
+    parts.append(f'<text x="{dx + 28}" y="{y + 82}" font-family="{FONT_UI}" font-size="9.5" fill="{th["fg_muted"]}">Bundled defaults + user overrides · optional 24h remote sync</text>')
 
-    # Section 4: 3-Tier Pricing Engine
-    y += 108
-    parts.append(f'<text x="{dx + 16}" y="{y}" font-family="{FONT_UI}" font-size="10.5" font-weight="700" fill="{th["fg_muted"]}">3-TIER PRICING ENGINE</text>')
+    # Section 4: Version & Auto-Update (NEW v1.4.0)
+    y += 114
+    parts.append(f'<text x="{dx + 16}" y="{y}" font-family="{FONT_UI}" font-size="10.2" font-weight="700" fill="{th["fg_muted"]}">VERSION &amp; AUTO-UPDATE</text>')
+    pver, _ = svg_pill(W - 150, y - 13, "v1.4.0 · Git Install", th["field"], th["fg2"], font_size=9.5, h=18, pad_x=8, mono=True)
+    parts.append(pver)
     y += 8
-    parts.append(f'<rect x="{dx + 16}" y="{y}" width="{dw - 32}" height="74" rx="8" fill="{th["surface"]}" stroke="{th["card_border"]}" stroke-width="1"/>')
-    parts.append(f'<text x="{dx + 28}" y="{y + 20}" font-family="{FONT_UI}" font-size="11.5" font-weight="600" fill="{th["fg"]}">Auto-Sync Remote Pricing (LiteLLM / OpenRouter)</text>')
-    parts.append(svg_switch(W - 56, y + 9, False, th))
-    parts.append(f'<rect x="{dx + 28}" y="{y + 38}" width="198" height="25" rx="5" fill="{th["field"]}" stroke="{th["border"]}" stroke-width="1"/>')
-    parts.append(f'<text x="{dx + 127}" y="{y + 54.5}" text-anchor="middle" font-family="{FONT_UI}" font-size="10.5" font-weight="500" fill="{th["fg"]}">Sync Pricing Now</text>')
-    parts.append(f'<rect x="{dx + 234}" y="{y + 38}" width="198" height="25" rx="5" fill="{th["field"]}" stroke="{th["border"]}" stroke-width="1"/>')
-    parts.append(f'<text x="{dx + 333}" y="{y + 54.5}" text-anchor="middle" font-family="{FONT_UI}" font-size="10.5" font-weight="500" fill="{th["fg"]}">Model Pricing &amp; Overrides</text>')
+    upd_h = H - y - 16
+    parts.append(f'<rect x="{dx + 16}" y="{y}" width="{dw - 32}" height="{upd_h}" rx="8" fill="{th["surface"]}" stroke="{th["accent_border"]}" stroke-width="1.1"/>')
 
-    # Active Floating `?` Help Tooltip Callout positioned cleanly in left dimmed space with non-overlapping leader to `?`
-    tx, ty, tw_tip, th_tip = 24, tip_anchor_y - 68, 392, 116
-    parts.append(f'<rect x="{tx}" y="{ty}" width="{tw_tip}" height="{th_tip}" rx="9" fill="{th["surface"]}" stroke="{th["accent"]}" stroke-width="1.5"/>')
-    # Route dashed leader cleanly along the row separator ABOVE "Global Cache Observatory" down to top of `?` circle
+    # Update Policy segmented control
+    up_lbl = "Update Policy"
+    parts.append(f'<text x="{dx + 28}" y="{y + 22}" font-family="{FONT_UI}" font-size="11.5" font-weight="600" fill="{th["fg"]}">{up_lbl}</text>')
+    parts.append(svg_help_dot(dx + 28 + text_w(up_lbl, 11.5, bold=True) + 11, y + 18, th))
+    parts.append(f'<rect x="{W - 196}" y="{y + 7}" width="168" height="22" rx="6" fill="{th["fill"]}"/>')
+    parts.append(f'<rect x="{W - 194}" y="{y + 9}" width="54" height="18" rx="4" fill="{th["surface"]}"/>')
+    parts.append(f'<text x="{W - 167}" y="{y + 21.5}" text-anchor="middle" font-family="{FONT_UI}" font-size="10.2" font-weight="700" fill="{th["fg"]}">Auto</text>')
+    parts.append(f'<text x="{W - 112}" y="{y + 21.5}" text-anchor="middle" font-family="{FONT_UI}" font-size="10.2" fill="{th["fg_muted"]}">Notify</text>')
+    parts.append(f'<text x="{W - 56}" y="{y + 21.5}" text-anchor="middle" font-family="{FONT_UI}" font-size="10.2" fill="{th["fg_muted"]}">Off</text>')
+
+    parts.append(f'<line x1="{dx + 28}" y1="{y + 37}" x2="{W - 28}" y2="{y + 37}" stroke="{th["line"]}" stroke-width="1"/>')
+
+    # Status + Check Now + Restart to Apply
+    parts.append(f'<text x="{dx + 28}" y="{y + 57}" font-family="{FONT_MONO}" font-size="10.5" font-weight="700" fill="{th["accent"]}">v1.4.1</text>')
+    parts.append(f'<text x="{dx + 74}" y="{y + 57}" font-family="{FONT_UI}" font-size="10.2" fill="{th["fg_muted"]}">· Checked 2m ago</text>')
+    parts.append(f'<rect x="{W - 236}" y="{y + 42}" width="78" height="23" rx="5" fill="{th["field"]}" stroke="{th["border"]}" stroke-width="1"/>')
+    parts.append(f'<text x="{W - 197}" y="{y + 57}" text-anchor="middle" font-family="{FONT_UI}" font-size="10" fill="{th["fg"]}">Check Now</text>')
+    parts.append(f'<rect x="{W - 152}" y="{y + 42}" width="124" height="23" rx="5" fill="{th["accent"]}"/>')
+    parts.append(f'<text x="{W - 90}" y="{y + 57}" text-anchor="middle" font-family="{FONT_UI}" font-size="10" font-weight="700" fill="#ffffff">Restart to Apply</text>')
+
+    # Verified note + Rollback button
+    parts.append(f'<text x="{dx + 28}" y="{y + 82}" font-family="{FONT_UI}" font-size="9.8" fill="{th["ok"]}">Verified &amp; smoke-tested — ready to apply on restart</text>')
+    parts.append(f'<line x1="{dx + 28}" y1="{y + 94}" x2="{W - 28}" y2="{y + 94}" stroke="{th["line"]}" stroke-width="1"/>')
+    parts.append(f'<text x="{dx + 28}" y="{y + 114}" font-family="{FONT_UI}" font-size="9.8" fill="{th["fg_muted"]}">Crash-safe cold-start apply via boot.mjs</text>')
+    parts.append(f'<rect x="{W - 152}" y="{y + 100}" width="124" height="22" rx="5" fill="{th["field"]}" stroke="{th["border"]}" stroke-width="1"/>')
+    parts.append(f'<text x="{W - 90}" y="{y + 114.5}" text-anchor="middle" font-family="{FONT_UI}" font-size="10" fill="{th["fg"]}">Rollback to v1.3.0</text>')
+
+    # Floating `?` Help Tooltip Callout on lower-left linking to Global Cache Observatory `?`
+    tx, ty, tw_tip, th_tip = ux, 360, uw, 114
+    parts.append(f'<rect x="{tx}" y="{ty}" width="{tw_tip}" height="{th_tip}" rx="9" fill="{th["surface"]}" stroke="{th["accent"]}" stroke-width="1.4"/>')
     mid_x = dx - 8
-    sep_y = tip_anchor_y - 11.0
+    sep_y = tip_anchor_y - 10.5
     parts.append(
         f'<path d="M {tx + tw_tip} {ty + th_tip/2:.1f} L {mid_x} {ty + th_tip/2:.1f} L {mid_x} {sep_y:.1f} L {tip_anchor_x:.1f} {sep_y:.1f} L {tip_anchor_x:.1f} {tip_anchor_y - 8:.1f}" '
-        f'fill="none" stroke="{th["accent"]}" stroke-width="1.4" stroke-dasharray="4,3"/>'
+        f'fill="none" stroke="{th["accent"]}" stroke-width="1.3" stroke-dasharray="4,3"/>'
     )
-    parts.append(f'<circle cx="{tip_anchor_x:.1f}" cy="{tip_anchor_y - 8:.1f}" r="2.8" fill="{th["accent"]}"/>')
+    parts.append(f'<circle cx="{tip_anchor_x:.1f}" cy="{tip_anchor_y - 8:.1f}" r="2.6" fill="{th["accent"]}"/>')
     parts.append(f'<text x="{tx + 14}" y="{ty + 21}" font-family="{FONT_UI}" font-size="11" font-weight="700" fill="{th["accent"]}">Global Cache Observatory — Module Help</text>')
     tip_lines = [
-        ("What it shows:", "Model × Idle-Gap matrix, scatter &amp; anomalies."),
-        ("When to enable:", "Diagnosing TTL decay or #1533 misses."),
-        ("Scan scope:", "Consecutive turns in local index (read-only)."),
+        ("What it shows:", "6-metric Idle-Gap matrix, scatter &amp; anomalies."),
+        ("When to enable:", "Enabled by default; toggle off anytime."),
+        ("Scan scope:", "Consecutive follow-up turns (read-only)."),
     ]
     tly = ty + 42
     for k_s, v_s in tip_lines:
         parts.append(
-            f'<text x="{tx + 14}" y="{tly}" font-family="{FONT_UI}" font-size="10.5" fill="{th["fg"]}">'
+            f'<text x="{tx + 14}" y="{tly}" font-family="{FONT_UI}" font-size="10.2" fill="{th["fg"]}">'
             f'<tspan font-weight="700">{k_s}</tspan> <tspan fill="{th["fg2"]}">{v_s}</tspan></text>'
         )
-        tly += 21
+        tly += 20
 
     parts.append("</svg>")
     return "\n".join(parts)
@@ -1587,8 +1666,8 @@ def build_settings_drawer_svg() -> str:
 def render_settings_drawer() -> Path:
     svg_str = build_settings_drawer_svg()
     img = composite_panels(
-        960,
-        696,
+        1000,
+        770,
         [(svg_str, 30, 30, 14)],
         scale=2,
         top_rgb=(17, 20, 28),

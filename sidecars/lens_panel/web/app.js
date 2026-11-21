@@ -606,6 +606,55 @@
         thInAbove: '超阈值 Input ($/1M)',
         thOutAbove: '超阈值 Output ($/1M)',
         thCacheAbove: '超阈值 Cache Read ($/1M)'
+      },
+      update: {
+        sectionTitle: '版本与自动更新',
+        pillLabel: '↑ v{ver}',
+        pillTitle: '发现新版本 v{ver}，点击查看更新详情',
+        popTitle: '新版本可用',
+        upToDate: '已是最新版本',
+        installGit: 'Git 安装',
+        installTarball: '独立安装',
+        installBuiltin: '内置插件',
+        modeLabel: '更新策略',
+        modeHelp: '自动更新：每 24h 检查 GitHub Releases，发现新版自动下载校验，点击重启或闲置/重开面板时无感生效。\n仅提醒：只显示新版徽标，点击后手动更新。\n关闭：完全离线，不发起更新检查。',
+        modeAuto: '自动更新',
+        modeNotify: '仅提醒',
+        modeOff: '关闭',
+        checkBtn: '检查更新',
+        checking: '检查中…',
+        applyBtn: '一键更新并重启',
+        restartBtn: '立即重启应用 v{ver}',
+        applying: '正在准备更新…',
+        rollbackBtn: '回滚至 v{ver}',
+        rollingBack: '正在回滚…',
+        skipBtn: '忽略此版本',
+        viewGithub: 'GitHub 详情',
+        copyCmd: '复制更新命令',
+        stagedReady: '已通过预检与烟雾测试，可随时重启生效（不点也会在下次重开面板时自动应用）',
+        staging: '正在后台下载并校验更新包…',
+        hostRestartNote: '本版本更新了 sidecar.json，应用后需重启 Antigravity 使新配置完全生效。',
+        restartingBanner: '正在应用 v{ver} 并重启 AGY Lens 面板…',
+        rollingBackBanner: '正在回滚至 v{ver} 并重启面板…',
+        reopenFallback: '更新已就绪（v{ver}），请关闭并重新打开 AGY Lens 面板即可生效。',
+        justUpdatedBanner: '已自动更新至 v{to}（来自 v{from}）',
+        mismatchBanner: '检测到磁盘插件已更新至 v{disk}，请刷新面板以同步版本。',
+        reloadBtn: '刷新面板',
+        ackBtn: '知道了',
+        lastChecked: '上次检查: {time}',
+        neverChecked: '尚未检查',
+        failedWarn: '上次尝试升级 v{ver} 失败并已自动保护回滚，请查看原因或手动重试。',
+        noNotes: '暂无 Release Notes 摘要，可前往 GitHub 查看完整变更。',
+        blocked: {
+          dirty_git: '当前 Git 目录有未提交修改，已跳过自动覆盖以保护本地改动。',
+          non_main_branch: '当前不在 main 分支，已跳过自动更新。',
+          custom_remote: '远程仓库非官方源，已跳过自动更新。',
+          git_unavailable: '当前环境未检测到 git 命令，无法自动拉取 Git 仓库。',
+          git_locked: '检测到 .git/index.lock，请稍后再试。',
+          not_writable: '插件目录无写权限，无法自动替换文件。',
+          builtin_plugin: '内置插件由宿主统一管理，不支持自更新。',
+          git_error: '无法读取 Git 仓库状态。'
+        }
       }
     },
     en: {
@@ -1075,6 +1124,55 @@
         thInAbove: 'Above-Thresh Input ($/1M)',
         thOutAbove: 'Above-Thresh Output ($/1M)',
         thCacheAbove: 'Above-Thresh Cache Read ($/1M)'
+      },
+      update: {
+        sectionTitle: 'Version & Auto-Update',
+        pillLabel: '↑ v{ver}',
+        pillTitle: 'Update v{ver} available — click for details',
+        popTitle: 'Update Available',
+        upToDate: 'Up to date',
+        installGit: 'Git Install',
+        installTarball: 'Standalone',
+        installBuiltin: 'Built-in',
+        modeLabel: 'Update Policy',
+        modeHelp: 'Auto: Checks GitHub Releases every 24h, downloads & smoke-tests in the background, and applies on click or next restart.\nNotify: Shows update badge only; downloads when you click Update.\nOff: 100% offline, never checks for updates.',
+        modeAuto: 'Auto',
+        modeNotify: 'Notify',
+        modeOff: 'Off',
+        checkBtn: 'Check Now',
+        checking: 'Checking…',
+        applyBtn: 'Update & Restart',
+        restartBtn: 'Restart to Apply v{ver}',
+        applying: 'Preparing update…',
+        rollbackBtn: 'Rollback to v{ver}',
+        rollingBack: 'Rolling back…',
+        skipBtn: 'Skip Version',
+        viewGithub: 'View on GitHub',
+        copyCmd: 'Copy Update Cmd',
+        stagedReady: 'Verified & smoke-tested — restart now to apply, or it will apply automatically next launch.',
+        staging: 'Downloading & verifying update package…',
+        hostRestartNote: 'This release updates sidecar.json; restart Antigravity after applying for full effect.',
+        restartingBanner: 'Applying v{ver} and restarting AGY Lens…',
+        rollingBackBanner: 'Rolling back to v{ver} and restarting…',
+        reopenFallback: 'Update ready (v{ver}) — close and reopen the AGY Lens panel to finish reloading.',
+        justUpdatedBanner: 'Updated to v{to} (from v{from})',
+        mismatchBanner: 'Disk plugin updated to v{disk} — reload panel to sync versions.',
+        reloadBtn: 'Reload',
+        ackBtn: 'Got it',
+        lastChecked: 'Last checked: {time}',
+        neverChecked: 'Never checked',
+        failedWarn: 'Previous attempt to upgrade to v{ver} failed and was safely rolled back.',
+        noNotes: 'No release notes summary available. View full changelog on GitHub.',
+        blocked: {
+          dirty_git: 'Local Git working tree has uncommitted changes; auto-overwrite skipped to protect your edits.',
+          non_main_branch: 'Repository is not on main branch; auto-update skipped.',
+          custom_remote: 'Origin remote does not match upstream repo; auto-update skipped.',
+          git_unavailable: 'git executable not found in PATH; cannot auto-update Git clone.',
+          git_locked: 'Active .git/index.lock detected; retry later.',
+          not_writable: 'Plugin directory is not writable.',
+          builtin_plugin: 'Built-in plugins are managed by Antigravity.',
+          git_error: 'Unable to inspect Git repository state.'
+        }
       }
     }
   };
@@ -1401,7 +1499,9 @@
     quotaCalibMode: 'auto',
     quotaManualFactors: { M: false, C: false, O: false },
     obsMatrixPrimary: 'weightedHit',
-    obsMatrixSubMetrics: ['keepRate', 'avgCost']
+    obsMatrixSubMetrics: ['keepRate', 'avgCost'],
+    updateMode: 'auto',
+    dismissedUpdateVersion: ''
   };
 
   const state = {
@@ -1409,9 +1509,22 @@
     query: parseQueryOverrides(),
     localExpandedOverrides: new Map(), // temporary per-session expand override when ?expand is set
     config: structuredClone(DEFAULT_CONFIG),
+    runningVersion: '',
     paths: {},
     pricingStatus: {},
     indexStatus: {},
+
+    update: {
+      data: null,
+      lastFetchedAt: 0,
+      popoverOpen: false,
+      checking: false,
+      applying: false,
+      rollingBack: false,
+      restartMsg: '',
+      restartFallback: false,
+      copyStatus: ''
+    },
 
     rangeKey: '7d',
     customFrom: '',
@@ -1494,6 +1607,7 @@
     appTitle: $('app-title'),
     freshness: $('freshness'),
     freshnessText: $('freshness-text'),
+    btnUpdatePill: $('btn-update-pill'),
     refreshSelectWrap: $('refresh-select-wrap'),
     refreshSelect: $('refresh-select'),
     btnRefresh: $('btn-refresh'),
@@ -1505,6 +1619,7 @@
     customTo: $('custom-to'),
     btnApplyCustom: $('btn-apply-custom'),
     sourcesBadge: $('sources-badge'),
+    updateBanner: $('update-banner'),
     globalBanner: $('global-banner'),
     modulesGrid: $('modules-grid'),
     emptyModules: $('empty-modules'),
@@ -1517,8 +1632,44 @@
     btnCloseSettings: $('btn-close-settings'),
     settingsBody: $('settings-body'),
     chartTooltip: $('chart-tooltip'),
-    obsCellPopover: $('obs-cell-popover')
+    obsCellPopover: $('obs-cell-popover'),
+    updatePopover: $('update-popover')
   };
+
+  // Self-heal update DOM anchors in case an older cached index.html was loaded.
+  if (!dom.btnUpdatePill) {
+    const brand = document.querySelector('.brand');
+    if (brand) {
+      const btn = document.createElement('button');
+      btn.id = 'btn-update-pill';
+      btn.type = 'button';
+      btn.className = 'update-pill hidden';
+      btn.setAttribute('aria-haspopup', 'dialog');
+      btn.setAttribute('aria-expanded', 'false');
+      brand.appendChild(btn);
+      dom.btnUpdatePill = btn;
+    }
+  }
+  if (!dom.updateBanner) {
+    const main = $('main-content');
+    if (main) {
+      const div = document.createElement('div');
+      div.id = 'update-banner';
+      div.className = 'banner update-banner hidden';
+      div.setAttribute('role', 'status');
+      main.prepend(div);
+      dom.updateBanner = div;
+    }
+  }
+  if (!dom.updatePopover) {
+    const div = document.createElement('div');
+    div.id = 'update-popover';
+    div.className = 'update-popover hidden';
+    div.setAttribute('role', 'dialog');
+    div.setAttribute('aria-label', 'Update details');
+    document.body.appendChild(div);
+    dom.updatePopover = div;
+  }
 
   function setupLogoFallback() {
     const img = dom.brandLogoImg;
@@ -1630,12 +1781,17 @@
       quotaManualFactors,
       obsMatrixPrimary,
       obsMatrixSubMetrics,
+      updateMode: ['auto', 'notify', 'off'].includes(cfg.updateMode) ? cfg.updateMode : DEFAULT_CONFIG.updateMode,
+      dismissedUpdateVersion: typeof cfg.dismissedUpdateVersion === 'string' ? cfg.dismissedUpdateVersion : '',
       moduleOrder: Array.isArray(cfg.moduleOrder) && cfg.moduleOrder.length
         ? cfg.moduleOrder.filter((id) => ALL_MODULE_IDS.includes(id))
         : [...DEFAULT_CONFIG.moduleOrder]
     };
     for (const id of DEFAULT_CONFIG.moduleOrder) {
       if (!state.config.moduleOrder.includes(id)) state.config.moduleOrder.push(id);
+    }
+    if (typeof res.version === 'string' && res.version) {
+      state.runningVersion = res.version;
     }
     state.paths = res.paths || {};
     state.pricingStatus = res.pricingStatus || {};
@@ -1737,6 +1893,17 @@
             .finally(() => {
               state.pricing.prefetching = false;
             })
+        );
+      }
+
+      if (manual || Date.now() - state.update.lastFetchedAt > 60000) {
+        tasks.push(
+          getJson('/api/update/status')
+            .then((d) => {
+              state.update.data = d;
+              state.update.lastFetchedAt = Date.now();
+            })
+            .catch(() => {})
         );
       }
 
@@ -1888,6 +2055,228 @@
       dom.globalBanner.classList.remove('hidden');
     } else {
       dom.globalBanner.classList.add('hidden');
+    }
+
+    renderUpdateUI();
+  }
+
+  function getUpdateInstallLabel(kind) {
+    if (kind === 'git') return t('update.installGit');
+    if (kind === 'builtin') return t('update.installBuiltin');
+    return t('update.installTarball');
+  }
+
+  function getUpdateBlockedMessage(reason) {
+    if (!reason) return '';
+    return t(`update.blocked.${reason}`);
+  }
+
+  function positionUpdatePopover() {
+    if (!dom.updatePopover || !dom.btnUpdatePill) return;
+    const pad = 10;
+    const aRect = dom.btnUpdatePill.getBoundingClientRect();
+    const pRect = dom.updatePopover.getBoundingClientRect();
+    let x = aRect.left;
+    let y = aRect.bottom + 6;
+    if (x + pRect.width > window.innerWidth - pad) {
+      x = window.innerWidth - pRect.width - pad;
+    }
+    if (x < pad) x = pad;
+    if (y + pRect.height > window.innerHeight - pad) {
+      y = Math.max(pad, window.innerHeight - pRect.height - pad);
+    }
+    dom.updatePopover.style.left = `${Math.round(x)}px`;
+    dom.updatePopover.style.top = `${Math.round(y)}px`;
+  }
+
+  function renderUpdateUI() {
+    const u = state.update.data;
+    const diskVer = typeof window.__AGY_LENS_DISK_VERSION__ === 'string' ? window.__AGY_LENS_DISK_VERSION__ : '';
+    const hasMismatch = Boolean(diskVer && state.runningVersion && diskVer !== state.runningVersion);
+
+    // 1. Header pill (shown only when an undismissed update exists)
+    const showPill = Boolean(
+      u &&
+        u.hasUpdate &&
+        u.latestVersion &&
+        u.latestVersion !== state.config.dismissedUpdateVersion
+    );
+    if (showPill && dom.btnUpdatePill) {
+      dom.btnUpdatePill.textContent = t('update.pillLabel', { ver: u.latestVersion });
+      dom.btnUpdatePill.title = t('update.pillTitle', { ver: u.latestVersion });
+      dom.btnUpdatePill.classList.remove('hidden');
+      dom.btnUpdatePill.classList.toggle('ready', Boolean(u.stagedVersion === u.latestVersion));
+      dom.btnUpdatePill.setAttribute('aria-expanded', state.update.popoverOpen ? 'true' : 'false');
+    } else if (dom.btnUpdatePill) {
+      dom.btnUpdatePill.classList.add('hidden');
+      state.update.popoverOpen = false;
+    }
+
+    // 2. Top status banner (restarting / fallback / version mismatch / one-time just-updated notice)
+    if (dom.updateBanner) {
+      if (state.update.restartMsg) {
+        dom.updateBanner.innerHTML = `
+          <span class="update-banner-text">${esc(state.update.restartMsg)}</span>
+          ${state.update.restartFallback ? `<button type="button" class="btn-sm" data-action="reload-page">${esc(t('update.reloadBtn'))}</button>` : ''}
+        `;
+        dom.updateBanner.classList.remove('hidden');
+      } else if (hasMismatch) {
+        dom.updateBanner.innerHTML = `
+          <span class="update-banner-text">${esc(t('update.mismatchBanner', { disk: diskVer }))}</span>
+          <button type="button" class="btn-sm primary" data-action="reload-page">${esc(t('update.reloadBtn'))}</button>
+        `;
+        dom.updateBanner.classList.remove('hidden');
+      } else if (u && u.justUpdated && u.justUpdated.to) {
+        dom.updateBanner.innerHTML = `
+          <span class="update-banner-text">${esc(t('update.justUpdatedBanner', { to: u.justUpdated.to, from: u.justUpdated.from || '?' }))}</span>
+          <button type="button" class="btn-sm" data-action="ack-just-updated">${esc(t('update.ackBtn'))}</button>
+        `;
+        dom.updateBanner.classList.remove('hidden');
+      } else {
+        dom.updateBanner.classList.add('hidden');
+      }
+    }
+
+    // 3. Floating Update Details Popover
+    if (!dom.updatePopover) return;
+    if (!state.update.popoverOpen || !showPill) {
+      dom.updatePopover.classList.add('hidden');
+      return;
+    }
+
+    const isStaged = u.stagedVersion === u.latestVersion;
+    const isBusy = state.update.applying || u.staging;
+    const ctaLabel = state.update.applying
+      ? t('update.applying')
+      : isStaged
+        ? t('update.restartBtn', { ver: u.latestVersion })
+        : t('update.applyBtn');
+    const copyLabel =
+      state.update.copyStatus === 'copied'
+        ? t('common.copied')
+        : state.update.copyStatus === 'failed'
+          ? t('common.copyFailed')
+          : t('update.copyCmd');
+
+    dom.updatePopover.innerHTML = `
+      <div class="upd-pop-head">
+        <div class="upd-pop-title-wrap">
+          <span class="upd-pop-title">${esc(t('update.popTitle'))}</span>
+          <span class="upd-pop-ver mono">v${esc(u.currentVersion)} → v${esc(u.latestVersion)}</span>
+        </div>
+        <button type="button" class="obs-pop-close" data-action="close-update-popover" aria-label="${esc(t('obs.popClose'))}">×</button>
+      </div>
+      ${isStaged ? `<div class="upd-pop-pill ok">${esc(t('update.stagedReady'))}</div>` : ''}
+      ${u.staging && !isStaged ? `<div class="upd-pop-pill">${esc(t('update.staging'))}</div>` : ''}
+      ${u.requiresHostRestart ? `<div class="upd-pop-pill warn">${esc(t('update.hostRestartNote'))}</div>` : ''}
+      ${!u.canAutoApply ? `<div class="upd-pop-pill warn">${esc(getUpdateBlockedMessage(u.blockedReason))}</div>` : ''}
+      <div class="upd-pop-notes">${esc((u.releaseNotes || '').trim() || t('update.noNotes'))}</div>
+      <div class="upd-pop-actions">
+        ${
+          u.canAutoApply
+            ? `<button type="button" class="btn-sm primary" data-action="apply-update" ${isBusy ? 'disabled' : ''}>${esc(ctaLabel)}</button>`
+            : `<button type="button" class="btn-sm primary" data-action="copy-update-cmd">${esc(copyLabel)}</button>`
+        }
+        <button type="button" class="btn-sm" data-action="dismiss-update" data-ver="${esc(u.latestVersion)}">${esc(t('update.skipBtn'))}</button>
+        <a class="btn-sm upd-pop-link" href="${esc(u.releaseUrl)}" target="_blank" rel="noopener noreferrer">${esc(t('update.viewGithub'))}</a>
+      </div>
+    `;
+    dom.updatePopover.classList.remove('hidden');
+    positionUpdatePopover();
+  }
+
+  async function fetchUpdateStatus() {
+    try {
+      state.update.data = await getJson('/api/update/status');
+      state.update.lastFetchedAt = Date.now();
+      renderUpdateUI();
+      if (state.settingsOpen) renderSettings();
+    } catch {
+      // silent if offline or endpoint unsupported (e.g. older demo server)
+    }
+  }
+
+  async function triggerUpdateCheck() {
+    if (state.update.checking) return;
+    state.update.checking = true;
+    if (state.settingsOpen) renderSettings();
+    try {
+      state.update.data = await postJson('/api/update/check', {});
+    } catch (err) {
+      if (state.update.data) state.update.data.lastError = err.message;
+    } finally {
+      state.update.checking = false;
+      renderUpdateUI();
+      if (state.settingsOpen) renderSettings();
+    }
+  }
+
+  async function pollForRestartCompletion(prevVersion, targetVersion) {
+    const deadline = Date.now() + 12000;
+    let sawDown = false;
+    while (Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 800));
+      try {
+        const res = await fetch('/api/health', { cache: 'no-store' });
+        if (res.ok) {
+          const h = await res.json();
+          if (h && h.ok && (sawDown || (h.version && h.version !== prevVersion))) {
+            window.location.reload();
+            return;
+          }
+        }
+      } catch {
+        sawDown = true;
+      }
+    }
+    state.update.restartMsg = t('update.reopenFallback', { ver: targetVersion });
+    state.update.restartFallback = true;
+    state.update.applying = false;
+    state.update.rollingBack = false;
+    renderUpdateUI();
+    if (state.settingsOpen) renderSettings();
+  }
+
+  async function triggerUpdateApply() {
+    if (state.update.applying) return;
+    const prevVersion = state.update.data?.currentVersion || state.runningVersion;
+    const targetVersion = state.update.data?.latestVersion || '';
+    state.update.applying = true;
+    state.update.popoverOpen = false;
+    state.update.restartFallback = false;
+    state.update.restartMsg = t('update.restartingBanner', { ver: targetVersion });
+    renderUpdateUI();
+    if (state.settingsOpen) renderSettings();
+    try {
+      const res = await postJson('/api/update/apply', {});
+      pollForRestartCompletion(prevVersion, res.updatedTo || targetVersion);
+    } catch (err) {
+      state.update.applying = false;
+      state.update.restartMsg = '';
+      if (state.update.data) state.update.data.lastError = err.message;
+      renderUpdateUI();
+      if (state.settingsOpen) renderSettings();
+    }
+  }
+
+  async function triggerUpdateRollback() {
+    if (state.update.rollingBack) return;
+    const prevVersion = state.update.data?.currentVersion || state.runningVersion;
+    const targetVersion = state.update.data?.rollbackVersion || '';
+    state.update.rollingBack = true;
+    state.update.restartFallback = false;
+    state.update.restartMsg = t('update.rollingBackBanner', { ver: targetVersion });
+    renderUpdateUI();
+    if (state.settingsOpen) renderSettings();
+    try {
+      const res = await postJson('/api/update/rollback', {});
+      pollForRestartCompletion(prevVersion, res.rollbackTo || targetVersion);
+    } catch (err) {
+      state.update.rollingBack = false;
+      state.update.restartMsg = '';
+      if (state.update.data) state.update.data.lastError = err.message;
+      renderUpdateUI();
+      if (state.settingsOpen) renderSettings();
     }
   }
 
@@ -4278,6 +4667,81 @@
           ${pricingModelsHtml}
         </div>
       </section>
+
+      ${renderSettingsUpdateSection()}
+    `;
+  }
+
+  function renderSettingsUpdateSection() {
+    const u = state.update.data;
+    const mode = state.config.updateMode || 'auto';
+    const verStr = u?.currentVersion || state.runningVersion || '—';
+    const installLbl = u ? getUpdateInstallLabel(u.installKind) : '';
+    const isStaged = Boolean(u && u.hasUpdate && u.stagedVersion === u.latestVersion);
+    const applyLbl = state.update.applying
+      ? t('update.applying')
+      : isStaged
+        ? t('update.restartBtn', { ver: u.latestVersion })
+        : t('update.applyBtn');
+
+    return `
+      <section class="set-section">
+        <div class="set-title-row">
+          <h3 class="set-title">${esc(t('update.sectionTitle'))}</h3>
+          <span class="pill outline mono">v${esc(verStr)}${installLbl ? ` · ${esc(installLbl)}` : ''}</span>
+        </div>
+        <div class="set-card">
+          <div class="set-mod-row">
+            <div class="set-mod-meta">
+              <span class="set-mod-name">
+                <span>${esc(t('update.modeLabel'))}</span>
+                ${helpTip(t('update.modeHelp'))}
+              </span>
+            </div>
+            <div class="seg">
+              <button type="button" class="${mode === 'auto' ? 'active' : ''}" data-action="set-update-mode" data-mode="auto">${esc(t('update.modeAuto'))}</button>
+              <button type="button" class="${mode === 'notify' ? 'active' : ''}" data-action="set-update-mode" data-mode="notify">${esc(t('update.modeNotify'))}</button>
+              <button type="button" class="${mode === 'off' ? 'active' : ''}" data-action="set-update-mode" data-mode="off">${esc(t('update.modeOff'))}</button>
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+            <span class="muted-note num" style="font-size:11px">
+              ${
+                u && u.hasUpdate
+                  ? `<strong style="color:var(--accent)">v${esc(u.latestVersion)}</strong> · ${esc(t('update.lastChecked', { time: u.lastCheckedAt ? fmtTimeShort(u.lastCheckedAt) : t('update.neverChecked') }))}`
+                  : `${esc(t('update.upToDate'))} · ${esc(t('update.lastChecked', { time: u?.lastCheckedAt ? fmtTimeShort(u.lastCheckedAt) : t('update.neverChecked') }))}`
+              }
+            </span>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button type="button" class="btn-sm" data-action="check-update" ${state.update.checking ? 'disabled' : ''}>
+                ${esc(state.update.checking ? t('update.checking') : t('update.checkBtn'))}
+              </button>
+              ${
+                u && u.hasUpdate && u.canAutoApply
+                  ? `<button type="button" class="btn-sm primary" data-action="apply-update" ${state.update.applying || u.staging ? 'disabled' : ''}>${esc(applyLbl)}</button>`
+                  : ''
+              }
+            </div>
+          </div>
+
+          ${isStaged ? `<div class="muted-note" style="color:var(--ok);font-size:11px">${esc(t('update.stagedReady'))}</div>` : ''}
+          ${u && u.staging && !isStaged ? `<div class="muted-note" style="font-size:11px">${esc(t('update.staging'))}</div>` : ''}
+          ${u && u.hasUpdate && !u.canAutoApply ? `<div class="muted-note" style="color:var(--warn);font-size:11px">${esc(getUpdateBlockedMessage(u.blockedReason))}</div>` : ''}
+          ${u && u.failedVersion ? `<div class="muted-note" style="color:var(--warn);font-size:11px">${esc(t('update.failedWarn', { ver: u.failedVersion }))}</div>` : ''}
+          ${u && u.lastError ? `<div class="muted-note" style="color:var(--bad);font-size:11px">${esc(u.lastError)}</div>` : ''}
+
+          ${
+            u && u.canRollback && u.rollbackVersion
+              ? `<div style="border-top:1px solid var(--line);padding-top:8px;display:flex;align-items:center;justify-content:flex-end">
+                  <button type="button" class="btn-sm" data-action="rollback-update" ${state.update.rollingBack ? 'disabled' : ''}>
+                    ${esc(state.update.rollingBack ? t('update.rollingBack') : t('update.rollbackBtn', { ver: u.rollbackVersion }))}
+                  </button>
+                </div>`
+              : ''
+          }
+        </div>
+      </section>
     `;
   }
 
@@ -4308,6 +4772,7 @@
     dom.settingsDrawer.classList.remove('hidden');
     renderSettings();
     dom.settingsDrawer.focus();
+    fetchUpdateStatus();
     if (!state.pricing.data && !state.pricing.loading && !state.pricing.prefetching) {
       state.pricing.prefetching = true;
       getJson('/api/pricing')
@@ -4798,6 +5263,31 @@
       state.config.lang = nextLang;
       renderAll();
       await saveConfigPatch({ lang: nextLang });
+      return;
+    }
+
+    if (action === 'set-update-mode') {
+      const mode = actionEl.dataset.mode;
+      if (!['auto', 'notify', 'off'].includes(mode)) return;
+      state.config.updateMode = mode;
+      renderSettings();
+      await saveConfigPatch({ updateMode: mode });
+      fetchUpdateStatus();
+      return;
+    }
+
+    if (action === 'check-update') {
+      await triggerUpdateCheck();
+      return;
+    }
+
+    if (action === 'apply-update') {
+      await triggerUpdateApply();
+      return;
+    }
+
+    if (action === 'rollback-update') {
+      await triggerUpdateRollback();
       return;
     }
 
@@ -5319,6 +5809,15 @@
       renderGrid();
     }
 
+    if (
+      state.update.popoverOpen &&
+      !e.target.closest?.('#update-popover') &&
+      !e.target.closest?.('#btn-update-pill')
+    ) {
+      state.update.popoverOpen = false;
+      renderUpdateUI();
+    }
+
     const helpBtn = e.target.closest?.('.help-tip[data-tip]');
     if (helpBtn) {
       e.preventDefault();
@@ -5338,12 +5837,82 @@
     }
   });
 
+  if (dom.btnUpdatePill) {
+    dom.btnUpdatePill.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dismissObsCellPopover();
+      state.update.popoverOpen = !state.update.popoverOpen;
+      renderUpdateUI();
+    });
+  }
+
+  if (dom.updatePopover) {
+    dom.updatePopover.addEventListener('click', async (e) => {
+      const actionEl = e.target.closest?.('[data-action]');
+      if (!actionEl) return;
+      const action = actionEl.dataset.action;
+      if (action === 'close-update-popover') {
+        state.update.popoverOpen = false;
+        renderUpdateUI();
+        return;
+      }
+      if (action === 'apply-update') {
+        await triggerUpdateApply();
+        return;
+      }
+      if (action === 'dismiss-update') {
+        const ver = actionEl.dataset.ver || '';
+        state.config.dismissedUpdateVersion = ver;
+        state.update.popoverOpen = false;
+        renderUpdateUI();
+        await saveConfigPatch({ dismissedUpdateVersion: ver });
+        return;
+      }
+      if (action === 'copy-update-cmd') {
+        const cmd = 'git -C ~/.gemini/config/plugins/agy-lens pull --ff-only';
+        const ok = await copyTextWithFallback(cmd);
+        state.update.copyStatus = ok ? 'copied' : 'failed';
+        renderUpdateUI();
+        setTimeout(() => {
+          state.update.copyStatus = '';
+          renderUpdateUI();
+        }, 2000);
+        return;
+      }
+    });
+  }
+
+  if (dom.updateBanner) {
+    dom.updateBanner.addEventListener('click', async (e) => {
+      const actionEl = e.target.closest?.('[data-action]');
+      if (!actionEl) return;
+      const action = actionEl.dataset.action;
+      if (action === 'reload-page') {
+        window.location.reload();
+        return;
+      }
+      if (action === 'ack-just-updated') {
+        if (state.update.data) state.update.data.justUpdated = null;
+        renderUpdateUI();
+        try {
+          await postJson('/api/update/ack-updated', {});
+        } catch {}
+        return;
+      }
+    });
+  }
+
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       if (state.obsPinnedCell) dismissObsCellPopover();
       if (state.obsMetricMenuOpen) {
         state.obsMetricMenuOpen = false;
         renderGrid();
+      }
+      if (state.update.popoverOpen) {
+        state.update.popoverOpen = false;
+        renderUpdateUI();
       }
       return;
     }
@@ -5358,6 +5927,7 @@
 
   window.addEventListener('resize', () => {
     if (state.obsPinnedCell) syncPinnedObsPopover();
+    if (state.update.popoverOpen) positionUpdatePopover();
   });
   window.addEventListener('scroll', () => {
     if (state.obsPinnedCell) syncPinnedObsPopover();
@@ -5398,6 +5968,7 @@
     if (state.query.openSettings) openSettings();
     resetRefreshTimer();
     await refreshAll(true);
+    fetchUpdateStatus();
   }
 
   boot();

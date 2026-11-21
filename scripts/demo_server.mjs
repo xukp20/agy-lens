@@ -121,6 +121,8 @@ const demoConfig = {
   quotaManualFactors: { M: false, C: false, O: false },
   obsMatrixPrimary: 'weightedHit',
   obsMatrixSubMetrics: ['keepRate', 'avgCost'],
+  updateMode: 'auto',
+  dismissedUpdateVersion: '',
   defaultRange: '7d',
 };
 
@@ -1388,6 +1390,35 @@ const server = createServer(async (req, res) => {
         res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8' });
         return res.end(buildDemoPreloadJs(theme));
       }
+      if (url.pathname === '/api/health') {
+        return sendJson(res, 200, { ok: true, version: '1.4.0', diskVersion: '1.4.0', pid: process.pid });
+      }
+      if (url.pathname === '/api/update/status') {
+        return sendJson(res, 200, {
+          currentVersion: '1.4.0',
+          installKind: 'git',
+          canAutoApply: true,
+          blockedReason: '',
+          updateMode: demoConfig.updateMode || 'auto',
+          dismissedVersion: demoConfig.dismissedUpdateVersion || '',
+          latestVersion: '1.4.0',
+          tagName: 'v1.4.0',
+          releaseUrl: 'https://github.com/xukp20/agy-lens/releases',
+          releaseNotes: '',
+          publishedAt: null,
+          hasUpdate: false,
+          stagedVersion: null,
+          requiresHostRestart: false,
+          failedVersion: null,
+          justUpdated: null,
+          canRollback: false,
+          rollbackVersion: null,
+          checking: false,
+          staging: false,
+          lastCheckedAt: Date.now(),
+          lastError: null,
+        });
+      }
       if (url.pathname === '/api/config') return sendJson(res, 200, buildConfigPayload());
       if (url.pathname === '/api/session') return sendJson(res, 200, buildSessionResponse(query));
       if (url.pathname === '/api/analytics') return sendJson(res, 200, buildAnalyticsResponse(query));
@@ -1440,6 +1471,10 @@ const server = createServer(async (req, res) => {
         if (Array.isArray(body.obsMatrixSubMetrics)) {
           const s = new Set(body.obsMatrixSubMetrics.filter((k) => obsMetricOrder.includes(k) && k !== demoConfig.obsMatrixPrimary));
           demoConfig.obsMatrixSubMetrics = obsMetricOrder.filter((k) => s.has(k));
+        }
+        if (['auto', 'notify', 'off'].includes(body.updateMode)) demoConfig.updateMode = body.updateMode;
+        if (typeof body.dismissedUpdateVersion === 'string') {
+          demoConfig.dismissedUpdateVersion = body.dismissedUpdateVersion.trim().slice(0, 32);
         }
         if (typeof body.quotaCalibMode === 'string') {
           const m = body.quotaCalibMode.trim().toLowerCase();

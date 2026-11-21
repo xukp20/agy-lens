@@ -3,7 +3,7 @@
  * Strictly read-only access to source conversation DBs; persistent state stored under DATA_DIR.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SidecarApp, Response } from 'sidecar_sdk';
 import {
@@ -30,10 +30,24 @@ import {
   deleteQuotaAnchor,
   getQuotaStatus,
 } from './lib/quota.mjs';
+import {
+  ackJustUpdated,
+  checkForUpdate,
+  getRunningVersion,
+  getUpdateStatus,
+  hasPendingAutoApplyOnIdle,
+  markHealthy,
+  maybeAutoCheckUpdate,
+  prepareApplyNow,
+  prepareRollback,
+} from './lib/updater.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const PLUGIN_ROOT = resolve(__dirname, '..', '..');
 const WEB_DIR = join(__dirname, 'web');
-const LOGO_PATH = join(__dirname, '..', '..', 'assets', 'logo.svg');
+const LOGO_PATH = join(PLUGIN_ROOT, 'assets', 'logo.svg');
+const RUNNING_VERSION = getRunningVersion(PLUGIN_ROOT);
+const UPDATE_MODES = new Set(['auto', 'notify', 'off']);
 
 const OBS_MATRIX_METRIC_ORDER = [
   'weightedHit',
@@ -83,6 +97,8 @@ const DEFAULT_CONFIG = {
   quotaManualFactors: { M: false, C: false, O: false },
   obsMatrixPrimary: 'weightedHit',
   obsMatrixSubMetrics: ['keepRate', 'avgCost'],
+  updateMode: 'auto',
+  dismissedUpdateVersion: '',
   defaultRange: '7d',
 };
 
@@ -228,6 +244,18 @@ function deepMergeConfig(base, patch) {
     quotaManualFactors: calib.quotaManualFactors,
     obsMatrixPrimary: obsMatrix.obsMatrixPrimary,
     obsMatrixSubMetrics: obsMatrix.obsMatrixSubMetrics,
+    updateMode:
+      typeof patch.updateMode === 'string' && UPDATE_MODES.has(patch.updateMode)
+        ? patch.updateMode
+        : UPDATE_MODES.has(base.updateMode)
+          ? base.updateMode
+          : 'auto',
+    dismissedUpdateVersion:
+      typeof patch.dismissedUpdateVersion === 'string'
+        ? patch.dismissedUpdateVersion.trim().slice(0, 32)
+        : typeof base.dismissedUpdateVersion === 'string'
+          ? base.dismissedUpdateVersion
+          : '',
     defaultRange:
       typeof patch.defaultRange === 'string' && patch.defaultRange
         ? patch.defaultRange
@@ -283,6 +311,7 @@ function parseModulesSet(queryModules) {
 function buildConfigPayload(config) {
   const pricingState = loadPricingState(DATA_DIR);
   return {
+    version: RUNNING_VERSION,
     config,
     paths: {
       dataDir: DATA_DIR,
@@ -315,9 +344,13 @@ function serveStaticFile(filename, contentType, fallbackBody = '') {
     return new Response(fallbackBody, {
       status: fallbackBody ? 200 : 404,
       contentType,
+      headers: { 'Cache-Control': 'no-store' },
     });
   }
-  return new Response(readFileSync(fullPath, 'utf-8'), { contentType });
+  return new Response(readFileSync(fullPath, 'utf-8'), {
+    contentType,
+    headers: { 'Cache-Control': 'no-store' },
+  });
 }
 
 function jsonError(status, message) {
@@ -329,19 +362,97 @@ function jsonError(status, message) {
 
 const app = new SidecarApp();
 
-app.page('/', () => {
-  const htmlPath = join(WEB_DIR, 'index.html');
-  if (existsSync(htmlPath)) {
-    return readFileSync(htmlPath, 'utf-8');
+// Isolated smoke-test mode used by the self-updater before staging an update.
+if (process.env.AGY_LENS_SMOKE === '1') {
+  const cfg = loadConfig();
+  loadPricingState(DATA_DIR);
+  buildConfigPayload(cfg);
+  try {
+    cacheDb.close();
+  } catch {
+    // ignore
   }
-  return '<!doctype html><html><body><p>AGY Lens UI assets not found.</p></body></html>';
+  process.stdout.write('AGY_LENS_SMOKE_OK\n');
+  process.exit(0);
+}
+
+let serverHandle = null;
+let lastActivityMs = Date.now();
+let restartScheduled = false;
+
+function touchActivity() {
+  lastActivityMs = Date.now();
+}
+
+function scheduleGracefulRestart(exitCode = 1) {
+  if (restartScheduled) return;
+  restartScheduled = true;
+  const finish = () => {
+    try {
+      cacheDb.close();
+    } catch {
+      // ignore
+    }
+    process.exit(exitCode);
+  };
+  const hardTimer = setTimeout(finish, 1200);
+  hardTimer.unref?.();
+  setTimeout(() => {
+    try {
+      if (serverHandle) {
+        serverHandle.close(() => {
+          clearTimeout(hardTimer);
+          finish();
+        });
+        serverHandle.closeIdleConnections?.();
+      } else {
+        clearTimeout(hardTimer);
+        finish();
+      }
+    } catch {
+      clearTimeout(hardTimer);
+      finish();
+    }
+  }, 180);
+}
+
+app.page('/', () => {
+  touchActivity();
+  const htmlPath = join(WEB_DIR, 'index.html');
+  const html = existsSync(htmlPath)
+    ? readFileSync(htmlPath, 'utf-8')
+    : '<!doctype html><html><body><p>AGY Lens UI assets not found.</p></body></html>';
+  return new Response(html, {
+    contentType: 'text/html; charset=utf-8',
+    headers: { 'Cache-Control': 'no-store' },
+  });
 });
 
-app.api('/styles.css', () => serveStaticFile('styles.css', 'text/css', '/* styles pending */'), 'GET');
-app.api('/app.js', () => serveStaticFile('app.js', 'application/javascript', '// app pending'), 'GET');
+app.api('/styles.css', () => {
+  touchActivity();
+  return serveStaticFile('styles.css', 'text/css', '/* styles pending */');
+}, 'GET');
+app.api('/app.js', () => {
+  touchActivity();
+  const fullPath = join(WEB_DIR, 'app.js');
+  if (!existsSync(fullPath)) {
+    return new Response('// app pending', {
+      status: 200,
+      contentType: 'application/javascript',
+      headers: { 'Cache-Control': 'no-store' },
+    });
+  }
+  const diskVer = getRunningVersion(PLUGIN_ROOT);
+  const body = `window.__AGY_LENS_DISK_VERSION__=${JSON.stringify(diskVer)};\n${readFileSync(fullPath, 'utf-8')}`;
+  return new Response(body, {
+    contentType: 'application/javascript',
+    headers: { 'Cache-Control': 'no-store' },
+  });
+}, 'GET');
 app.api(
   '/logo.svg',
   () => {
+    touchActivity();
     if (!existsSync(LOGO_PATH)) {
       return new Response('', { status: 404, contentType: 'image/svg+xml' });
     }
@@ -350,21 +461,34 @@ app.api(
   'GET'
 );
 
+app.api('/api/health', () => ({
+  ok: true,
+  version: RUNNING_VERSION,
+  diskVersion: getRunningVersion(PLUGIN_ROOT),
+  pid: process.pid,
+}), 'GET');
+
 app.api('/api/config', () => {
+  touchActivity();
   const config = loadConfig();
   maybeAutoSync(DATA_DIR, config.pricingAutoSync);
+  maybeAutoCheckUpdate(DATA_DIR, PLUGIN_ROOT, config);
   return buildConfigPayload(config);
 }, 'GET');
 
 app.api('/api/config', (data) => {
+  touchActivity();
   const next = saveConfig(data);
   maybeAutoSync(DATA_DIR, next.pricingAutoSync);
+  maybeAutoCheckUpdate(DATA_DIR, PLUGIN_ROOT, next);
   return buildConfigPayload(next);
 }, 'POST');
 
 app.api('/api/session', (data) => {
+  touchActivity();
   const config = loadConfig();
   maybeAutoSync(DATA_DIR, config.pricingAutoSync);
+  maybeAutoCheckUpdate(DATA_DIR, PLUGIN_ROOT, config);
   const pricingState = loadPricingState(DATA_DIR);
   const convId =
     typeof data.conversationId === 'string' && data.conversationId.trim()
@@ -375,6 +499,7 @@ app.api('/api/session', (data) => {
 }, 'GET');
 
 app.api('/api/analytics', (data) => {
+  touchActivity();
   const config = loadConfig();
   maybeAutoSync(DATA_DIR, config.pricingAutoSync);
   const pricingState = loadPricingState(DATA_DIR);
@@ -391,6 +516,7 @@ app.api('/api/analytics', (data) => {
 }, 'GET');
 
 app.api('/api/day', (data) => {
+  touchActivity();
   const config = loadConfig();
   const pricingState = loadPricingState(DATA_DIR);
   const sources = enabledSourcesList(config, data.sources);
@@ -424,6 +550,7 @@ app.api('/api/pricing/sync', async () => {
 }, 'POST');
 
 app.api('/api/quota/anchors', (data) => {
+  touchActivity();
   const config = loadConfig();
   const sources = enabledSourcesList(config, null);
   runIncrementalIndex(cacheDb, { sources });
@@ -475,6 +602,7 @@ app.api('/api/quota/anchors/delete', (data) => {
 }, 'POST');
 
 app.api('/api/index/rebuild', () => {
+  touchActivity();
   const config = loadConfig();
   const sources = enabledSourcesList(config, null);
   const stats = rebuildIndex(cacheDb, { sources });
@@ -485,4 +613,73 @@ app.api('/api/index/rebuild', () => {
   };
 }, 'POST');
 
-app.run();
+app.api('/api/update/status', async () => {
+  touchActivity();
+  const config = loadConfig();
+  return getUpdateStatus(DATA_DIR, PLUGIN_ROOT, config);
+}, 'GET');
+
+app.api('/api/update/check', async () => {
+  touchActivity();
+  const config = loadConfig();
+  return checkForUpdate(DATA_DIR, PLUGIN_ROOT, config, { force: true });
+}, 'POST');
+
+app.api('/api/update/apply', async () => {
+  touchActivity();
+  const config = loadConfig();
+  try {
+    const res = await prepareApplyNow(DATA_DIR, PLUGIN_ROOT, config);
+    scheduleGracefulRestart(1);
+    return res;
+  } catch (err) {
+    return jsonError(400, err.message);
+  }
+}, 'POST');
+
+app.api('/api/update/rollback', () => {
+  touchActivity();
+  try {
+    const res = prepareRollback(DATA_DIR, PLUGIN_ROOT);
+    scheduleGracefulRestart(1);
+    return res;
+  } catch (err) {
+    return jsonError(400, err.message);
+  }
+}, 'POST');
+
+app.api('/api/update/ack-updated', () => {
+  touchActivity();
+  ackJustUpdated(DATA_DIR);
+  return { ok: true };
+}, 'POST');
+
+serverHandle = await app.run();
+
+// Mark any recently applied update as healthy after 10 seconds of stable operation.
+const healthTimer = setTimeout(() => {
+  try {
+    markHealthy(DATA_DIR, RUNNING_VERSION);
+  } catch {
+    // ignore
+  }
+}, 10000);
+healthTimer.unref?.();
+
+// Backend-driven idle auto-apply: if auto mode has a staged update ready and
+// zero requests have arrived for 10 minutes across all clients, exit cleanly
+// so `boot.mjs` applies it automatically on next launch.
+const IDLE_AUTO_APPLY_MS = 10 * 60 * 1000;
+const idleCheckTimer = setInterval(() => {
+  if (restartScheduled) return;
+  if (Date.now() - lastActivityMs < IDLE_AUTO_APPLY_MS) return;
+  try {
+    const cfg = loadConfig();
+    if (hasPendingAutoApplyOnIdle(DATA_DIR, RUNNING_VERSION, cfg)) {
+      scheduleGracefulRestart(1);
+    }
+  } catch {
+    // ignore
+  }
+}, 60000);
+idleCheckTimer.unref?.();

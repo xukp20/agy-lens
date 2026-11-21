@@ -32,7 +32,7 @@
 Many community usage extensions probe undocumented internal RPC endpoints, inspect OAuth tokens, or run background OS daemons that poll continuously even when hidden. **AGY Lens** takes the opposite approach:
 
 - **Strictly Local & Read-Only**: Opens Antigravity Desktop (`~/.gemini/antigravity/conversations/*.db`) and CLI (`~/.gemini/antigravity-cli/conversations/*.db`) SQLite databases exclusively with `{ readOnly: true }`, parsing Protobuf step blobs directly in pure Node.js 24 (`node:sqlite`, zero npm dependencies).
-- **Zero RPC Scraping / Zero Account Risk**: Never probes private host endpoints, never touches OAuth credentials, and never phones home (optional pricing catalog sync is off by default).
+- **Zero RPC Scraping / Zero Account Risk**: Never probes private host endpoints, never touches OAuth credentials, and never sends telemetry (optional in-panel update check only fetches public GitHub Releases metadata and can be set to `Off` anytime; remote pricing sync is off by default).
 - **Visibility-Gated Zero Idle Overhead**: Built on Antigravity's native `sidecar_sdk` auxiliary pane lifecycle—automatically pauses all polling when the pane is collapsed or hidden.
 - **Host-Synced Adaptive Theme**: Probes Antigravity's live CSS custom properties (`--background`, `--card`, `--primary`, etc.) so dark and light themes adapt automatically without manual theme toggles.
 
@@ -84,13 +84,17 @@ Because Antigravity exposes no official Sidecar Quota API, AGY Lens keeps quota 
 - **Automatic Reset-Cycle Inheritance**: Leave the reset countdown blank when logging another checkpoint inside the same active cycle to inherit the cycle's prior `reset_at` timestamp automatically (or enter a new value if an early reset occurred).
 - **Orthogonal 3-Factor Weight Calibration Lab (`M / C / O` All-Subsets Selection)**: Shares default Base anchors with `pricing_defaults.json` (`defaultAnchors`) and lets you switch the `1.00×` Base model right in the UI; decouples **Model Multipliers (`M`)**, **Cache-Read Multiplier (`C`)**, and **Output Multiplier (`O`)** into 3 independent switches (so single-model cycles can still calibrate `C` or `O`), evaluates all 8 subsets with profile-grid Huber-WLS + LOOCV + `VIF < 10`, conservatively coalesces settlement lag / short gaps (`<10m` for `7d`, `<5m` for `5h`) & micro-rebounds, and transparently shows trial estimates alongside an Observed vs. Predicted (`pp`) residual chart.
 
-### 5. Settings Drawer, Self-Explaining `?` Help & Bilingual UI
+### 5. Settings Drawer, In-Panel Auto-Update, `?` Help & Bilingual UI
 
 <p align="center">
-  <img src="assets/screenshots/settings-drawer.png" alt="AGY Lens Settings Drawer with 7 Modules and ? Help Tooltips" width="100%" />
+  <img src="assets/screenshots/settings-drawer.png" alt="AGY Lens Main Header Update Pill, Update Popover, Settings Drawer with 7 Modules, Version & Auto-Update Controls, and ? Help Tooltip" width="100%" />
 </p>
 
-- **7 Independent Modules & Reordering**: Enable/disable and reorder (`↑ / ↓`) any module; disabled modules skip scanning and backend queries completely.
+- **In-Panel Auto-Update & One-Click Rollback**:
+  - **Header Micro-Pill & Release Popover**: When a newer release is available, a compact `↑ vX.Y.Z` badge appears right beside the `AGY Lens` title (blue while pending, green once verified & staged). Click it to inspect release notes and trigger **Restart to Apply** in one click, or skip the version.
+  - **3 Configurable Policies (`Auto` | `Notify` | `Off`)**: Defaults to **`Auto`**—checks GitHub Releases every 24h while the pane is active, downloads & smoke-tests in an isolated subprocess (`AGY_LENS_SMOKE=1`), and applies cleanly at next cold start (or after 10 minutes idle / immediate click). Switch to **`Notify`** (manual trigger) or **`Off`** (100% offline) anytime in **Settings → Version & Auto-Update**.
+  - **Crash-Safe `boot.mjs` Bootstrap & Auto-Rollback**: Updates are applied by a minimal, self-contained `boot.mjs` before `main.mjs` loads—preventing frontend/backend mismatches. If a new version ever fails startup twice, `boot.mjs` **automatically rolls back** to the previous backup and marks the bad version; a manual **Rollback to vX.Y.Z** button is also available in Settings.
+- **7 Independent Modules & Reordering**: All 7 modules are enabled out of the box (with compact collapsed KPI cards for secondary views); disable or reorder (`↑ / ↓`) any module anytime.
 - **Built-in `?` Help Tooltips**: Every module header and settings control carries an interactive `?` callout explaining *what it shows*, *when to enable*, and *exact scan scope*.
 - **Instant Bilingual Switch**: Toggle `English` / `中文` anytime (`?lang=en` / `?lang=zh-CN` URL override also supported for previews).
 
@@ -103,7 +107,8 @@ Because Antigravity exposes no official Sidecar Quota API, AGY Lens keeps quota 
 | **Conversation DB Access** | Opened strictly with `new DatabaseSync(path, { readOnly: true })` (WAL-aware incremental mtime/size indexing; never writes to source DBs). |
 | **Host RPC & Auth Tokens** | **Zero** internal RPC probing, **zero** OAuth/credential file reads, **zero** undocumented host endpoint calls. |
 | **Background Execution** | Runs solely as an Antigravity-managed UI sidecar (`on-failure`); polling pauses automatically when the pane is hidden (`Off` / `15s` / `30s` / `60s` / `5m`). |
-| **Local Cache Storage** | Incremental index, settings, pricing overrides, and quota anchors live locally under `~/.gemini/antigravity/sidecar_data/agy-lens/lens_panel/data/`. |
+| **Optional Network Access** | In-panel auto-update only `GET`s public GitHub Releases metadata over strict HTTPS host allowlists (zero local data uploaded; disable via `Settings → Update Policy → Off`). Remote pricing sync is disabled by default. |
+| **Local Cache Storage** | Incremental index, settings, pricing overrides, update backups, and quota anchors live locally under `~/.gemini/antigravity/sidecar_data/agy-lens/lens_panel/data/` (physically isolated from plugin code). |
 | **Issue Report Export** | `Copy Issue Markdown` strips workspaces, local paths, and conversation titles—emitting only aggregated stats, model IDs, gap durations, and provider request IDs. |
 
 ---
@@ -117,23 +122,28 @@ git clone https://github.com/xukp20/agy-lens.git ~/.gemini/config/plugins/agy-le
 agy plugin validate --strict ~/.gemini/config/plugins/agy-lens
 ```
 
-Or install from a local clone via CLI:
+*Recommended*: Supports **both** in-panel Git exact-tag auto-updates (with dirty-tree and non-`main` branch protection) **and** manual `git pull --ff-only` updates.
+
+### Option B: Standalone Install via CLI or Release Archive
 
 ```bash
 git clone https://github.com/xukp20/agy-lens.git /tmp/agy-lens
 agy plugin install /tmp/agy-lens
 ```
 
+*Also supports in-panel auto-updates*: Even without `.git`, AGY Lens downloads official GitHub release tarballs over HTTPS, extracts them with a zero-dependency pure-Node `.tar.gz` parser, verifies SHA-256 checksums + isolated smoke tests, and applies them safely via `boot.mjs` on Linux, macOS, and Windows.
+
 > **Note**: Requires Antigravity `2.22+` (Sidecar Web UI support) and Node.js `24+` (built-in `node:sqlite`). No `npm install` step is needed.
 
-### Quick Update from GitHub
+### How Updates Work (3 Ways)
 
-If you installed via `git clone` into `~/.gemini/config/plugins/agy-lens`:
-
-```bash
-git -C ~/.gemini/config/plugins/agy-lens pull --ff-only
-agy plugin validate --strict ~/.gemini/config/plugins/agy-lens
-```
+1. **Automatic In-Panel Updates (Default — Recommended)**: Checks GitHub Releases every 24h while active, stages & smoke-tests updates in the background, and applies automatically at next cold start (or immediately when you click the green `↑ vX.Y.Z` pill next to `AGY Lens`). Works for **both** Git clone and Standalone installs; preserves all user data in `sidecar_data/` and protects uncommitted local Git edits.
+2. **Manual In-Panel Check & Apply**: Set **Settings → Version & Auto-Update → Update Policy** to `Notify` or `Off`, then click **Check Now** / **Update & Restart** whenever you want (with one-click **Rollback** to the previous version).
+3. **CLI Manual Update** (for `git clone` installs):
+   ```bash
+   git -C ~/.gemini/config/plugins/agy-lens pull --ff-only
+   agy plugin validate --strict ~/.gemini/config/plugins/agy-lens
+   ```
 
 ---
 
@@ -158,6 +168,9 @@ AGY Lens uses a **3-tier pricing resolution engine** (`sidecars/lens_panel/lib/p
   ~/.gemini/antigravity-cli/      │            ├─ lib/pricing.mjs     (3-tier + >200k rates)
    └─ conversations/<uuid>.db   ──┘            ├─ lib/cache_observatory.mjs
                                                ├─ lib/quota.mjs       (2-decimal CI budget)
+                                               ├─ lib/updater.mjs     (Git & tarball self-update)
+                                               ├─ lib/tar_extract.mjs (pure-JS PAX/USTAR unpack)
+                                               ├─ boot.mjs            (cold-start apply & rollback)
                                                └─ main.mjs            (SidecarApp REST API)
                                                      │
                                                      ▼  127.0.0.1 HTTP + /preload.js theme tokens

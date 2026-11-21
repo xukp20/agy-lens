@@ -32,7 +32,7 @@
 不少社区用量插件通过探测未公开的内部 RPC 接口、读取 OAuth 凭证，或常驻后台守护进程持续轮询来获取数据。**AGY Lens** 坚持完全相反的工程准则：
 
 - **严格本地只读**：仅通过 `{ readOnly: true }` 只读模式打开 Antigravity Desktop（`~/.gemini/antigravity/conversations/*.db`）与 CLI（`~/.gemini/antigravity-cli/conversations/*.db`）本地 SQLite 数据库，并使用纯 Node.js 24 内置 `node:sqlite` 直接解析 Protobuf 轮次数据（零 npm 外部依赖）。
-- **零内部 RPC 探测 / 零账号风险**：绝不探测宿主私有端口、绝不触碰 OAuth Token 或认证文件、默认完全离线运行（可选远程定价同步默认关闭）。
+- **零内部 RPC 探测 / 零账号风险**：绝不探测宿主私有端口、绝不触碰 OAuth Token 或认证文件、绝不上传任何本地遥测（内置自动更新仅读取 GitHub Releases 公开版本信息，可随时在设置中关闭；远程定价同步默认关闭）。
 - **可见性门控、零空转开销**：基于 Antigravity 原生 `sidecar_sdk` 辅助侧栏（Auxiliary Pane）生命周期构建；当侧栏收起或不可见时自动暂停全部轮询。
 - **宿主主题自适应同步**：实时嗅探宿主注入的 CSS 变量（`--background`、`--card`、`--primary` 等），深浅色主题无缝跟随宿主切换。
 
@@ -84,13 +84,17 @@ AGY Lens 内置 **7 个可独立开关与自由排序的模块**——默认全�
 - **重置周期自动继承**：在同一活跃周期内补充记录锚点时，重置倒计时可**留空自动继承**本周期上次的 `reset_at` 时间戳（若发生提前重置则填写新倒计时即可覆盖）。
 - **正交 3 因子权重校准实验室（`M / C / O` 全子集自动择优）**：锚点模型与 `pricing_defaults.json` 的 `defaultAnchors` 共用配置且支持面板自由切换 Base (`1.00×`)；将**模型倍率 (`M`)**、**缓存倍率 (`C`)** 与**输出倍率 (`O`)** 解耦为 3 个正交开关（单模型周期也可独立校准 `C` 或 `O`），全枚举 8 个子集并基于剖面网格 Huber-WLS + 留一交叉验证（LOOCV）+ `VIF < 10` 自动择优；自动守恒合并微滞后/短间隔（`<10m`/`<5m`）与微回弹抖动，并透明展示未采纳因子的试算值与实测/预测（`pp`）残差对比图。
 
-### 5. 设置抽屉、自解释 `?` 帮助气泡与中英双语切换
+### 5. 设置抽屉、面板内自动更新、`?` 帮助与中英双语切换
 
 <p align="center">
-  <img src="assets/screenshots/settings-drawer.png" alt="AGY Lens 设置抽屉、7 大模块开关与问号帮助气泡" width="100%" />
+  <img src="assets/screenshots/settings-drawer.png" alt="AGY Lens 顶栏更新微徽标、更新详情弹窗、7 大模块设置抽屉、版本与自动更新控制及问号帮助气泡" width="100%" />
 </p>
 
-- **7 大模块独立开关与上下排序**：任意关闭不关注的模块即可完全跳过对应查询与扫描。
+- **面板内自动更新与一键回滚**：
+  - **主界面顶栏微徽标与更新弹窗**：发现新版本时，`AGY Lens` 标题紧右侧自动亮出精致的 `↑ vX.Y.Z` 微徽标（待下载为蓝色，已预下载并通过烟雾测试后变为绿色）。点击即可查看 Release Notes，一键 **「立即重启应用」** 或 **「忽略此版本」**。
+  - **三档可配置更新策略（`自动更新` | `仅提醒` | `关闭`）**：默认 **`自动更新`**——面板活跃期间每 24h 检查一次 GitHub Releases，后台预下载并在独立子进程运行烟雾测试（`AGY_LENS_SMOKE=1`），随后在你点击重启、后端全端闲置 10 分钟或下次冷启动时无感应用。随时可在 **设置 → 版本与自动更新** 切换为 **`仅提醒`** 或 **`关闭`**（100% 离线）。
+  - **防变砖 `boot.mjs` 冷启动引导与崩溃自救回滚**：所有文件替换均由极简稳定的 `boot.mjs` 在 `main.mjs` 加载前完成，杜绝前后端版本错位；若某新版本连续 2 次启动异常，`boot.mjs` 会**自动从备份回滚**到上一稳定版本并跳过该坏版本；设置里也提供手动 **「回滚至上一版本」** 按钮。
+- **7 大模块默认全开、独立开关与排序**：新安装默认开启全部 7 个模块（次要卡片先以紧凑 KPI 摘要呈现）；不需要的模块可随时关闭以完全跳过查询与扫描。
 - **原生 `?` 自解释帮助气泡**：每个模块标题与设置项旁均配有 `?` 触发器，悬停或点击即可查看「展示内容 / 何时开启 / 扫描范围」。
 - **即时中英双语切换**：设置抽屉支持即时切换 `中文 / English`（亦支持 URL 参数 `?lang=en` / `?lang=zh-CN` 临时覆盖）。
 
@@ -103,37 +107,43 @@ AGY Lens 内置 **7 个可独立开关与自由排序的模块**——默认全�
 | **源数据库访问** | 严格通过 `new DatabaseSync(path, { readOnly: true })` 只读打开（WAL 感知增量 mtime/size 索引，绝不写入源库）。 |
 | **宿主 RPC 与凭证** | **零**内部 RPC 探测、**零** OAuth/Token 文件读取、**零**未公开接口调用。 |
 | **后台驻留与轮询** | 仅作为 Antigravity 托管 UI Sidecar 按需运行（`on-failure`）；面板不可见时自动暂停轮询（支持 `关 / 15s / 30s / 60s / 5m`）。 |
-| **本地缓存路径** | 增量索引、用户配置、定价覆写与额度锚点均保存在 `~/.gemini/antigravity/sidecar_data/agy-lens/lens_panel/data/`。 |
+| **可选联网说明** | 面板内自动更新仅通过严格 HTTPS 主机白名单 `GET` GitHub Releases 公开元数据（不上传任何本地信息，可在「设置 → 更新策略 → 关闭」一键关闭）；远程定价同步默认关闭。 |
+| **本地缓存路径** | 增量索引、用户配置、定价覆写、更新备份与额度锚点均保存在 `~/.gemini/antigravity/sidecar_data/agy-lens/lens_panel/data/`（与插件代码目录物理隔离，更新绝不触碰用户数据）。 |
 | **Issue 导出脱敏** | `Copy Issue Markdown` 自动剥离工作区路径、目录名与真实会话标题，仅保留汇总指标、模型 ID、间隔时长与 Request ID。 |
 
 ---
 
 ## 安装与更新
 
-### 方式一：直接克隆到插件目录（推荐，方便后续一键更新）
+### 方式一：直接克隆到插件目录（推荐）
 
 ```bash
 git clone https://github.com/xukp20/agy-lens.git ~/.gemini/config/plugins/agy-lens
 agy plugin validate --strict ~/.gemini/config/plugins/agy-lens
 ```
 
-或克隆后通过 CLI 安装：
+*最推荐*：同时支持 **面板内 Git 精确 Release Tag 自动更新**（自动保护未提交本地修改与非 `main` 分支）以及终端手动 `git pull --ff-only`。
+
+### 方式二：通过 CLI 独立安装或压缩包安装
 
 ```bash
 git clone https://github.com/xukp20/agy-lens.git /tmp/agy-lens
 agy plugin install /tmp/agy-lens
 ```
 
+*同样完整支持面板内自动更新*：即使目录中没有 `.git`，AGY Lens 也能通过内置零依赖纯 Node 流式 `.tar.gz` 解包器拉取 GitHub Release 包，完成 SHA-256 校验与独立烟雾测试后由 `boot.mjs` 安全升级（完整兼容 Linux、macOS 与 Windows）。
+
 > **环境要求**：Antigravity `2.22+`（支持 Sidecar Web UI）与 Node.js `24+`（内置 `node:sqlite`）。无需执行 `npm install`。
 
-### 从 GitHub 快速更新
+### 支持的 3 种更新方式
 
-若通过 `git clone` 安装在 `~/.gemini/config/plugins/agy-lens`：
-
-```bash
-git -C ~/.gemini/config/plugins/agy-lens pull --ff-only
-agy plugin validate --strict ~/.gemini/config/plugins/agy-lens
-```
+1. **面板内自动更新（默认，最省心）**：每 24h 自动检测新版本 -> 后台预下载并通过烟雾测试 -> 顶栏 `AGY Lens` 旁亮出绿色 `↑ vX.Y.Z` 微徽标。点击立即重启生效，不点也会在下次重开面板时无感升级；Git 与独立安装均支持，且绝不触碰 `sidecar_data/` 中的个人数据。
+2. **面板内手动更新 / 回滚**：在 **设置 → 版本与自动更新** 将策略设为 `仅提醒` 或 `关闭`，随时手动点击 **「检查更新」** / **「一键更新并重启」**；升级后若不习惯还可一键 **「回滚至上一版本」**。
+3. **终端手动更新**（适用于 `git clone` 安装）：
+   ```bash
+   git -C ~/.gemini/config/plugins/agy-lens pull --ff-only
+   agy plugin validate --strict ~/.gemini/config/plugins/agy-lens
+   ```
 
 ---
 
@@ -158,6 +168,9 @@ AGY Lens 内置 **三层定价解析引擎**（`sidecars/lens_panel/lib/pricing.
   ~/.gemini/antigravity-cli/      │              ├─ lib/pricing.mjs     (3 层定价 + >200k 阶梯)
    └─ conversations/<uuid>.db   ──┘              ├─ lib/cache_observatory.mjs
                                                  ├─ lib/quota.mjs       (2 位小数 CI 反推)
+                                                 ├─ lib/updater.mjs     (Git/独立包自更新)
+                                                 ├─ lib/tar_extract.mjs (纯 JS 流式解包)
+                                                 ├─ boot.mjs            (冷启动应用与自动回滚)
                                                  └─ main.mjs            (SidecarApp REST API)
                                                        │
                                                        ▼  127.0.0.1 HTTP + /preload.js 主题变量
