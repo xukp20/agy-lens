@@ -29,6 +29,7 @@ import {
   addQuotaAnchor,
   deleteQuotaAnchor,
   getQuotaStatus,
+  updateQuotaAnchor,
 } from './lib/quota.mjs';
 import {
   DEFAULT_GAP_BREAKPOINTS_SEC,
@@ -579,6 +580,23 @@ app.api('/api/quota/anchors', (data) => {
 app.api('/api/quota/anchors', (data) => {
   try {
     addQuotaAnchor(cacheDb, data);
+    const config = loadConfig();
+    const pricingState = loadPricingState(DATA_DIR);
+    return getQuotaStatus(cacheDb, pricingState, {
+      pool: null,
+      windowType: null,
+      quotaAnchorsByPool: config.quotaAnchorsByPool || {},
+      quotaCalibMode: config.quotaCalibMode || 'auto',
+      quotaManualFactors: config.quotaManualFactors || { M: false, C: false, O: false },
+    });
+  } catch (err) {
+    return jsonError(400, err.message);
+  }
+}, 'POST');
+
+app.api('/api/quota/anchors/update', (data) => {
+  try {
+    updateQuotaAnchor(cacheDb, data);
     const config = loadConfig();
     const pricingState = loadPricingState(DATA_DIR);
     return getQuotaStatus(cacheDb, pricingState, {

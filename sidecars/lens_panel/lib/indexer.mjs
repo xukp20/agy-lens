@@ -110,6 +110,8 @@ export function openTelemetryCacheDb(dataDir) {
       precision_step REAL NOT NULL,
       captured_at INTEGER NOT NULL,
       reset_at INTEGER,
+      reset_source TEXT NOT NULL DEFAULT '',
+      reset_precision_ms INTEGER,
       note TEXT NOT NULL DEFAULT '',
       created_at INTEGER NOT NULL
     );
@@ -120,6 +122,65 @@ export function openTelemetryCacheDb(dataDir) {
   const cols = db.prepare('PRAGMA table_info(turns)').all();
   if (!cols.some((c) => c.name === 'provider_request_id')) {
     db.exec("ALTER TABLE turns ADD COLUMN provider_request_id TEXT NOT NULL DEFAULT ''");
+  }
+
+  // Safe migration for pre-existing cache DBs missing quota reset provenance columns.
+  const quotaCols = db.prepare('PRAGMA table_info(quota_anchors)').all();
+  if (!quotaCols.some((c) => c.name === 'reset_source')) {
+    db.exec("ALTER TABLE quota_anchors ADD COLUMN reset_source TEXT NOT NULL DEFAULT ''");
+  }
+  if (!quotaCols.some((c) => c.name === 'reset_precision_ms')) {
+    db.exec('ALTER TABLE quota_anchors ADD COLUMN reset_precision_ms INTEGER');
+  }
+
+  // Backfill legacy rows missing reset_source: deduplicate identical inherited reset_at copies
+  // while seeding from any already-migrated explicit/legacy anchors in the same (pool, window_type).
+  const unmigratedResetRows = db
+    .prepare(
+      `SELECT id, pool, window_type, reset_at, captured_at
+       FROM quota_anchors
+       WHERE reset_at IS NOT NULL AND (reset_source IS NULL OR reset_source = '')
+       ORDER BY pool ASC, window_type ASC, captured_at ASC, id ASC`
+    )
+    .all();
+  if (unmigratedResetRows.length > 0) {
+    const allResetRows = db
+      .prepare(
+        `SELECT id, pool, window_type, reset_at, reset_source
+         FROM quota_anchors
+         WHERE reset_at IS NOT NULL
+         ORDER BY pool ASC, window_type ASC, captured_at ASC, id ASC`
+      )
+      .all();
+    const markLegacy = db.prepare("UPDATE quota_anchors SET reset_source = 'legacy' WHERE id = ?");
+    const clearInheritedCopy = db.prepare(
+      "UPDATE quota_anchors SET reset_at = NULL, reset_source = '', reset_precision_ms = NULL WHERE id = ?"
+    );
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      const lastResetByPair = new Map();
+      for (const row of allResetRows) {
+        const key = `${row.pool}|${row.window_type}`;
+        const prevReset = lastResetByPair.get(key);
+        const isMigrated = row.reset_source === 'explicit' || row.reset_source === 'legacy';
+        if (isMigrated) {
+          lastResetByPair.set(key, Number(row.reset_at));
+        } else if (prevReset != null && Number(row.reset_at) === Number(prevReset)) {
+          clearInheritedCopy.run(row.id);
+        } else {
+          markLegacy.run(row.id);
+          lastResetByPair.set(key, Number(row.reset_at));
+        }
+      }
+      db.exec('COMMIT');
+    } catch (err) {
+      try {
+        db.exec('ROLLBACK');
+      } catch {
+        // ignore rollback error
+      }
+      console.error(`[agy-lens/indexer] Legacy quota_anchors migration failed: ${err?.message || err}`);
+    }
   }
 
   // Self-heal legacy 0-token turns captured mid-stream (status=2) before v1.2.1.

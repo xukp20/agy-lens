@@ -450,6 +450,18 @@
         paceFastWarn: '偏快',
         paceOk: '充裕',
         paceLabel: '节奏 {ratio}x · {lbl}',
+        cycleWindow: '周期 {start} → {end}',
+        cycleWindowInferred: '推断新周期 {start} → {end}',
+        cycleExpired: '已过重置点 · 待录新快照',
+        cycleExpiredNew: '新周期已开启 · 已耗 {usd} · 待录新快照',
+        cycleAwaiting: '新周期未开始 · 待录新快照',
+        prevCycleRef: '上周期参考 ~{usd}',
+        cycleTotalSpend: '本周期已耗 {usd}',
+        originBootBadge: '周期起点推算',
+        originBootHint: '由周期起点 100% 推算（跨设备历史消耗未计入，置信上限开放）；再录一条有效消耗快照即自动切回纯差分校准。',
+        cycleOriginRef: '全周期口径对照 ~{usd}',
+        resetConflictBadge: '重置时间冲突',
+        resetConflictHint: '同周期内存在不兼容的重置时间读数，已优先采用最新显式录入。',
         projectedNow: '推算当前: {pct}',
         spentSince: '区间已耗 {usd}',
         emptyDesc: '尚未记录订阅额度对齐点。展开卡片后可记录当前的精确剩余百分比（如 94.25%），自动反推周期隐含总额度。',
@@ -463,11 +475,14 @@
         pctPlaceholder: '例如 94.25',
         pctHint: '支持最多 2 位小数（如 94.25）；系统会自动识别小数精度以计算置信区间误差。',
         resetLabel: '重置倒计时 / 时间（可选）',
-        resetPlaceholder: '如 3h20m 或 18:30',
-        resetHint: '支持 3h20m / 45m / HH:MM',
-        resetInheritHint: '留空沿用上次重置 ({time})，提前重置请重填',
+        resetPlaceholder: '如 6d 23h、3h20m、11-28 10:30',
+        resetHint: '支持 6d 23h / 5天3小时 / 3h20m / 11-28 10:30 / HH:MM',
+        resetInheritHint: '留空自动沿用本周期重置 ({time})，新周期请重填',
         resetPreview: '预计重置: {time}',
-        resetBad: '无法解析时间格式（支持如 3h20m、45m、14:30 或 ISO 时间）',
+        resetPreviewCycle: '预计重置 {time}{prec} · 本周期 {start} → {end}（早于 {start} 自动折叠）',
+        resetPrecHour: ' (±1h)',
+        resetOutOfWindow: '重置时间超出 {wt} 窗口范围，请检查是否选错 7d / 5h',
+        resetBad: '无法解析时间格式（支持 6d 23h、5天3小时、3h20m、11-28 10:30 或 HH:MM）',
         captureTimeLabel: '记录时刻',
         now: '此刻',
         custom: '自定义',
@@ -479,19 +494,35 @@
         statusOk: '高置信',
         statusLow: '低置信',
         statusCal: '校准中',
-        calDesc: '已观测有效消耗 Δu = {du}%（{seg} 段），区间累计 {usd}；需继续积累消耗百分比以完成反推校准。',
-        effDelta: '有效 Δu: {du}% ({seg} 段) · 窗口花费 {usd}',
+        statusNewCycle: '新周期',
+        calDesc: '已观测有效消耗 Δu = {du}%（{seg} 段），本周期累计 {usd}；需继续积累消耗百分比以完成反推校准。',
+        effDelta: '有效 Δu: {du}% ({seg} 段) · 校准段 {usd}',
         impliedRem: '推算剩余: {usd}',
+        ciOpenHigh: '[{low}, ∞)',
         mixedWarn: '⚠ 检测到同池内多模型混用方差较大，反推总额仅供参考。',
         historyTitle: '历史对齐记录 ({n})',
-        currentHistoryTitle: '本周期对齐记录 ({n})',
-        noCurrentAnchors: '当前周期尚无对齐记录。',
-        showOlderCycles: '查看历史周期记录 ({m})',
-        hideOlderCycles: '收起历史周期记录 ({m})',
+        currentHistoryTitle: '当前 7d 周期记录 ({n})',
+        noCurrentAnchors: '当前 7d 周期尚无对齐记录。',
+        poolCycleNoReset: '未设重置时间（填入后可自动划界）',
+        poolCycleEmptyNew: '新周期尚无快照（本周期已耗 {usd}）',
+        poolCycleEmptyIdle: '新周期尚未开始，待录首个快照',
+        showOlderCycles: '展开历史周期及其他记录 ({m})',
+        hideOlderCycles: '收起历史周期及其他记录 ({m})',
+        olderGroup7d: '历史 7d 周期',
+        olderGroup5h: '5h 窗口记录',
+        cycleGroupMeta: '花费 {usd}',
+        cycleGroupEst: '估值 ~{usd}',
         precision: '精度 {step}%',
         resetAt: '重置 {time}',
+        resetInheritedTag: '继承',
+        editResetBtn: '改重置',
+        editResetSave: '保存',
+        editResetClear: '清空',
+        editResetCancel: '取消',
+        editResetPlaceholder: '如 6d 23h 或 11-28 10:30',
         invalidPct: '请输入 0 到 100 之间的有效剩余百分比（支持最多 2 位小数，如 94.25）',
         recordFailed: '记录失败: {msg}',
+        updateFailed: '更新失败: {msg}',
         deleteFailed: '删除失败: {msg}',
         subsetBase: '基准',
         subsetM: '模型 (M)',
@@ -982,6 +1013,18 @@
         paceFastWarn: 'Fast',
         paceOk: 'Healthy',
         paceLabel: 'Pace {ratio}x · {lbl}',
+        cycleWindow: 'Cycle {start} → {end}',
+        cycleWindowInferred: 'Inferred {start} → {end}',
+        cycleExpired: 'Reset passed · log new snapshot',
+        cycleExpiredNew: 'New cycle active · {usd} spent · log snapshot',
+        cycleAwaiting: 'New cycle not started · log snapshot',
+        prevCycleRef: 'Prev cycle ref ~{usd}',
+        cycleTotalSpend: 'Cycle spent {usd}',
+        originBootBadge: 'From cycle start',
+        originBootHint: 'Bootstrapped from 100% cycle start (open upper bound for cross-device spend); log another active snapshot to switch to differential calibration.',
+        cycleOriginRef: 'Full-cycle ref ~{usd}',
+        resetConflictBadge: 'Reset conflict',
+        resetConflictHint: 'Conflicting reset times inside this cycle; using the latest explicit entry.',
         projectedNow: 'Projected now: {pct}',
         spentSince: 'Spent since: {usd}',
         emptyDesc: 'No quota anchors yet. Expand to log your remaining % (e.g. 94.25%) and estimate the implied cycle budget.',
@@ -995,11 +1038,14 @@
         pctPlaceholder: 'e.g. 94.25',
         pctHint: 'Supports up to 2 decimal places (e.g. 94.25); precision step is auto-detected for CI bounds.',
         resetLabel: 'Reset Countdown / Time (optional)',
-        resetPlaceholder: 'e.g. 3h20m or 18:30',
-        resetHint: 'Supports 3h20m / 45m / HH:MM',
-        resetInheritHint: 'Leave blank to inherit {time}; enter new value if reset early',
+        resetPlaceholder: 'e.g. 6d 23h, 3h20m, 11-28 10:30',
+        resetHint: 'Supports 6d 23h / 3h20m / 11-28 10:30 / HH:MM',
+        resetInheritHint: 'Leave blank to inherit {time}; enter new value for a new cycle',
         resetPreview: 'Est. reset: {time}',
-        resetBad: 'Invalid format (try 3h20m, 45m, 14:30, or ISO timestamp)',
+        resetPreviewCycle: 'Est. reset {time}{prec} · Cycle {start} → {end} (earlier folded)',
+        resetPrecHour: ' (±1h)',
+        resetOutOfWindow: 'Reset time exceeds the {wt} window range — check 7d / 5h selection',
+        resetBad: 'Invalid format (try 6d 23h, 3h20m, 11-28 10:30, or HH:MM)',
         captureTimeLabel: 'Captured At',
         now: 'Now',
         custom: 'Custom',
@@ -1011,19 +1057,35 @@
         statusOk: 'High CI',
         statusLow: 'Low CI',
         statusCal: 'Calibrating',
-        calDesc: 'Observed Δu = {du}% ({seg} segs), window spend {usd}; log more usage to complete budget inversion.',
-        effDelta: 'Effective Δu: {du}% ({seg} segs) · Window {usd}',
+        statusNewCycle: 'New Cycle',
+        calDesc: 'Observed Δu = {du}% ({seg} segs), cycle spend {usd}; log more usage to complete budget inversion.',
+        effDelta: 'Effective Δu: {du}% ({seg} segs) · Calib {usd}',
         impliedRem: 'Implied left: {usd}',
+        ciOpenHigh: '[{low}, ∞)',
         mixedWarn: '⚠ High multi-model variance detected in this pool; implied budget is approximate.',
         historyTitle: 'Anchor History ({n})',
-        currentHistoryTitle: 'Current Cycle Anchors ({n})',
-        noCurrentAnchors: 'No anchors logged in the current cycle yet.',
-        showOlderCycles: 'Show Older Cycles ({m})',
-        hideOlderCycles: 'Hide Older Cycles ({m})',
+        currentHistoryTitle: 'Current 7d Cycle Anchors ({n})',
+        noCurrentAnchors: 'No anchors logged in the current 7d cycle yet.',
+        poolCycleNoReset: 'No reset time set (add one to bound cycle)',
+        poolCycleEmptyNew: 'No snapshots in new cycle yet ({usd} spent)',
+        poolCycleEmptyIdle: 'New cycle has not started yet',
+        showOlderCycles: 'Show Older Cycles & Other Records ({m})',
+        hideOlderCycles: 'Hide Older Cycles & Other Records ({m})',
+        olderGroup7d: 'Older 7d Cycles',
+        olderGroup5h: '5h Window Records',
+        cycleGroupMeta: 'Spent {usd}',
+        cycleGroupEst: 'Est. ~{usd}',
         precision: 'Step {step}%',
         resetAt: 'Reset {time}',
+        resetInheritedTag: 'inherited',
+        editResetBtn: 'Reset',
+        editResetSave: 'Save',
+        editResetClear: 'Clear',
+        editResetCancel: 'Cancel',
+        editResetPlaceholder: 'e.g. 6d 23h or 11-28 10:30',
         invalidPct: 'Enter a valid percentage between 0 and 100 (up to 2 decimals, e.g. 94.25)',
         recordFailed: 'Failed to save anchor: {msg}',
+        updateFailed: 'Failed to update anchor: {msg}',
         deleteFailed: 'Failed to delete anchor: {msg}',
         subsetBase: 'Base',
         subsetM: 'Models (M)',
@@ -1452,12 +1514,82 @@
     return `${v}×`;
   }
 
-  function parseResetInput(raw) {
-    const text = String(raw || '').trim();
-    if (!text) return { ok: true, ts: null, preview: '' };
+  function getFormCapturedAtMs(f = state.quotaForm) {
+    if (f?.captureOffsetMin === 'custom' && f?.customCaptureAt) {
+      const ts = Date.parse(f.customCaptureAt);
+      if (!Number.isNaN(ts)) return Math.round(ts);
+    } else if (typeof f?.captureOffsetMin === 'number' && f.captureOffsetMin < 0) {
+      return Math.round(Date.now() + f.captureOffsetMin * 60000);
+    }
+    return Date.now();
+  }
 
-    const durRe = /^(?:(\d+(?:\.\d+)?)\s*d)?\s*(?:(\d+(?:\.\d+)?)\s*h)?\s*(?:(\d+(?:\.\d+)?)\s*m)?\s*(?:(\d+(?:\.\d+)?)\s*s)?$/i;
-    const m = text.match(durRe);
+  function parseResetInput(raw, baseCapturedAt = Date.now(), windowType = '7d') {
+    const text = String(raw || '').trim();
+    if (!text) return { ok: true, ts: null, precisionMs: null, resetLo: null, resetHi: null, preview: '' };
+
+    const DAY_MS = 86400 * 1000;
+    const HOUR_MS = 3600 * 1000;
+    const REL_MIN_MS = 5 * 60 * 1000;
+    const MIN_MS = 60 * 1000;
+    const SEC_MS = 1000;
+
+    const baseMs = Number.isFinite(Number(baseCapturedAt)) ? Number(baseCapturedAt) : Date.now();
+    const wt = windowType === '5h' ? '5h' : '7d';
+    const winMs = wt === '5h' ? 5 * HOUR_MS : 7 * DAY_MS;
+    const valTol = wt === '5h' ? 30 * MIN_MS : 90 * MIN_MS;
+
+    function computeBounds(roundedTs, precisionMs) {
+      if (precisionMs >= DAY_MS) return { lo: roundedTs - 12 * HOUR_MS, hi: roundedTs + 24 * HOUR_MS };
+      if (precisionMs >= HOUR_MS) return { lo: roundedTs - 30 * MIN_MS, hi: roundedTs + 60 * MIN_MS };
+      if (precisionMs >= REL_MIN_MS) return { lo: roundedTs - 5 * MIN_MS, hi: roundedTs + 5 * MIN_MS };
+      if (precisionMs >= MIN_MS) return { lo: roundedTs - 90 * SEC_MS, hi: roundedTs + 90 * SEC_MS };
+      return { lo: roundedTs - 5 * SEC_MS, hi: roundedTs + 5 * SEC_MS };
+    }
+
+    function finalize(ts, precisionMs) {
+      const roundedTs = Math.round(ts);
+      const effectiveTol = precisionMs >= DAY_MS && wt === '7d' ? 12 * HOUR_MS : valTol;
+      const bounds = computeBounds(roundedTs, precisionMs);
+      if (roundedTs < baseMs - effectiveTol || roundedTs > baseMs + winMs + effectiveTol) {
+        return {
+          ok: false,
+          ts: roundedTs,
+          precisionMs,
+          resetLo: bounds.lo,
+          resetHi: bounds.hi,
+          preview: t('quota.resetOutOfWindow', { wt }),
+        };
+      }
+      const cycleStart = roundedTs - winMs;
+      const precTag =
+        precisionMs >= DAY_MS
+          ? ' (±1d)'
+          : precisionMs >= HOUR_MS
+            ? t('quota.resetPrecHour')
+            : '';
+      return {
+        ok: true,
+        ts: roundedTs,
+        precisionMs,
+        resetLo: bounds.lo,
+        resetHi: bounds.hi,
+        cycleStart,
+        preview: t('quota.resetPreviewCycle', {
+          time: fmtTimeShort(roundedTs),
+          prec: precTag,
+          start: fmtTimeShort(cycleStart),
+          end: fmtTimeShort(roundedTs),
+        }),
+      };
+    }
+
+    const stripped = text.replace(/^(?:in|after|还有|约)\s*/i, '').trim();
+
+    // Relative duration (English & Chinese): e.g. "5d", "6d 23h", "5天3小时", "3h20m", "45m"
+    const durRe =
+      /^(?:(\d+(?:\.\d+)?)\s*(?:d(?:ays?)?|天|日))?\s*(?:(\d+(?:\.\d+)?)\s*(?:h(?:rs?|ours?)?|小时|时))?\s*(?:(\d+(?:\.\d+)?)\s*(?:m(?:ins?|inutes?)?|分钟|分))?\s*(?:(\d+(?:\.\d+)?)\s*(?:s(?:ecs?|econds?)?|秒))?$/i;
+    const m = stripped.match(durRe);
     if (m && (m[1] || m[2] || m[3] || m[4])) {
       const ms =
         (num(m[1], 0) * 86400 +
@@ -1466,30 +1598,92 @@
           num(m[4], 0)) *
         1000;
       if (ms > 0) {
-        const ts = Math.round(Date.now() + ms);
-        return { ok: true, ts, preview: t('quota.resetPreview', { time: fmtTimeShort(ts) }) };
+        // Day-only -> DAY_MS; hour-only -> HOUR_MS; relative minute -> REL_MIN_MS (5m jitter band); second -> SEC_MS
+        const precisionMs = m[4]
+          ? SEC_MS
+          : m[3]
+            ? REL_MIN_MS
+            : m[2]
+              ? HOUR_MS
+              : DAY_MS;
+        return finalize(baseMs + ms, precisionMs);
       }
     }
 
-    const hm = text.match(/^(\d{1,2}):(\d{2})$/);
+    // Local HH:MM anchored to baseCapturedAt
+    const hm = stripped.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
     if (hm) {
       const hh = Number(hm[1]);
       const mm = Number(hm[2]);
-      if (hh >= 0 && hh <= 23 && mm >= 0 && mm <= 59) {
-        const d = new Date();
-        d.setHours(hh, mm, 0, 0);
-        if (d.getTime() <= Date.now()) d.setDate(d.getDate() + 1);
-        const ts = d.getTime();
-        return { ok: true, ts, preview: t('quota.resetPreview', { time: fmtTimeShort(ts) }) };
+      const ss = hm[3] ? Number(hm[3]) : 0;
+      if (hh >= 0 && hh <= 23 && mm >= 0 && mm <= 59 && ss >= 0 && ss <= 59) {
+        const d = new Date(baseMs);
+        d.setHours(hh, mm, ss, 0);
+        if (d.getTime() <= baseMs) d.setDate(d.getDate() + 1);
+        return finalize(d.getTime(), hm[3] ? SEC_MS : MIN_MS);
       }
     }
 
-    const parsed = Date.parse(text);
-    if (!Number.isNaN(parsed)) {
-      return { ok: true, ts: parsed, preview: t('quota.resetPreview', { time: fmtTimeShort(parsed) }) };
+    // Local MM-DD HH:MM or MM/DD HH:MM with year-rollover inference against [baseMs, baseMs + winMs]
+    const mdhm = stripped.match(/^(\d{1,2})[-/](\d{1,2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+    if (mdhm) {
+      const mo = Number(mdhm[1]);
+      const day = Number(mdhm[2]);
+      const hh = Number(mdhm[3]);
+      const mm = Number(mdhm[4]);
+      const ss = mdhm[5] ? Number(mdhm[5]) : 0;
+      if (mo >= 1 && mo <= 12 && day >= 1 && day <= 31 && hh <= 23 && mm <= 59 && ss <= 59) {
+        const baseYear = new Date(baseMs).getFullYear();
+        const years = [baseYear, baseYear + 1, baseYear - 1];
+        let chosen = null;
+        let fallbackFuture = null;
+        for (const yr of years) {
+          const d = new Date(yr, mo - 1, day, hh, mm, ss, 0);
+          if (d.getMonth() !== mo - 1 || d.getDate() !== day) continue;
+          const ts = d.getTime();
+          if (ts >= baseMs - valTol && ts <= baseMs + winMs + valTol) {
+            chosen = ts;
+            break;
+          }
+          if (ts >= baseMs && (fallbackFuture === null || ts < fallbackFuture)) {
+            fallbackFuture = ts;
+          }
+        }
+        const finalTs = chosen ?? fallbackFuture ?? new Date(baseYear, mo - 1, day, hh, mm, ss, 0).getTime();
+        return finalize(finalTs, mdhm[5] ? SEC_MS : MIN_MS);
+      }
     }
 
-    return { ok: false, ts: null, preview: t('quota.resetBad') };
+    // Local YYYY-MM-DD HH:MM(:SS)
+    const ymdhm = stripped.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+    if (ymdhm) {
+      const yr = Number(ymdhm[1]);
+      const mo = Number(ymdhm[2]);
+      const day = Number(ymdhm[3]);
+      const hh = Number(ymdhm[4]);
+      const mm = Number(ymdhm[5]);
+      const ss = ymdhm[6] ? Number(ymdhm[6]) : 0;
+      if (mo >= 1 && mo <= 12 && day >= 1 && day <= 31 && hh <= 23 && mm <= 59 && ss <= 59) {
+        const d = new Date(yr, mo - 1, day, hh, mm, ss, 0);
+        if (d.getMonth() === mo - 1 && d.getDate() === day) {
+          return finalize(d.getTime(), ymdhm[6] ? SEC_MS : MIN_MS);
+        }
+      }
+    }
+
+    // Only delegate explicit full date-time strings (ISO-8601 with time or RFC2822 with month name) to Date.parse
+    // so bare numbers like "12" or date-only "2026-11-28" don't silently parse as year 2001 or UTC midnight (M5).
+    const looksLikeFullDateTime =
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(stripped) ||
+      /(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec).*\d{1,2}:\d{2}/i.test(stripped);
+    if (looksLikeFullDateTime) {
+      const parsed = Date.parse(stripped);
+      if (!Number.isNaN(parsed)) {
+        return finalize(parsed, SEC_MS);
+      }
+    }
+
+    return { ok: false, ts: null, precisionMs: null, resetLo: null, resetHi: null, preview: t('quota.resetBad') };
   }
 
   // =========================================================================
@@ -1584,6 +1778,11 @@
     // Quota Calibration Lab & History UI state
     quotaLabOpenByKey: new Map(),
     quotaOlderOpen: false,
+    quotaEditingAnchorId: null,
+    quotaEditingResetInput: '',
+    quotaEditingOriginalText: '',
+    quotaEditingError: '',
+    quotaEditingSaving: false,
 
     session: null,
     sessionError: null,
@@ -3766,6 +3965,39 @@
     if (activeSummaries.length > 0) {
       compactHtml = `<div class="quota-pool-grid">${activeSummaries
         .map((s) => {
+          if (s.cycleExpired) {
+            const expStatus =
+              s.cycleState === 'awaiting_activity'
+                ? t('quota.cycleAwaiting')
+                : t('quota.cycleExpiredNew', { usd: fmtUsd(s.cycleSpendUsd) });
+            const infSpanHtml =
+              s.cycleWindowStart != null && s.cycleResetAt != null
+                ? `<div class="quota-cycle-span num mono">${esc(
+                    t('quota.cycleWindowInferred', {
+                      start: fmtTimeShort(s.cycleWindowStart),
+                      end: fmtTimeShort(s.cycleResetAt),
+                    })
+                  )}</div>`
+                : '';
+            const prevRefHtml =
+              s.previousCycleEstimation?.estimatedPoolUsd != null
+                ? `<div class="quota-ref-note num mono">${esc(
+                    t('quota.prevCycleRef', { usd: fmtUsd(s.previousCycleEstimation.estimatedPoolUsd) })
+                  )}</div>`
+                : '';
+            return `
+              <div class="quota-pool-card">
+                <div class="quota-pool-top">
+                  <span class="pill accent">${esc(poolLabel(s.pool))} · ${esc(s.windowType)}</span>
+                  <span class="pill warn">${esc(t('quota.statusNewCycle'))}</span>
+                </div>
+                <div class="quota-sub num" style="color:var(--fg-2);font-weight:500">${esc(expStatus)}</div>
+                ${infSpanHtml}
+                ${prevRefHtml}
+              </div>
+            `;
+          }
+
           const latest = s.latestAnchor;
           const remPct = num(latest.remainingPct ?? latest.remaining_pct, 0);
           const step = num(latest.precisionStep ?? latest.precision_step, 1);
@@ -3782,6 +4014,35 @@
             paceBadge = `<span class="pill ${cls} num">${esc(t('quota.paceLabel', { ratio: pr.toFixed(2), lbl }))}</span>`;
           }
 
+          const conflictBadge = s.resetConflict
+            ? `<span class="pill warn" title="${esc(t('quota.resetConflictHint'))}">${esc(t('quota.resetConflictBadge'))}</span>`
+            : '';
+          const bootBadge = s.estimation?.originBootstrap
+            ? `<span class="pill accent">${esc(t('quota.originBootBadge'))}</span>`
+            : '';
+
+          const cycleSpanHtml =
+            s.cycleWindowStart != null && s.cycleResetAt != null
+              ? `<div class="quota-cycle-span num mono">${esc(
+                  t(s.cycleInferred ? 'quota.cycleWindowInferred' : 'quota.cycleWindow', {
+                    start: fmtTimeShort(s.cycleWindowStart),
+                    end:
+                      s.cycleInferred &&
+                      s.cycleResetEarliest != null &&
+                      s.cycleResetLatest != null &&
+                      s.cycleResetLatest - s.cycleResetEarliest > 30 * 60 * 1000
+                        ? `${fmtTimeShort(s.cycleResetEarliest)}~${fmtTimeShort(s.cycleResetLatest)}`
+                        : fmtTimeShort(s.cycleResetAt),
+                  })
+                )}</div>`
+              : '';
+
+          const cycleSpendLine =
+            s.cycleSpendUsd != null && s.cycleWindowStart != null
+              ? `<div class="quota-sub num">${esc(t('quota.cycleTotalSpend', { usd: fmtUsd(s.cycleSpendUsd) }))}</div>`
+              : '';
+
+          const badgesRow = `${paceBadge}${bootBadge}${conflictBadge}`;
           return `
             <div class="quota-pool-card">
               <div class="quota-pool-top">
@@ -3792,7 +4053,9 @@
               <div class="quota-sub num">
                 ${projShown != null ? esc(t('quota.projectedNow', { pct: fmtPctDirect(projShown, 0.1) })) : esc(t('quota.spentSince', { usd: fmtUsd(s.spendSinceLastUsd) }))}
               </div>
-              ${paceBadge}
+              ${cycleSpendLine}
+              ${cycleSpanHtml}
+              ${badgesRow ? `<div style="display:flex;gap:4px;flex-wrap:wrap">${badgesRow}</div>` : ''}
             </div>
           `;
         })
@@ -3811,7 +4074,8 @@
 
   function renderQuotaExpanded(summaries, anchors, mode) {
     const f = state.quotaForm;
-    const parsedReset = parseResetInput(f.resetInput);
+    const baseCapturedAt = getFormCapturedAtMs(f);
+    const parsedReset = parseResetInput(f.resetInput, baseCapturedAt, f.windowType);
     const inheritableResetAt = getInheritableResetAt(f.pool, f.windowType);
     const resetEmptyHint = inheritableResetAt
       ? t('quota.resetInheritHint', { time: fmtResetClock(inheritableResetAt) })
@@ -3877,10 +4141,54 @@
         </form>
     `;
 
-    const estList = summaries.filter((s) => s.estimation && s.estimation.status !== 'no_data');
+    const estList = summaries.filter(
+      (s) =>
+        (s.estimation && s.estimation.status !== 'no_data') ||
+        (s.cycleExpired && (s.previousCycleEstimation != null || s.cycleSpendUsd > 0 || s.latestAnchor != null))
+    );
     if (estList.length > 0) {
       expHtml += estList
         .map((s) => {
+          if (s.cycleExpired) {
+            const expStatus =
+              s.cycleState === 'awaiting_activity'
+                ? t('quota.cycleAwaiting')
+                : t('quota.cycleExpiredNew', { usd: fmtUsd(s.cycleSpendUsd) });
+            const infSpanHtml =
+              s.cycleWindowStart != null && s.cycleResetAt != null
+                ? `<div class="quota-cycle-span num mono">${esc(
+                    t('quota.cycleWindowInferred', {
+                      start: fmtTimeShort(s.cycleWindowStart),
+                      end: fmtTimeShort(s.cycleResetAt),
+                    })
+                  )}</div>`
+                : '';
+            const prevRef = s.previousCycleEstimation;
+            const prevRefHtml =
+              prevRef?.estimatedPoolUsd != null
+                ? `<div class="quota-ref-note num mono">${esc(
+                    t('quota.prevCycleRef', { usd: fmtUsd(prevRef.estimatedPoolUsd) })
+                  )}${
+                    prevRef.cycleWindowStart != null && prevRef.cycleResetAt != null
+                      ? ` (${fmtTimeShort(prevRef.cycleWindowStart)} → ${fmtTimeShort(prevRef.cycleResetAt)})`
+                      : ''
+                  }</div>`
+                : '';
+            return `
+              <div class="est-card">
+                <div class="est-head">
+                  <div class="est-head-left">
+                    <span style="font-weight:600;font-size:12px">${esc(t('quota.impliedTitle', { pool: poolLabel(s.pool), wt: s.windowType }))}</span>
+                  </div>
+                  <span class="pill warn">${esc(t('quota.statusNewCycle'))}</span>
+                </div>
+                ${infSpanHtml}
+                <div class="muted-note num" style="color:var(--fg-2)">${esc(expStatus)}</div>
+                ${prevRefHtml}
+              </div>
+            `;
+          }
+
           const e = s.estimation;
           const cal = e.calibration || null;
           const activeSubset = cal?.activeSubset || 'base';
@@ -3895,17 +4203,46 @@
           const st = statusMap[e.status] || { cls: 'outline', text: e.status };
           const deltaPct = num(e.totalDeltaPct, 0);
           const mix = Array.isArray(e.modelMix) ? e.modelMix : [];
+          const isBoot = Boolean(e.originBootstrap);
 
-          const calibBadgeHtml = cal
-            ? `
-              <span class="pill ${activeSubset !== 'base' ? 'accent' : 'outline'}">${esc(calibSubsetLabel(activeSubset))}</span>
-              ${helpTip(t('quota.calibBadgeHelp'))}
-            `
+          const calibBadgeHtml = isBoot
+            ? `<span class="pill accent">${esc(t('quota.originBootBadge'))}</span>`
+            : cal
+              ? `
+                <span class="pill ${activeSubset !== 'base' ? 'accent' : 'outline'}">${esc(calibSubsetLabel(activeSubset))}</span>
+                ${helpTip(t('quota.calibBadgeHelp'))}
+              `
+              : '';
+
+          const conflictBadgeHtml = s.resetConflict
+            ? `<span class="pill warn" title="${esc(t('quota.resetConflictHint'))}">${esc(t('quota.resetConflictBadge'))}</span>`
             : '';
 
           const weightStripHtml =
-            cal && activeSubset !== 'base' && activeSubObj ? renderCalibWeightStrip(activeSubObj) : '';
-          const calibLabHtml = cal ? buildCalibrationLabHtml(s, cal) : '';
+            !isBoot && cal && activeSubset !== 'base' && activeSubObj ? renderCalibWeightStrip(activeSubObj) : '';
+          const calibLabHtml = !isBoot && cal ? buildCalibrationLabHtml(s, cal) : '';
+
+          const estCycleHtml =
+            s.cycleWindowStart != null && s.cycleResetAt != null
+              ? `<div class="quota-cycle-span num mono">${esc(
+                  t('quota.cycleWindow', {
+                    start: fmtTimeShort(s.cycleWindowStart),
+                    end: fmtTimeShort(s.cycleResetAt),
+                  })
+                )} · ${esc(t('quota.cycleTotalSpend', { usd: fmtUsd(s.cycleSpendUsd ?? e.cycleSpendUsd ?? e.windowSpendUsd) }))}</div>`
+              : '';
+
+          const ciText =
+            e.ciLowUsd != null && e.ciHighUsd != null
+              ? `95% CI [${fmtUsd(e.ciLowUsd)}, ${fmtUsd(e.ciHighUsd)}]`
+              : e.ciLowUsd != null
+                ? `95% CI ${t('quota.ciOpenHigh', { low: fmtUsd(e.ciLowUsd) })}`
+                : '';
+
+          const refLineHtml =
+            !isBoot && e.cycleOriginRefPoolUsd != null
+              ? `<div class="quota-ref-note num mono">${esc(t('quota.cycleOriginRef', { usd: fmtUsd(e.cycleOriginRefPoolUsd) }))}</div>`
+              : '';
 
           return `
             <div class="est-card">
@@ -3913,9 +4250,11 @@
                 <div class="est-head-left">
                   <span style="font-weight:600;font-size:12px">${esc(t('quota.impliedTitle', { pool: poolLabel(s.pool), wt: s.windowType }))}</span>
                   ${calibBadgeHtml}
+                  ${conflictBadgeHtml}
                 </div>
                 <span class="pill ${st.cls}">${esc(st.text)}</span>
               </div>
+              ${estCycleHtml}
               ${
                 e.status === 'calibrating'
                   ? `
@@ -3924,14 +4263,16 @@
                         ? `<div class="est-total num mono" style="opacity:0.78">~${fmtUsd(e.estimatedPoolUsd)} <span class="muted-note" style="font-size:11px;font-weight:400">(${esc(st.text)})</span></div>`
                         : ''
                     }
-                    <div class="muted-note num">${esc(t('quota.calDesc', { du: deltaPct.toFixed(2), seg: num(e.segmentsUsed), usd: fmtUsd(e.windowSpendUsd) }))}</div>
+                    <div class="muted-note num">${esc(t('quota.calDesc', { du: deltaPct.toFixed(2), seg: num(e.segmentsUsed), usd: fmtUsd(e.cycleSpendUsd ?? e.windowSpendUsd) }))}</div>
                   `
                   : `
-                    <div class="est-total num mono">~${fmtUsd(e.estimatedPoolUsd)} <span class="muted-note" style="font-size:11px;font-weight:400">95% CI [${fmtUsd(e.ciLowUsd)}, ${fmtUsd(e.ciHighUsd)}]${activeSubset !== 'base' ? ` · ${esc(t('quota.mixEqHint'))}` : ''}</span></div>
+                    <div class="est-total num mono">~${fmtUsd(e.estimatedPoolUsd)} <span class="muted-note" style="font-size:11px;font-weight:400">${esc(ciText)}${!isBoot && activeSubset !== 'base' ? ` · ${esc(t('quota.mixEqHint'))}` : ''}</span></div>
                     <div class="chart-caption-row num">
-                      <span>${esc(t('quota.effDelta', { du: deltaPct.toFixed(2), seg: num(e.segmentsUsed), usd: fmtUsd(e.windowSpendUsd) }))}</span>
+                      <span>${esc(t('quota.effDelta', { du: deltaPct.toFixed(2), seg: num(e.segmentsUsed), usd: fmtUsd(isBoot ? (e.cycleSpendUsd ?? e.windowSpendUsd) : e.windowSpendUsd) }))}</span>
                       <span>${esc(t('quota.impliedRem', { usd: e.impliedRemainingUsd != null ? fmtUsd(e.impliedRemainingUsd) : '—' }))}</span>
                     </div>
+                    ${isBoot ? `<div class="muted-note" style="font-size:10.5px;line-height:1.4">${esc(t('quota.originBootHint'))}</div>` : ''}
+                    ${refLineHtml}
                   `
               }
               ${weightStripHtml}
@@ -3952,48 +4293,184 @@
         .join('');
     }
 
-    const hasCycleSplit = summaries.some(
-      (s) => Array.isArray(s.currentCycleAnchors) || Array.isArray(s.olderCycleAnchors)
-    );
-    let currentList = [];
-    let olderList = [];
-    if (hasCycleSplit) {
-      const anchorKey = (a) => (a.id != null ? String(a.id) : `${a.pool}:${a.windowType ?? a.window_type}:${a.capturedAt ?? a.captured_at}`);
-      const curMap = new Map();
-      const oldMap = new Map();
-      for (const s of summaries) {
-        for (const a of s.currentCycleAnchors || []) curMap.set(anchorKey(a), a);
-        for (const a of s.olderCycleAnchors || []) oldMap.set(anchorKey(a), a);
-      }
-      for (const k of curMap.keys()) oldMap.delete(k);
-      const sortDesc = (a, b) => num(b.capturedAt ?? b.captured_at, 0) - num(a.capturedAt ?? a.captured_at, 0);
-      currentList = [...curMap.values()].sort(sortDesc);
-      olderList = [...oldMap.values()].sort(sortDesc);
-    } else {
-      currentList = [...anchors].sort(
-        (a, b) => num(b.capturedAt ?? b.captured_at, 0) - num(a.capturedAt ?? a.captured_at, 0)
-      );
+    // Bottom anchor history:
+    // Default expanded: each pool's independent current 7d cycle (fallback to current 5h only if pool has no 7d at all).
+    // Default folded: older 7d cycles (grouped by pool + cycle window) & 5h window records.
+    const anchorById = new Map();
+    for (const a of anchors) {
+      if (a.id != null) anchorById.set(a.id, a);
     }
 
-    if (currentList.length > 0 || olderList.length > 0) {
+    const poolOrder = ['gemini', 'argon', '3p'];
+    const currentGroups = [];
+    const shownAnchorIds = new Set();
+    const older7dGroups = [];
+    const other5hGroups = [];
+
+    for (const p of poolOrder) {
+      const s7 = summaries.find((s) => s.pool === p && s.windowType === '7d');
+      const s5 = summaries.find((s) => s.pool === p && s.windowType === '5h');
+
+      const hasAny7d = Boolean(s7 && s7.latestAnchor != null);
+      if (hasAny7d) {
+        const curRows = Array.isArray(s7.currentCycleAnchors) ? s7.currentCycleAnchors : [];
+        for (const a of curRows) {
+          if (a.id != null) shownAnchorIds.add(a.id);
+        }
+        currentGroups.push({
+          pool: p,
+          windowType: '7d',
+          summary: s7,
+          anchors: curRows,
+        });
+
+        const histCycles = (Array.isArray(s7.cycles) ? s7.cycles : []).filter(
+          (c) => !c.isCurrent && Array.isArray(c.anchorIds) && c.anchorIds.length > 0
+        );
+        if (histCycles.length > 0) {
+          for (const c of histCycles) {
+            const rows = c.anchorIds.map((id) => anchorById.get(id)).filter(Boolean);
+            if (rows.length > 0) {
+              older7dGroups.push({ pool: p, windowType: '7d', cycle: c, anchors: rows });
+            }
+          }
+        } else if (Array.isArray(s7.olderCycleAnchors) && s7.olderCycleAnchors.length > 0) {
+          older7dGroups.push({ pool: p, windowType: '7d', cycle: null, anchors: s7.olderCycleAnchors });
+        }
+      }
+
+      if (s5 && s5.latestAnchor != null) {
+        const cur5Rows = Array.isArray(s5.currentCycleAnchors) ? s5.currentCycleAnchors : [];
+        if (!hasAny7d) {
+          for (const a of cur5Rows) {
+            if (a.id != null) shownAnchorIds.add(a.id);
+          }
+          currentGroups.push({
+            pool: p,
+            windowType: '5h',
+            summary: s5,
+            anchors: cur5Rows,
+          });
+        }
+        const cycles5 = Array.isArray(s5.cycles) ? s5.cycles : [];
+        for (const c of cycles5) {
+          const rows = (c.anchorIds || [])
+            .map((id) => anchorById.get(id))
+            .filter((a) => a && !shownAnchorIds.has(a.id));
+          if (rows.length > 0) {
+            other5hGroups.push({ pool: p, windowType: '5h', cycle: c, anchors: rows });
+          }
+        }
+      }
+    }
+
+    const totalCurrentAnchors = currentGroups.reduce((acc, g) => acc + g.anchors.length, 0);
+    const totalOlderAnchors =
+      older7dGroups.reduce((acc, g) => acc + g.anchors.length, 0) +
+      other5hGroups.reduce((acc, g) => acc + g.anchors.length, 0);
+
+    if (currentGroups.length > 0 || totalOlderAnchors > 0) {
+      const currentHtml = currentGroups
+        .map((g) => {
+          const s = g.summary;
+          let spanText = '';
+          if (s.cycleWindowStart != null && s.cycleResetAt != null) {
+            spanText = s.cycleInferred
+              ? t('quota.cycleWindowInferred', {
+                  start: fmtTimeShort(s.cycleWindowStart),
+                  end: fmtTimeShort(s.cycleResetAt),
+                })
+              : t('quota.cycleWindow', {
+                  start: fmtTimeShort(s.cycleWindowStart),
+                  end: fmtTimeShort(s.cycleResetAt),
+                });
+          } else {
+            spanText = t('quota.poolCycleNoReset');
+          }
+
+          let bodyHtml = '';
+          if (g.anchors.length > 0) {
+            bodyHtml = `<div class="anchor-history">${renderAnchorRows(g.anchors, mode)}</div>`;
+          } else if (s.cycleExpired) {
+            const msg =
+              s.cycleState === 'awaiting_activity'
+                ? t('quota.poolCycleEmptyIdle')
+                : t('quota.poolCycleEmptyNew', { usd: fmtUsd(s.cycleSpendUsd) });
+            bodyHtml = `<div class="muted-note" style="font-size:11px;padding:4px 2px">${esc(msg)}</div>`;
+          } else {
+            bodyHtml = `<div class="muted-note" style="font-size:11px;padding:4px 2px">${esc(t('quota.noCurrentAnchors'))}</div>`;
+          }
+
+          return `
+            <div class="quota-cycle-group">
+              <div class="quota-cycle-group-head">
+                <span class="pill accent">${esc(poolLabel(g.pool))} · ${esc(g.windowType)}</span>
+                <span class="quota-cycle-span num mono">${esc(spanText)}</span>
+              </div>
+              ${bodyHtml}
+            </div>
+          `;
+        })
+        .join('');
+
+      function renderFoldedCycleGroups(groups) {
+        return groups
+          .map((g) => {
+            const c = g.cycle;
+            const spanStr =
+              c && c.startMs != null && c.endMs != null
+                ? `${fmtTimeShort(c.startMs)} → ${fmtTimeShort(c.endMs)}`
+                : '';
+            const metaParts = [];
+            if (c?.spendUsd > 0) metaParts.push(t('quota.cycleGroupMeta', { usd: fmtUsd(c.spendUsd) }));
+            if (c?.estimationBrief?.estimatedPoolUsd != null) {
+              metaParts.push(t('quota.cycleGroupEst', { usd: fmtUsd(c.estimationBrief.estimatedPoolUsd) }));
+            }
+            return `
+              <div class="quota-cycle-group older">
+                <div class="quota-cycle-group-head">
+                  <span class="pill outline">${esc(poolLabel(g.pool))} · ${esc(g.windowType)}</span>
+                  ${spanStr ? `<span class="quota-cycle-span num mono">${esc(spanStr)}</span>` : ''}
+                  ${metaParts.length ? `<span class="muted-note num" style="font-size:10px;margin-left:auto">${esc(metaParts.join(' · '))}</span>` : ''}
+                </div>
+                <div class="anchor-history">${renderAnchorRows(g.anchors, mode)}</div>
+              </div>
+            `;
+          })
+          .join('');
+      }
+
       expHtml += `
-        <div style="display:flex;flex-direction:column;gap:6px">
-          <span class="form-title">${esc(t('quota.currentHistoryTitle', { n: currentList.length }))}</span>
+        <div style="display:flex;flex-direction:column;gap:7px">
+          <span class="form-title">${esc(t('quota.currentHistoryTitle', { n: totalCurrentAnchors }))}</span>
           ${
-            currentList.length > 0
-              ? `<div class="anchor-history">${renderAnchorRows(currentList, mode)}</div>`
+            currentGroups.length > 0
+              ? currentHtml
               : `<div class="muted-note" style="font-size:11px">${esc(t('quota.noCurrentAnchors'))}</div>`
           }
           ${
-            olderList.length > 0
+            totalOlderAnchors > 0
               ? `
                 <button type="button" class="older-cycles-btn older-anchors-toggle ${state.quotaOlderOpen ? 'open' : ''}" data-action="toggle-older-anchors" aria-expanded="${state.quotaOlderOpen}">
-                  <span>${esc(state.quotaOlderOpen ? t('quota.hideOlderCycles', { m: olderList.length }) : t('quota.showOlderCycles', { m: olderList.length }))}</span>
+                  <span>${esc(state.quotaOlderOpen ? t('quota.hideOlderCycles', { m: totalOlderAnchors }) : t('quota.showOlderCycles', { m: totalOlderAnchors }))}</span>
                   <svg class="icon chevron" width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg>
                 </button>
                 ${
                   state.quotaOlderOpen
-                    ? `<div class="anchor-history">${renderAnchorRows(olderList, mode)}</div>`
+                    ? `
+                      <div class="older-cycles-body">
+                        ${
+                          older7dGroups.length > 0
+                            ? `<div class="older-section-label">${esc(t('quota.olderGroup7d'))}</div>${renderFoldedCycleGroups(older7dGroups)}`
+                            : ''
+                        }
+                        ${
+                          other5hGroups.length > 0
+                            ? `<div class="older-section-label">${esc(t('quota.olderGroup5h'))}</div>${renderFoldedCycleGroups(other5hGroups)}`
+                            : ''
+                        }
+                      </div>
+                    `
                     : ''
                 }
               `
@@ -4015,24 +4492,67 @@
         const rem = num(a.remainingPct ?? a.remaining_pct, 0);
         const step = num(a.precisionStep ?? a.precision_step, 1);
         const cap = num(a.capturedAt ?? a.captured_at, 0);
-        const reset = a.resetAt ?? a.reset_at;
+        const explicitReset = a.resetAt ?? a.reset_at;
+        const effReset = a.effectiveResetAt ?? explicitReset;
+        const isInherited = explicitReset == null && effReset != null;
         const shown = mode === 'used' ? 100 - rem : rem;
+        const isEditing = state.quotaEditingAnchorId === a.id;
+
+        const resetStr = effReset
+          ? `${t('quota.resetAt', { time: fmtTimeShort(effReset) })}${isInherited ? ` (${t('quota.resetInheritedTag')})` : ''}`
+          : '';
+
+        const editInlineHtml = isEditing
+          ? (() => {
+              const trimmedDraft = String(state.quotaEditingResetInput || '').trim();
+              const unchanged = trimmedDraft === state.quotaEditingOriginalText;
+              const p = parseResetInput(trimmedDraft, cap, wt);
+              const canSave = !state.quotaEditingSaving && Boolean(trimmedDraft) && !unchanged && p.ok;
+              const placeholderText = effReset
+                ? fmtTimeShort(effReset)
+                : t('quota.editResetPlaceholder');
+              return `
+                <div class="anchor-edit-inline">
+                  <div class="anchor-edit-row">
+                    <input type="text" data-edit-reset-input="1" data-id="${esc(a.id)}" placeholder="${esc(placeholderText)}" value="${esc(state.quotaEditingResetInput)}" />
+                    <button type="button" class="btn-sm primary" data-action="save-anchor-reset" data-id="${esc(a.id)}" ${canSave ? '' : 'disabled'}>${esc(t('quota.editResetSave'))}</button>
+                    ${explicitReset != null ? `<button type="button" class="btn-sm" data-action="clear-anchor-reset" data-id="${esc(a.id)}" ${state.quotaEditingSaving ? 'disabled' : ''}>${esc(t('quota.editResetClear'))}</button>` : ''}
+                    <button type="button" class="btn-sm" data-action="cancel-anchor-reset" ${state.quotaEditingSaving ? 'disabled' : ''}>${esc(t('quota.editResetCancel'))}</button>
+                  </div>
+                  ${
+                    state.quotaEditingError
+                      ? `<div class="field-hint" style="color:var(--bad)">${esc(state.quotaEditingError)}</div>`
+                      : trimmedDraft
+                        ? `<div class="field-hint" style="color:${p.ok ? 'var(--ok)' : 'var(--bad)'}">${esc(p.preview)}</div>`
+                        : ''
+                  }
+                </div>
+              `;
+            })()
+          : '';
+
         return `
-          <div class="anchor-row">
-            <div class="anchor-info">
-              <div class="anchor-top num">
-                <span class="pill accent">${esc(poolLabel(pool))} ${esc(wt)}</span>
-                <strong class="mono">${esc(mode === 'used' ? t('quota.used') : t('quota.remaining'))} ${fmtPctDirect(shown, step)}</strong>
-                <span class="pill outline">${esc(t('quota.precision', { step }))}</span>
-                <span class="muted-note">${fmtTimeShort(cap)}</span>
+          <div class="anchor-row-wrap">
+            <div class="anchor-row">
+              <div class="anchor-info">
+                <div class="anchor-top num">
+                  <span class="pill accent">${esc(poolLabel(pool))} ${esc(wt)}</span>
+                  <strong class="mono">${esc(mode === 'used' ? t('quota.used') : t('quota.remaining'))} ${fmtPctDirect(shown, step)}</strong>
+                  <span class="pill outline">${esc(t('quota.precision', { step }))}</span>
+                  <span class="muted-note">${fmtTimeShort(cap)}</span>
+                </div>
+                ${
+                  resetStr || a.note
+                    ? `<div class="muted-note truncate">${resetStr ? esc(resetStr) : ''}${resetStr && a.note ? ' · ' : ''}${a.note ? esc(a.note) : ''}</div>`
+                    : ''
+                }
               </div>
-              ${
-                reset || a.note
-                  ? `<div class="muted-note truncate">${reset ? esc(t('quota.resetAt', { time: fmtTimeShort(reset) })) : ''}${reset && a.note ? ' · ' : ''}${a.note ? esc(a.note) : ''}</div>`
-                  : ''
-              }
+              <div class="anchor-actions">
+                <button type="button" class="btn-sm" data-action="edit-anchor-reset" data-id="${esc(a.id)}">${esc(t('quota.editResetBtn'))}</button>
+                <button type="button" class="btn-sm danger" data-action="delete-anchor" data-id="${esc(a.id)}">${esc(t('common.delete'))}</button>
+              </div>
             </div>
-            <button type="button" class="btn-sm danger" data-action="delete-anchor" data-id="${esc(a.id)}">${esc(t('common.delete'))}</button>
+            ${editInlineHtml}
           </div>
         `;
       })
@@ -4935,6 +5455,7 @@
         active &&
         active.closest &&
         (active.closest('#quota-anchor-form') ||
+          active.closest('.anchor-edit-inline') ||
           active.closest('.calib-anchor-select') ||
           active.closest('[data-obs-gap-input="1"]'))
     );
@@ -5412,11 +5933,97 @@
         return;
       }
 
+      if (action === 'edit-anchor-reset') {
+        const id = Number(actionEl.dataset.id);
+        if (!Number.isFinite(id)) return;
+        const anchor = (state.quotaData?.anchors || []).find((a) => a.id === id);
+        state.quotaEditingAnchorId = state.quotaEditingAnchorId === id ? null : id;
+        const prefill =
+          state.quotaEditingAnchorId != null && anchor?.resetAt != null ? fmtTimeShort(anchor.resetAt) : '';
+        state.quotaEditingResetInput = prefill;
+        state.quotaEditingOriginalText = prefill;
+        state.quotaEditingError = '';
+        state.quotaEditingSaving = false;
+        renderGrid();
+        return;
+      }
+
+      if (action === 'cancel-anchor-reset') {
+        state.quotaEditingAnchorId = null;
+        state.quotaEditingResetInput = '';
+        state.quotaEditingOriginalText = '';
+        state.quotaEditingError = '';
+        state.quotaEditingSaving = false;
+        renderGrid();
+        return;
+      }
+
+      if (action === 'clear-anchor-reset') {
+        const id = Number(actionEl.dataset.id);
+        if (!Number.isFinite(id)) return;
+        state.quotaEditingSaving = true;
+        state.quotaEditingError = '';
+        renderGrid();
+        try {
+          state.quotaData = await postJson('/api/quota/anchors/update', { id, resetAt: null });
+          state.quotaEditingAnchorId = null;
+          state.quotaEditingResetInput = '';
+          state.quotaEditingOriginalText = '';
+        } catch (err) {
+          state.quotaEditingError = t('quota.updateFailed', { msg: err.message });
+        } finally {
+          state.quotaEditingSaving = false;
+          renderGrid();
+        }
+        return;
+      }
+
+      if (action === 'save-anchor-reset') {
+        const id = Number(actionEl.dataset.id);
+        if (!Number.isFinite(id)) return;
+        const anchor = (state.quotaData?.anchors || []).find((a) => a.id === id);
+        if (!anchor) return;
+        const rawVal = String(state.quotaEditingResetInput || '').trim();
+        // Require non-empty modified text to save; clearing must use the explicit Clear button (I4/M4).
+        if (!rawVal || rawVal === state.quotaEditingOriginalText) return;
+        const cap = num(anchor.capturedAt ?? anchor.captured_at, Date.now());
+        const wt = anchor.windowType ?? anchor.window_type ?? '7d';
+        const parsed = parseResetInput(rawVal, cap, wt);
+        if (!parsed.ok) {
+          state.quotaEditingError = parsed.preview;
+          renderGrid();
+          return;
+        }
+        state.quotaEditingSaving = true;
+        state.quotaEditingError = '';
+        renderGrid();
+        try {
+          state.quotaData = await postJson('/api/quota/anchors/update', {
+            id,
+            resetAt: parsed.ts,
+            resetPrecisionMs: parsed.precisionMs,
+          });
+          state.quotaEditingAnchorId = null;
+          state.quotaEditingResetInput = '';
+          state.quotaEditingOriginalText = '';
+        } catch (err) {
+          state.quotaEditingError = t('quota.updateFailed', { msg: err.message });
+        } finally {
+          state.quotaEditingSaving = false;
+          renderGrid();
+        }
+        return;
+      }
+
       if (action === 'delete-anchor') {
         const id = Number(actionEl.dataset.id);
         if (!Number.isFinite(id)) return;
         try {
           state.quotaData = await postJson('/api/quota/anchors/delete', { id });
+          if (state.quotaEditingAnchorId === id) {
+            state.quotaEditingAnchorId = null;
+            state.quotaEditingResetInput = '';
+          }
           renderGrid();
         } catch (err) {
           state.quotaForm.error = t('quota.deleteFailed', { msg: err.message });
@@ -5434,6 +6041,40 @@
       state.obsGapDraft = tgt.value;
       return;
     }
+    if (tgt.dataset?.editResetInput === '1') {
+      state.quotaEditingResetInput = tgt.value;
+      state.quotaEditingError = '';
+      const id = Number(tgt.dataset.id);
+      const anchor = (state.quotaData?.anchors || []).find((a) => a.id === id);
+      const wrap = tgt.closest('.anchor-edit-inline');
+      if (anchor && wrap) {
+        const trimmedVal = String(tgt.value || '').trim();
+        const p = parseResetInput(
+          trimmedVal,
+          num(anchor.capturedAt ?? anchor.captured_at, Date.now()),
+          anchor.windowType ?? anchor.window_type ?? '7d'
+        );
+        const saveBtn = wrap.querySelector('[data-action="save-anchor-reset"]');
+        if (saveBtn) {
+          saveBtn.disabled =
+            state.quotaEditingSaving ||
+            !trimmedVal ||
+            trimmedVal === state.quotaEditingOriginalText ||
+            !p.ok;
+        }
+        let hint = wrap.querySelector('.field-hint');
+        if (!hint && tgt.value) {
+          hint = document.createElement('div');
+          hint.className = 'field-hint';
+          wrap.appendChild(hint);
+        }
+        if (hint) {
+          hint.textContent = tgt.value ? p.preview : '';
+          hint.style.color = tgt.value ? (p.ok ? 'var(--ok)' : 'var(--bad)') : '';
+        }
+      }
+      return;
+    }
     if (tgt.id === 'qa-pool') state.quotaForm.pool = tgt.value;
     else if (tgt.id === 'qa-window') state.quotaForm.windowType = tgt.value;
     else if (tgt.id === 'qa-pct') state.quotaForm.remainingPct = tgt.value;
@@ -5441,7 +6082,7 @@
       state.quotaForm.resetInput = tgt.value;
       const hint = tgt.parentElement?.querySelector('.field-hint');
       if (hint) {
-        const p = parseResetInput(tgt.value);
+        const p = parseResetInput(tgt.value, getFormCapturedAtMs(), state.quotaForm.windowType);
         const inheritable = getInheritableResetAt(state.quotaForm.pool, state.quotaForm.windowType);
         const emptyHint = inheritable
           ? t('quota.resetInheritHint', { time: fmtResetClock(inheritable) })
@@ -5449,8 +6090,18 @@
         hint.textContent = tgt.value ? p.preview : emptyHint;
         hint.style.color = tgt.value ? (p.ok ? 'var(--ok)' : 'var(--bad)') : '';
       }
-    } else if (tgt.id === 'qa-custom-time') state.quotaForm.customCaptureAt = tgt.value;
-    else if (tgt.id === 'qa-note') state.quotaForm.note = tgt.value;
+    } else if (tgt.id === 'qa-custom-time') {
+      state.quotaForm.customCaptureAt = tgt.value;
+      const resetInputEl = dom.modulesGrid.querySelector('#qa-reset');
+      if (resetInputEl && state.quotaForm.resetInput) {
+        const hint = resetInputEl.parentElement?.querySelector('.field-hint');
+        if (hint) {
+          const p = parseResetInput(state.quotaForm.resetInput, getFormCapturedAtMs(), state.quotaForm.windowType);
+          hint.textContent = p.preview;
+          hint.style.color = p.ok ? 'var(--ok)' : 'var(--bad)';
+        }
+      }
+    } else if (tgt.id === 'qa-note') state.quotaForm.note = tgt.value;
   });
 
   dom.modulesGrid.addEventListener('change', async (e) => {
@@ -5460,6 +6111,10 @@
       renderGrid();
     } else if (tgt.id === 'qa-window') {
       state.quotaForm.windowType = tgt.value;
+      if (tgt.value === '5h') {
+        const has5h = (state.quotaData?.anchors || []).some((a) => (a.windowType ?? a.window_type) === '5h');
+        if (has5h) state.quotaOlderOpen = true;
+      }
       renderGrid();
     } else if (tgt.dataset?.action === 'set-pool-anchor') {
       const pool = tgt.dataset.pool;
@@ -5484,19 +6139,12 @@
       return;
     }
 
-    const parsedReset = parseResetInput(f.resetInput);
+    const capturedAt = getFormCapturedAtMs(f);
+    const parsedReset = parseResetInput(f.resetInput, capturedAt, f.windowType);
     if (!parsedReset.ok) {
       f.error = parsedReset.preview;
       renderGrid();
       return;
-    }
-
-    let capturedAt = Date.now();
-    if (f.captureOffsetMin === 'custom' && f.customCaptureAt) {
-      const ts = Date.parse(f.customCaptureAt);
-      if (!Number.isNaN(ts)) capturedAt = ts;
-    } else if (typeof f.captureOffsetMin === 'number' && f.captureOffsetMin < 0) {
-      capturedAt = Date.now() + f.captureOffsetMin * 60000;
     }
 
     f.submitting = true;
@@ -5511,6 +6159,7 @@
         rawInput: rawStr,
         capturedAt,
         resetAt: parsedReset.ts,
+        resetPrecisionMs: parsedReset.precisionMs,
         note: f.note.trim() || null
       });
       state.quotaData = res;

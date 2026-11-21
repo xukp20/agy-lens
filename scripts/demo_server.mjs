@@ -21,8 +21,10 @@ import {
   computeSummaryForPair,
   detectPrecisionStep,
   normalizePool,
+  normalizeResetPrecisionMs,
   normalizeWindowType,
   resolveInheritedResetAt,
+  validateResetAtForWindow,
   VALID_POOLS,
   VALID_WINDOWS,
 } from '../sidecars/lens_panel/lib/quota.mjs';
@@ -1515,11 +1517,22 @@ const server = createServer(async (req, res) => {
         const precisionStep = detectPrecisionStep(remainingPct, body?.rawInput);
         const nowMs = Date.now();
         const capturedAt = Math.round(body?.capturedAt ? Number(body.capturedAt) : nowMs);
-        const explicitResetAt = body?.resetAt ? Math.round(Number(body.resetAt)) : null;
-        const prevAnchor = dataset.anchors
-          .filter((a) => a.pool === pool && a.window_type === windowType && a.captured_at <= capturedAt)
-          .sort((a, b) => b.captured_at - a.captured_at || b.id - a.id)[0] || null;
-        const resetAt = resolveInheritedResetAt(prevAnchor, capturedAt, remainingPct, explicitResetAt);
+        if (capturedAt > nowMs + 60_000) {
+          return sendJson(res, 400, { error: 'capturedAt cannot be in the future' });
+        }
+        let resetAt = null;
+        let resetSource = '';
+        let resetPrecisionMs = null;
+        if (body?.resetAt !== undefined && body?.resetAt !== null && body?.resetAt !== '') {
+          resetAt = Math.round(Number(body.resetAt));
+          try {
+            validateResetAtForWindow(capturedAt, resetAt, windowType);
+          } catch (err) {
+            return sendJson(res, 400, { error: err.message });
+          }
+          resetSource = 'explicit';
+          resetPrecisionMs = normalizeResetPrecisionMs(body?.resetPrecisionMs, 'explicit');
+        }
         dataset.anchors.push({
           id: dataset.getNextAnchorId(),
           pool,
@@ -1528,9 +1541,39 @@ const server = createServer(async (req, res) => {
           precision_step: precisionStep,
           captured_at: capturedAt,
           reset_at: resetAt,
+          reset_source: resetSource,
+          reset_precision_ms: resetPrecisionMs,
           note: typeof body?.note === 'string' ? body.note.trim().slice(0, 240) : '',
           created_at: nowMs,
         });
+        return sendJson(res, 200, buildQuotaStatusResponse());
+      }
+
+      if (url.pathname === '/api/quota/anchors/update') {
+        const id = Number(body?.id);
+        if (!Number.isInteger(id) || id <= 0) return sendJson(res, 400, { error: 'Invalid anchor id' });
+        const row = dataset.anchors.find((a) => a.id === id);
+        if (!row) return sendJson(res, 404, { error: `Anchor #${id} not found` });
+        if (Object.prototype.hasOwnProperty.call(body, 'resetAt')) {
+          if (body.resetAt === null || body.resetAt === '' || body.resetAt === undefined) {
+            row.reset_at = null;
+            row.reset_source = '';
+            row.reset_precision_ms = null;
+          } else {
+            const nextReset = Math.round(Number(body.resetAt));
+            try {
+              validateResetAtForWindow(row.captured_at, nextReset, row.window_type);
+            } catch (err) {
+              return sendJson(res, 400, { error: err.message });
+            }
+            row.reset_at = nextReset;
+            row.reset_source = 'explicit';
+            row.reset_precision_ms = normalizeResetPrecisionMs(body?.resetPrecisionMs, 'explicit');
+          }
+        }
+        if (Object.prototype.hasOwnProperty.call(body, 'note') && typeof body.note === 'string') {
+          row.note = body.note.trim().slice(0, 240);
+        }
         return sendJson(res, 200, buildQuotaStatusResponse());
       }
 
