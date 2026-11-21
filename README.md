@@ -40,7 +40,7 @@ Many community usage extensions probe undocumented internal RPC endpoints, inspe
 
 ## Modular Feature Showcase
 
-AGY Lens ships with **7 independently toggleable and reorderable modules**. Keep your sidebar minimal with live context only, or enable deep cross-session diagnostics whenever needed.
+AGY Lens ships with **7 independently toggleable and reorderable modules**—all enabled out of the box (with compact collapsed KPI cards for secondary views) so every capability is immediately discoverable while keeping your sidebar clean. Disable any module anytime to skip its queries completely.
 
 ### 1. Live Context, Prompt Cache & Token Flow (Auxiliary Pane)
 
@@ -66,7 +66,8 @@ Diagnose cross-session prompt-cache instability—such as idle-gap TTL decay, tr
 </p>
 
 - **4 Health KPI Tiles**: Follow-up Hit %, Unexpected `0%` Misses (with **Bounce-Back** recovery count), Boundary Cuts (excluding intentional model switches and compactions), and estimated Miss Penalty USD.
-- **Model × Idle-Gap Hit-Rate Matrix**: Buckets consecutive turn pairs across `<=2s`, `2-5s`, `5-10s`, `10-20s`, `20-60s`, `1-5m`, and `>5m` to expose model-specific decay (e.g., mid-gap drops vs. steady `99%+` models).
+- **Configurable Multi-Metric `Model × Idle-Gap` Matrix**: Buckets consecutive follow-up turns across `<=2s`, `2-5s`, `5-10s`, `10-20s`, `20-60s`, `1-5m`, and `>5m` alongside a strictly consistent sample-weighted **All (Total)** column. Use the compact header popover (`Hit % +2 ▾`) to pick any of **6 metrics**—**Token Hit Ratio** (default primary), **Cache Keep Rate** & **Avg Cost / Turn** (default stacked sub-rows), **Bucket Total Cost**, **Miss Penalty**, and **Follow-up Turns**—stacking any number of vertical in-cell sub-rows while preserving the previous primary as a sub-row when switching.
+- **Hover Preview & Click-to-Pin Full Detail Card**: Hover any bucket or Total cell to preview all metrics with `[Main]`/`[Sub]` tags, anomaly breakdown, cache savings, average input context, and wasted tokens; click any cell to pin the detail card for side-by-side inspection.
 - **Idle-Gap vs. Hit-Rate Log Scatter Plot**: Filterable by model, visually separating normal hits, `0%` misses, boundary cuts, and low-hit turns on a logarithmic time axis.
 - **Top Anomalies & `Copy Issue Markdown`**: Inspect `prev → miss → next` hit transitions, `Idle Gap` vs. `Start Gap`, and export a **privacy-sanitized** Markdown table ready for GitHub issues.
 

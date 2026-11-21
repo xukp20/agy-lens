@@ -35,6 +35,16 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const WEB_DIR = join(__dirname, 'web');
 const LOGO_PATH = join(__dirname, '..', '..', 'assets', 'logo.svg');
 
+const OBS_MATRIX_METRIC_ORDER = [
+  'weightedHit',
+  'keepRate',
+  'avgCost',
+  'totalCost',
+  'missPenalty',
+  'turns',
+];
+const OBS_MATRIX_METRICS = new Set(OBS_MATRIX_METRIC_ORDER);
+
 const DEFAULT_CONFIG = {
   lang: 'zh-CN',
   modules: {
@@ -42,9 +52,9 @@ const DEFAULT_CONFIG = {
     'cache-diagnostics': true,
     'io-flow': true,
     'model-cost': true,
-    'calendar-trends': false,
-    'cache-observatory': false,
-    'quota-budget': false,
+    'calendar-trends': true,
+    'cache-observatory': true,
+    'quota-budget': true,
   },
   moduleOrder: [
     'live-context',
@@ -61,8 +71,8 @@ const DEFAULT_CONFIG = {
     'io-flow': false,
     'model-cost': false,
     'calendar-trends': false,
-    'cache-observatory': true,
-    'quota-budget': true,
+    'cache-observatory': false,
+    'quota-budget': false,
   },
   sources: { desktop: true, cli: true },
   refreshSec: 30,
@@ -71,6 +81,8 @@ const DEFAULT_CONFIG = {
   quotaAnchorsByPool: {},
   quotaCalibMode: 'auto',
   quotaManualFactors: { M: false, C: false, O: false },
+  obsMatrixPrimary: 'weightedHit',
+  obsMatrixSubMetrics: ['keepRate', 'avgCost'],
   defaultRange: '7d',
 };
 
@@ -157,6 +169,28 @@ function resolveQuotaCalibPatch(baseMode, baseFactors, patchMode, patchFactors) 
   };
 }
 
+function sanitizeObsMatrixConfig(basePrimary, baseSubs, patchPrimary, patchSubs) {
+  const primary =
+    typeof patchPrimary === 'string' && OBS_MATRIX_METRICS.has(patchPrimary)
+      ? patchPrimary
+      : OBS_MATRIX_METRICS.has(basePrimary)
+        ? basePrimary
+        : 'weightedHit';
+  const rawSubs = Array.isArray(patchSubs)
+    ? patchSubs
+    : Array.isArray(baseSubs)
+      ? baseSubs
+      : ['keepRate', 'avgCost'];
+  const subSet = new Set();
+  for (const id of rawSubs) {
+    if (typeof id === 'string' && OBS_MATRIX_METRICS.has(id) && id !== primary) {
+      subSet.add(id);
+    }
+  }
+  const subs = OBS_MATRIX_METRIC_ORDER.filter((id) => subSet.has(id));
+  return { obsMatrixPrimary: primary, obsMatrixSubMetrics: subs };
+}
+
 function deepMergeConfig(base, patch) {
   if (!patch || typeof patch !== 'object') return structuredClone(base);
   const calib = resolveQuotaCalibPatch(
@@ -164,6 +198,12 @@ function deepMergeConfig(base, patch) {
     base.quotaManualFactors,
     patch.quotaCalibMode,
     patch.quotaManualFactors
+  );
+  const obsMatrix = sanitizeObsMatrixConfig(
+    base.obsMatrixPrimary,
+    base.obsMatrixSubMetrics,
+    patch.obsMatrixPrimary,
+    patch.obsMatrixSubMetrics
   );
   const out = {
     lang: patch.lang === 'en' || patch.lang === 'zh-CN' ? patch.lang : base.lang,
@@ -186,6 +226,8 @@ function deepMergeConfig(base, patch) {
     quotaAnchorsByPool: sanitizeQuotaAnchorsByPool(base.quotaAnchorsByPool, patch.quotaAnchorsByPool),
     quotaCalibMode: calib.quotaCalibMode,
     quotaManualFactors: calib.quotaManualFactors,
+    obsMatrixPrimary: obsMatrix.obsMatrixPrimary,
+    obsMatrixSubMetrics: obsMatrix.obsMatrixSubMetrics,
     defaultRange:
       typeof patch.defaultRange === 'string' && patch.defaultRange
         ? patch.defaultRange

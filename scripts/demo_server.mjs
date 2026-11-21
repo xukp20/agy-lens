@@ -119,6 +119,8 @@ const demoConfig = {
   quotaAnchorsByPool: {},
   quotaCalibMode: 'auto',
   quotaManualFactors: { M: false, C: false, O: false },
+  obsMatrixPrimary: 'weightedHit',
+  obsMatrixSubMetrics: ['keepRate', 'avgCost'],
   defaultRange: '7d',
 };
 
@@ -1429,6 +1431,15 @@ const server = createServer(async (req, res) => {
           if (typeof body.quotaManualFactors.M === 'boolean') demoConfig.quotaManualFactors.M = body.quotaManualFactors.M;
           if (typeof body.quotaManualFactors.C === 'boolean') demoConfig.quotaManualFactors.C = body.quotaManualFactors.C;
           if (typeof body.quotaManualFactors.O === 'boolean') demoConfig.quotaManualFactors.O = body.quotaManualFactors.O;
+        }
+        const obsMetricOrder = ['weightedHit', 'keepRate', 'avgCost', 'totalCost', 'missPenalty', 'turns'];
+        if (typeof body.obsMatrixPrimary === 'string' && obsMetricOrder.includes(body.obsMatrixPrimary)) {
+          demoConfig.obsMatrixPrimary = body.obsMatrixPrimary;
+          demoConfig.obsMatrixSubMetrics = demoConfig.obsMatrixSubMetrics.filter((k) => k !== demoConfig.obsMatrixPrimary);
+        }
+        if (Array.isArray(body.obsMatrixSubMetrics)) {
+          const s = new Set(body.obsMatrixSubMetrics.filter((k) => obsMetricOrder.includes(k) && k !== demoConfig.obsMatrixPrimary));
+          demoConfig.obsMatrixSubMetrics = obsMetricOrder.filter((k) => s.has(k));
         }
         if (typeof body.quotaCalibMode === 'string') {
           const m = body.quotaCalibMode.trim().toLowerCase();

@@ -353,8 +353,54 @@
         kpiBoundarySub: '换模 {sw} · 压缩 {cmp}',
         kpiPenalty: 'Miss 额外代价',
         kpiWastedSub: '{tok} 浪费',
-        matrixTitle: 'Model × Idle-Gap 命中率矩阵',
+        matrixTitle: 'Model × Idle-Gap 矩阵',
         matrixSub: '不含 Turn-0 冷启动 · 格内为命中率',
+        matrixLegend: '主：{primary}{sub} · 悬停预览 / 点击固定全量',
+        matrixLegendSub: ' · 副：{subs}',
+        matrixCfgTitle: '矩阵指标设置',
+        matrixReset: '恢复默认',
+        matrixColMetric: '指标',
+        matrixColPrimary: '主(色阶)',
+        matrixColSub: '格内小字',
+        matrixPrimaryTag: '主',
+        matrixSubTag: '副',
+        matrixCfgNote: '可自由勾选任意项作为格内小字（每项一行）；切换主指标时原主指标会自动保留为小字；全部指标均在悬浮/点击弹窗中完整展示。',
+        metricFull: {
+          keepRate: '缓存保活率',
+          weightedHit: 'Token 实际命中率',
+          avgCost: '轮均花费',
+          totalCost: '区间总花费',
+          missPenalty: 'Miss 额外罚金',
+          turns: '样本轮次数'
+        },
+        metricShort: {
+          keepRate: '保活率',
+          weightedHit: '命中率',
+          avgCost: '轮均价',
+          totalCost: '总花费',
+          missPenalty: 'Miss罚金',
+          turns: '轮次'
+        },
+        popTurns: '{n} 轮',
+        popKeepRate: '缓存保活率',
+        popWeightedHit: 'Token 实际命中率',
+        popTurnAvgSub: '轮均 {pct}',
+        popAnomalies: '异常事件',
+        popAnomNone: '无异常',
+        popAnomFullMiss: '{n} 断崖',
+        popAnomBoundary: '{n} 截断',
+        popAnomBounce: '{n} 回弹',
+        popAvgCost: '轮均 API 花费',
+        popTotalCost: '区间总花费',
+        popMissPenalty: 'Miss 额外罚金',
+        popPerTurn: '{usd}/轮',
+        popCacheSaved: '缓存已省费用',
+        popAvgCtx: '平均输入上下文',
+        popCacheVsIn: '缓存读 / 总输入',
+        popWastedTok: '浪费 Token',
+        popUnbucketed: '注：含 {n} 轮因缺少时间戳未归入空闲区间桶',
+        popPinHint: '点击单元格可固定详情卡',
+        popClose: '关闭',
         colModel: '模型',
         colTotal: '总计',
         scatterTitle: 'Idle-Gap vs 命中率对数散点图',
@@ -776,8 +822,54 @@
         kpiBoundarySub: '{sw} switch · {cmp} compact',
         kpiPenalty: 'Miss Penalty',
         kpiWastedSub: '{tok} wasted',
-        matrixTitle: 'Model × Idle-Gap Hit-Rate Matrix',
+        matrixTitle: 'Model × Idle-Gap Matrix',
         matrixSub: 'Excl. Turn-0 cold starts · cell shows hit %',
+        matrixLegend: 'Primary: {primary}{sub} · Hover preview / Click to pin',
+        matrixLegendSub: ' · Sub: {subs}',
+        matrixCfgTitle: 'Matrix Metrics',
+        matrixReset: 'Reset',
+        matrixColMetric: 'Metric',
+        matrixColPrimary: 'Primary',
+        matrixColSub: 'In-Cell',
+        matrixPrimaryTag: 'Main',
+        matrixSubTag: 'Sub',
+        matrixCfgNote: 'Check any metrics to stack as in-cell rows. Switching primary keeps the previous primary as a sub-row. All metrics appear in the detail card.',
+        metricFull: {
+          keepRate: 'Cache Keep Rate',
+          weightedHit: 'Token Hit Ratio',
+          avgCost: 'Avg Cost / Turn',
+          totalCost: 'Bucket Total Cost',
+          missPenalty: 'Miss Penalty',
+          turns: 'Follow-up Turns'
+        },
+        metricShort: {
+          keepRate: 'Keep %',
+          weightedHit: 'Hit %',
+          avgCost: '$/turn',
+          totalCost: 'Cost',
+          missPenalty: 'Penalty',
+          turns: 'Turns'
+        },
+        popTurns: '{n} turns',
+        popKeepRate: 'Cache Keep Rate',
+        popWeightedHit: 'Token Hit Ratio',
+        popTurnAvgSub: 'turn avg {pct}',
+        popAnomalies: 'Anomalies',
+        popAnomNone: 'None',
+        popAnomFullMiss: '{n} 0%-miss',
+        popAnomBoundary: '{n} cut',
+        popAnomBounce: '{n} bounce',
+        popAvgCost: 'Avg Cost / Turn',
+        popTotalCost: 'Bucket Total Cost',
+        popMissPenalty: 'Miss Penalty',
+        popPerTurn: '{usd}/t',
+        popCacheSaved: 'Cache Saved',
+        popAvgCtx: 'Avg Input Context',
+        popCacheVsIn: 'Cache Read / Input',
+        popWastedTok: 'Wasted Tokens',
+        popUnbucketed: 'Note: includes {n} turns without timestamps (unbucketed)',
+        popPinHint: 'Click cell to pin detail card',
+        popClose: 'Close',
         colModel: 'Model',
         colTotal: 'All',
         scatterTitle: 'Idle-Gap vs Hit-Rate (Log Scale)',
@@ -1277,6 +1369,8 @@
   // =========================================================================
   // 6. Default Config & Application State
   // =========================================================================
+  const OBS_MATRIX_METRIC_IDS = ['weightedHit', 'keepRate', 'avgCost', 'totalCost', 'missPenalty', 'turns'];
+
   const DEFAULT_CONFIG = {
     lang: 'zh-CN',
     modules: {
@@ -1284,9 +1378,9 @@
       'cache-diagnostics': true,
       'io-flow': true,
       'model-cost': true,
-      'calendar-trends': false,
-      'cache-observatory': false,
-      'quota-budget': false
+      'calendar-trends': true,
+      'cache-observatory': true,
+      'quota-budget': true
     },
     moduleOrder: [...ALL_MODULE_IDS],
     expanded: {
@@ -1295,8 +1389,8 @@
       'io-flow': false,
       'model-cost': false,
       'calendar-trends': false,
-      'cache-observatory': true,
-      'quota-budget': true
+      'cache-observatory': false,
+      'quota-budget': false
     },
     sources: { desktop: true, cli: true },
     refreshSec: 30,
@@ -1305,7 +1399,9 @@
     defaultRange: '7d',
     quotaAnchorsByPool: {},
     quotaCalibMode: 'auto',
-    quotaManualFactors: { M: false, C: false, O: false }
+    quotaManualFactors: { M: false, C: false, O: false },
+    obsMatrixPrimary: 'weightedHit',
+    obsMatrixSubMetrics: ['keepRate', 'avgCost']
   };
 
   const state = {
@@ -1333,6 +1429,8 @@
     // Cache Observatory UI state
     obsModelFilter: 'all',
     obsAnomaliesOpen: false,
+    obsMetricMenuOpen: false,
+    obsPinnedCell: null, // { modelIdx, bucketKey } | null
     obsCopyStatus: '', // '' | 'copied' | 'failed'
     obsCopyTimer: null,
 
@@ -1418,7 +1516,8 @@
     settingsTitle: $('settings-title'),
     btnCloseSettings: $('btn-close-settings'),
     settingsBody: $('settings-body'),
-    chartTooltip: $('chart-tooltip')
+    chartTooltip: $('chart-tooltip'),
+    obsCellPopover: $('obs-cell-popover')
   };
 
   function setupLogoFallback() {
@@ -1504,6 +1603,19 @@
         };
       }
     }
+    const obsMatrixPrimary = OBS_MATRIX_METRIC_IDS.includes(cfg.obsMatrixPrimary)
+      ? cfg.obsMatrixPrimary
+      : DEFAULT_CONFIG.obsMatrixPrimary;
+    const rawObsSubs = Array.isArray(cfg.obsMatrixSubMetrics)
+      ? cfg.obsMatrixSubMetrics
+      : DEFAULT_CONFIG.obsMatrixSubMetrics;
+    const obsSubSet = new Set();
+    for (const id of rawObsSubs) {
+      if (OBS_MATRIX_METRIC_IDS.includes(id) && id !== obsMatrixPrimary) {
+        obsSubSet.add(id);
+      }
+    }
+    const obsMatrixSubMetrics = OBS_MATRIX_METRIC_IDS.filter((id) => obsSubSet.has(id));
     state.config = {
       ...DEFAULT_CONFIG,
       ...cfg,
@@ -1516,6 +1628,8 @@
       },
       quotaCalibMode,
       quotaManualFactors,
+      obsMatrixPrimary,
+      obsMatrixSubMetrics,
       moduleOrder: Array.isArray(cfg.moduleOrder) && cfg.moduleOrder.length
         ? cfg.moduleOrder.filter((id) => ALL_MODULE_IDS.includes(id))
         : [...DEFAULT_CONFIG.moduleOrder]
@@ -2521,14 +2635,121 @@
   }
 
   // =========================================================================
-  // 15. Rendering: Module 6 — Global Cache Observatory (NEW)
+  // 15. Rendering: Module 6 — Global Cache Observatory
   // =========================================================================
-  function heatCellClass(rate, total) {
-    if (!total || total <= 0) return 'heat-empty';
-    if (rate >= 0.90) return 'heat-deep';
-    if (rate >= 0.75) return 'heat-soft';
-    if (rate >= 0.40) return 'heat-amber';
-    return 'heat-coral';
+  function getObsMatrixPrefs() {
+    const primary = OBS_MATRIX_METRIC_IDS.includes(state.config.obsMatrixPrimary)
+      ? state.config.obsMatrixPrimary
+      : DEFAULT_CONFIG.obsMatrixPrimary;
+    const rawSubs = Array.isArray(state.config.obsMatrixSubMetrics)
+      ? state.config.obsMatrixSubMetrics
+      : DEFAULT_CONFIG.obsMatrixSubMetrics;
+    const subSet = new Set();
+    for (const id of rawSubs) {
+      if (OBS_MATRIX_METRIC_IDS.includes(id) && id !== primary) {
+        subSet.add(id);
+      }
+    }
+    const subs = OBS_MATRIX_METRIC_IDS.filter((id) => subSet.has(id));
+    return { primary, subs };
+  }
+
+  function fmtUsdCompact(v) {
+    const n = num(v, 0);
+    if (n <= 0) return '$0';
+    if (n < 0.001) return '<$0.001';
+    if (n < 0.01) return `$${n.toFixed(3)}`;
+    if (n < 10) return `$${n.toFixed(2)}`;
+    if (n < 100) return `$${n.toFixed(1)}`;
+    return `$${Math.round(n)}`;
+  }
+
+  function fmtTurnsCompact(n) {
+    const v = Math.max(0, Math.round(num(n, 0)));
+    if (v >= 1000) return `${(v / 1000).toFixed(1)}kt`;
+    return `${v}t`;
+  }
+
+  function getObsMetricRaw(entry, metricId, isTotal) {
+    if (!entry) return null;
+    const total = isTotal ? num(entry.followUpTurns, 0) : num(entry.total, 0);
+    if (total <= 0) return null;
+    switch (metricId) {
+      case 'keepRate':
+        return entry.hitRate != null ? num(entry.hitRate, 0) : null;
+      case 'weightedHit':
+        return entry.weightedHitRatio != null ? num(entry.weightedHitRatio, 0) : null;
+      case 'avgCost':
+        return num(entry.avgCostUsd, 0);
+      case 'totalCost':
+        return num(entry.costUsd, 0);
+      case 'missPenalty':
+        return num(entry.missPenaltyUsd, 0);
+      case 'turns':
+        return total;
+      default:
+        return null;
+    }
+  }
+
+  function formatObsMetricCell(entry, metricId, isTotal) {
+    const val = getObsMetricRaw(entry, metricId, isTotal);
+    if (val === null) return '—';
+    switch (metricId) {
+      case 'keepRate':
+      case 'weightedHit':
+        return `${Math.round(val * 100)}%`;
+      case 'avgCost':
+      case 'totalCost':
+      case 'missPenalty':
+        return fmtUsdCompact(val);
+      case 'turns':
+        return fmtTurnsCompact(val);
+      default:
+        return '—';
+    }
+  }
+
+  function obsHeatCellClass(primaryMetric, val, maxVal, count) {
+    if (!count || count <= 0 || val === null || val === undefined) return 'heat-empty';
+    if (primaryMetric === 'keepRate' || primaryMetric === 'weightedHit') {
+      if (val >= 0.85) return 'heat-deep';
+      if (val >= 0.65) return 'heat-soft';
+      if (val >= 0.40) return 'heat-amber';
+      return 'heat-coral';
+    }
+    if (primaryMetric === 'missPenalty') {
+      if (val <= 0) return 'heat-ok-soft';
+      const ratio = maxVal > 0 ? val / maxVal : 1;
+      if (ratio >= 0.65) return 'heat-coral';
+      if (ratio >= 0.25) return 'heat-amber';
+      return 'heat-warn-soft';
+    }
+    if (primaryMetric === 'avgCost' || primaryMetric === 'totalCost') {
+      if (val <= 0) return 'heat-neutral';
+      const ratio = maxVal > 0 ? val / maxVal : 0;
+      if (ratio >= 0.72) return 'heat-coral';
+      if (ratio >= 0.38) return 'heat-amber';
+      return 'heat-cost-lo';
+    }
+    // turns
+    const ratio = maxVal > 0 ? val / maxVal : 0;
+    if (ratio >= 0.65) return 'heat-vol-hi';
+    if (ratio >= 0.25) return 'heat-vol-mid';
+    return 'heat-vol-lo';
+  }
+
+  function renderObsCellInner(entry, primary, subs, isTotal) {
+    const mainStr = formatObsMetricCell(entry, primary, isTotal);
+    const subLines = subs
+      .map((id) => formatObsMetricCell(entry, id, isTotal))
+      .filter((s) => s && s !== '—')
+      .map((s) => `<div class="heat-sub">${esc(s)}</div>`)
+      .join('');
+    return `
+      <div class="heat-main">${esc(mainStr)}</div>
+      ${subLines}
+    `;
   }
 
   function renderCacheObservatory(expanded) {
@@ -2595,30 +2816,52 @@
     const matrix = Array.isArray(co.matrix) ? co.matrix : [];
     const scatterAll = Array.isArray(co.scatterPoints) ? co.scatterPoints : [];
     const anomalies = Array.isArray(co.topAnomalies) ? co.topAnomalies : [];
+    const { primary, subs } = getObsMatrixPrefs();
 
-    // Viz 1: Model x Idle-Gap Hit-Rate Matrix
+    // Viz 1: Model x Idle-Gap Configurable Metric Matrix
     let matrixHtml = '';
     if (matrix.length > 0) {
+      const totalColMax = matrix.reduce((mx, m) => {
+        const v = getObsMetricRaw(m, primary, true);
+        return v !== null && v > mx ? v : mx;
+      }, 0);
+
       const rowsHtml = matrix
-        .map((m) => {
-          const bMap = new Map((Array.isArray(m.buckets) ? m.buckets : []).map((b) => [b.key, b]));
-          const totalCls = heatCellClass(num(m.weightedHitRatio, 0), num(m.followUpTurns, 0));
-          const totalTip = `${m.displayName || m.canonicalId} · ${t('obs.colTotal')}\n${t('obs.tipWeighted', { pct: fmtPct(m.weightedHitRatio, 1) })}\n${t('obs.kpiFollowSub', { n: num(m.followUpTurns) })}\n0% Miss: ${num(m.unexpectedFullMisses)} · ${t('obs.kpiBoundaryCut')}: ${num(m.boundaryCuts)}`;
+        .map((m, mIdx) => {
+          const bList = Array.isArray(m.buckets) ? m.buckets : [];
+          const bMap = new Map(bList.map((b) => [b.key, b]));
+          const rowBucketMax = bList.reduce((mx, b) => {
+            const v = getObsMetricRaw(b, primary, false);
+            return v !== null && v > mx ? v : mx;
+          }, 0);
+
+          const totalCount = num(m.followUpTurns, 0);
+          const totalVal = getObsMetricRaw(m, primary, true);
+          const totalCls = obsHeatCellClass(primary, totalVal, totalColMax, totalCount);
+          const totalPinned =
+            state.obsPinnedCell &&
+            state.obsPinnedCell.modelIdx === mIdx &&
+            state.obsPinnedCell.bucketKey === '__total__';
 
           const bucketTds = buckets
             .map((bk) => {
               const b = bMap.get(bk);
-              if (!b || num(b.total, 0) === 0) {
+              const cnt = b ? num(b.total, 0) : 0;
+              if (!b || cnt === 0) {
                 return `<td class="heat-cell heat-empty">—</td>`;
               }
-              const rate = num(b.hitRate, 0);
-              const avgR = num(b.avgHitRatio, 0);
-              const cls = heatCellClass(rate, b.total);
-              const tip = `${m.displayName || m.canonicalId} · ${bk}\n${t('obs.tipHitsTotal', { hits: num(b.hits), total: num(b.total), misses: num(b.misses) })}\n${t('obs.tipAvgHit', { pct: fmtPct(avgR, 1) })}`;
-              return `<td class="heat-cell ${cls}" data-tip="${esc(tip)}">${Math.round(rate * 100)}%</td>`;
+              const val = getObsMetricRaw(b, primary, false);
+              const cls = obsHeatCellClass(primary, val, rowBucketMax, cnt);
+              const lowNCls = cnt < 5 ? ' heat-low-n' : '';
+              const isPinned =
+                state.obsPinnedCell &&
+                state.obsPinnedCell.modelIdx === mIdx &&
+                state.obsPinnedCell.bucketKey === bk;
+              return `<td class="heat-cell ${cls}${lowNCls}${isPinned ? ' is-pinned' : ''}" data-obs-cell="1" data-model-idx="${mIdx}" data-bucket-key="${esc(bk)}" tabindex="0">${renderObsCellInner(b, primary, subs, false)}</td>`;
             })
             .join('');
 
+          const totalLowN = totalCount > 0 && totalCount < 5 ? ' heat-low-n' : '';
           return `
             <tr>
               <td>
@@ -2627,25 +2870,74 @@
                   <span class="obs-model-meta num">${num(m.followUpTurns)}t${num(m.unexpectedFullMisses) > 0 ? ` · ${num(m.unexpectedFullMisses)}m` : ''}</span>
                 </div>
               </td>
-              <td class="heat-cell ${totalCls}" data-tip="${esc(totalTip)}">${fmtPct(m.weightedHitRatio, 0)}</td>
+              <td class="heat-cell heat-total-col ${totalCls}${totalLowN}${totalPinned ? ' is-pinned' : ''}" data-obs-cell="1" data-model-idx="${mIdx}" data-bucket-key="__total__" tabindex="0">${renderObsCellInner(m, primary, subs, true)}</td>
               ${bucketTds}
             </tr>
           `;
         })
         .join('');
 
+      const primaryShort = t(`obs.metricShort.${primary}`);
+      const primaryFull = t(`obs.metricFull.${primary}`);
+      const subLegend = subs.length > 0
+        ? t('obs.matrixLegendSub', { subs: subs.map((id) => t(`obs.metricShort.${id}`)).join(' / ') })
+        : '';
+      const legendText = t('obs.matrixLegend', { primary: primaryFull, sub: subLegend });
+      const triggerLabel = `${primaryShort}${subs.length > 0 ? ` +${subs.length}` : ''}`;
+
+      const menuHtml = state.obsMetricMenuOpen
+        ? `
+          <div class="obs-metric-popover" data-stop-card role="dialog" aria-label="${esc(t('obs.matrixCfgTitle'))}">
+            <div class="obs-mp-head">
+              <span class="obs-mp-title">${esc(t('obs.matrixCfgTitle'))}</span>
+              <button type="button" class="obs-mp-reset" data-action="reset-obs-metrics">${esc(t('obs.matrixReset'))}</button>
+            </div>
+            <div class="obs-mp-grid obs-mp-cols-head">
+              <span>${esc(t('obs.matrixColMetric'))}</span>
+              <span class="obs-mp-c">${esc(t('obs.matrixColPrimary'))}</span>
+              <span class="obs-mp-c">${esc(t('obs.matrixColSub'))}</span>
+            </div>
+            ${OBS_MATRIX_METRIC_IDS.map((id) => {
+              const isPrimary = id === primary;
+              const isSub = subs.includes(id);
+              return `
+                <div class="obs-mp-grid obs-mp-row ${isPrimary ? 'is-primary' : ''}">
+                  <span class="obs-mp-name">${esc(t(`obs.metricFull.${id}`))}</span>
+                  <button type="button" class="obs-mp-radio ${isPrimary ? 'active' : ''}" data-action="set-obs-primary" data-metric="${id}" aria-pressed="${isPrimary ? 'true' : 'false'}" aria-label="${esc(t(`obs.metricFull.${id}`))}">
+                    <span class="obs-mp-dot"></span>
+                  </button>
+                  ${
+                    isPrimary
+                      ? `<span class="obs-mp-main-tag">${esc(t('obs.matrixPrimaryTag'))}</span>`
+                      : `<button type="button" class="obs-mp-check ${isSub ? 'active' : ''}" data-action="toggle-obs-sub" data-metric="${id}" aria-pressed="${isSub ? 'true' : 'false'}" aria-label="${esc(t(`obs.metricFull.${id}`))}">${isSub ? '✓' : ''}</button>`
+                  }
+                </div>
+              `;
+            }).join('')}
+            <div class="obs-mp-note">${esc(t('obs.matrixCfgNote'))}</div>
+          </div>
+        `
+        : '';
+
       matrixHtml = `
         <div class="obs-section">
           <div class="obs-section-head">
             <span class="obs-section-title">${esc(t('obs.matrixTitle'))}</span>
-            <span class="muted-note" style="font-size:11px">${esc(t('obs.matrixSub'))}</span>
+            <div class="obs-metric-ctrl" data-stop-card>
+              <button type="button" class="obs-metric-trigger ${state.obsMetricMenuOpen ? 'active' : ''}" data-action="toggle-obs-metric-menu" aria-expanded="${state.obsMetricMenuOpen ? 'true' : 'false'}">
+                <span>${esc(triggerLabel)}</span>
+                <span class="obs-caret" aria-hidden="true">▾</span>
+              </button>
+              ${menuHtml}
+            </div>
           </div>
+          <div class="obs-matrix-legend">${esc(legendText)}</div>
           <div class="obs-matrix-wrap">
-            <table class="obs-matrix-table">
+            <table class="obs-matrix-table${subs.length > 0 ? ' has-sub' : ''}">
               <thead>
                 <tr>
                   <th>${esc(t('obs.colModel'))}</th>
-                  <th>${esc(t('obs.colTotal'))}</th>
+                  <th class="obs-th-total">${esc(t('obs.colTotal'))}</th>
                   ${buckets.map((bk) => `<th class="mono">${esc(bk)}</th>`).join('')}
                 </tr>
               </thead>
@@ -3754,6 +4046,7 @@
       .join('');
 
     dom.modulesGrid.innerHTML = cardsHtml;
+    syncPinnedObsPopover();
   }
 
   // =========================================================================
@@ -4221,6 +4514,66 @@
         return;
       }
 
+      if (action === 'toggle-obs-metric-menu') {
+        e.stopPropagation();
+        if (!state.obsMetricMenuOpen) dismissObsCellPopover();
+        state.obsMetricMenuOpen = !state.obsMetricMenuOpen;
+        renderGrid();
+        return;
+      }
+
+      if (action === 'set-obs-primary') {
+        e.stopPropagation();
+        const metric = actionEl.dataset.metric;
+        if (!OBS_MATRIX_METRIC_IDS.includes(metric)) return;
+        const { primary: prevPrimary, subs: prevSubs } = getObsMatrixPrefs();
+        if (metric === prevPrimary) return;
+        const nextSubSet = new Set(prevSubs.filter((id) => id !== metric));
+        nextSubSet.add(prevPrimary);
+        const nextSubs = OBS_MATRIX_METRIC_IDS.filter((id) => nextSubSet.has(id));
+        state.config.obsMatrixPrimary = metric;
+        state.config.obsMatrixSubMetrics = nextSubs;
+        renderGrid();
+        await saveConfigPatch({
+          obsMatrixPrimary: metric,
+          obsMatrixSubMetrics: nextSubs
+        });
+        return;
+      }
+
+      if (action === 'toggle-obs-sub') {
+        e.stopPropagation();
+        const metric = actionEl.dataset.metric;
+        if (!OBS_MATRIX_METRIC_IDS.includes(metric)) return;
+        const { primary, subs } = getObsMatrixPrefs();
+        if (metric === primary) return;
+        const nextSubSet = new Set(subs);
+        if (nextSubSet.has(metric)) {
+          nextSubSet.delete(metric);
+        } else {
+          nextSubSet.add(metric);
+        }
+        const nextSubs = OBS_MATRIX_METRIC_IDS.filter((id) => nextSubSet.has(id));
+        state.config.obsMatrixSubMetrics = nextSubs;
+        renderGrid();
+        await saveConfigPatch({ obsMatrixSubMetrics: nextSubs });
+        return;
+      }
+
+      if (action === 'reset-obs-metrics') {
+        e.stopPropagation();
+        const nextPrimary = DEFAULT_CONFIG.obsMatrixPrimary;
+        const nextSubs = [...DEFAULT_CONFIG.obsMatrixSubMetrics];
+        state.config.obsMatrixPrimary = nextPrimary;
+        state.config.obsMatrixSubMetrics = nextSubs;
+        renderGrid();
+        await saveConfigPatch({
+          obsMatrixPrimary: nextPrimary,
+          obsMatrixSubMetrics: nextSubs
+        });
+        return;
+      }
+
       if (action === 'set-obs-filter') {
         state.obsModelFilter = actionEl.dataset.model || 'all';
         renderGrid();
@@ -4621,8 +4974,199 @@
   });
 
   // =========================================================================
-  // 20. XSS-Safe Tooltip, .help-tip System & Resize Listeners
+  // 20. XSS-Safe Tooltip, Rich Matrix Popover, .help-tip & Resize Listeners
   // =========================================================================
+  function resolveObsCellData(modelIdx, bucketKey) {
+    const matrix = state.analytics?.cacheObservatory?.matrix;
+    if (!Array.isArray(matrix)) return null;
+    const row = matrix[Number(modelIdx)];
+    if (!row) return null;
+    if (bucketKey === '__total__') {
+      return { row, entry: row, isTotal: true, bucketKey: '__total__' };
+    }
+    const b = (Array.isArray(row.buckets) ? row.buckets : []).find((x) => x.key === bucketKey);
+    if (!b || num(b.total, 0) <= 0) return null;
+    return { row, entry: b, isTotal: false, bucketKey };
+  }
+
+  function buildObsPopoverHtml(info, pinned) {
+    const { row, entry, isTotal, bucketKey } = info;
+    const { primary, subs } = getObsMatrixPrefs();
+    const tagFor = (metricId) => {
+      if (metricId === primary) {
+        return `<span class="obs-pop-tag primary">${esc(t('obs.matrixPrimaryTag'))}</span>`;
+      }
+      if (subs.includes(metricId)) {
+        return `<span class="obs-pop-tag sub">${esc(t('obs.matrixSubTag'))}</span>`;
+      }
+      return '';
+    };
+
+    const totalTurns = isTotal ? num(entry.followUpTurns, 0) : num(entry.total, 0);
+    const hits = num(entry.hits, 0);
+    const keepStr = entry.hitRate != null ? `${fmtPct(entry.hitRate, 1)} (${hits}/${totalTurns})` : '—';
+    const weightedStr = entry.weightedHitRatio != null ? fmtPct(entry.weightedHitRatio, 1) : '—';
+    const turnAvgSub = entry.avgHitRatio != null
+      ? ` <span class="obs-pop-muted">(${esc(t('obs.popTurnAvgSub', { pct: fmtPct(entry.avgHitRatio, 1) }))})</span>`
+      : '';
+
+    const fullMiss = num(entry.unexpectedFullMisses, 0);
+    const cuts = num(entry.boundaryCuts, 0);
+    const bounces = num(entry.bounceBacks, 0);
+    const anomParts = [];
+    if (fullMiss > 0) anomParts.push(t('obs.popAnomFullMiss', { n: fullMiss }));
+    if (cuts > 0) anomParts.push(t('obs.popAnomBoundary', { n: cuts }));
+    if (bounces > 0) anomParts.push(t('obs.popAnomBounce', { n: bounces }));
+    const anomHtml = anomParts.length > 0
+      ? `<span class="obs-pop-val ${fullMiss > 0 ? 'bad' : 'warn'}">${esc(anomParts.join(' · '))}</span>`
+      : `<span class="obs-pop-val ok">${esc(t('obs.popAnomNone'))}</span>`;
+
+    const avgCostStr = fmtUsd(entry.avgCostUsd);
+    const totalCostStr = fmtUsd(entry.costUsd);
+    const penTotal = num(entry.missPenaltyUsd, 0);
+    const penAvg = num(entry.avgMissPenaltyUsd, 0);
+    const penStr = penTotal > 0
+      ? `${fmtUsd(penTotal)} <span class="obs-pop-muted">(${esc(t('obs.popPerTurn', { usd: fmtUsd(penAvg) }))})</span>`
+      : '$0.00';
+    const savedStr = fmtUsd(entry.cacheSavedUsd);
+    const avgCtxStr = fmtTokens(entry.avgContextTokens);
+    const crVsInStr = `${fmtTokens(entry.cacheReadSum)} / ${fmtTokens(entry.totalInSum)}`;
+    const wastedTok = num(entry.wastedTokens, 0);
+    const unbucketed = isTotal ? num(row.unbucketedTurns, 0) : 0;
+    const scopeLabel = isTotal ? t('obs.colTotal') : bucketKey;
+
+    return `
+      <div class="obs-pop-head">
+        <div class="obs-pop-title-wrap">
+          <span class="obs-pop-model truncate">${esc(row.displayName || row.canonicalId)}</span>
+          <span class="obs-pop-sep">·</span>
+          <span class="obs-pop-bucket mono">${esc(scopeLabel)}</span>
+        </div>
+        <div class="obs-pop-head-right">
+          <span class="obs-pop-turns num">${esc(t('obs.popTurns', { n: totalTurns }))}${tagFor('turns')}</span>
+          ${pinned ? `<button type="button" class="obs-pop-close" data-obs-pop-close="1" aria-label="${esc(t('obs.popClose'))}">×</button>` : ''}
+        </div>
+      </div>
+      <div class="obs-pop-group">
+        <div class="obs-pop-row">
+          <span class="obs-pop-lbl">${esc(t('obs.popWeightedHit'))}${tagFor('weightedHit')}</span>
+          <span class="obs-pop-val mono">${esc(weightedStr)}${turnAvgSub}</span>
+        </div>
+        <div class="obs-pop-row">
+          <span class="obs-pop-lbl">${esc(t('obs.popKeepRate'))}${tagFor('keepRate')}</span>
+          <span class="obs-pop-val mono">${esc(keepStr)}</span>
+        </div>
+        <div class="obs-pop-row">
+          <span class="obs-pop-lbl">${esc(t('obs.popAnomalies'))}</span>
+          ${anomHtml}
+        </div>
+      </div>
+      <div class="obs-pop-group">
+        <div class="obs-pop-row">
+          <span class="obs-pop-lbl">${esc(t('obs.popAvgCost'))}${tagFor('avgCost')}</span>
+          <span class="obs-pop-val mono">${esc(avgCostStr)}</span>
+        </div>
+        <div class="obs-pop-row">
+          <span class="obs-pop-lbl">${esc(t('obs.popTotalCost'))}${tagFor('totalCost')}</span>
+          <span class="obs-pop-val mono">${esc(totalCostStr)}</span>
+        </div>
+        <div class="obs-pop-row">
+          <span class="obs-pop-lbl">${esc(t('obs.popMissPenalty'))}${tagFor('missPenalty')}</span>
+          <span class="obs-pop-val mono ${penTotal > 0 ? 'bad' : ''}">${penStr}</span>
+        </div>
+        <div class="obs-pop-row">
+          <span class="obs-pop-lbl">${esc(t('obs.popCacheSaved'))}</span>
+          <span class="obs-pop-val mono ok">${esc(savedStr)}</span>
+        </div>
+      </div>
+      <div class="obs-pop-group">
+        <div class="obs-pop-row">
+          <span class="obs-pop-lbl">${esc(t('obs.popAvgCtx'))}</span>
+          <span class="obs-pop-val mono">${esc(avgCtxStr)}</span>
+        </div>
+        <div class="obs-pop-row">
+          <span class="obs-pop-lbl">${esc(t('obs.popCacheVsIn'))}</span>
+          <span class="obs-pop-val mono">${esc(crVsInStr)}</span>
+        </div>
+        ${
+          wastedTok > 0
+            ? `<div class="obs-pop-row">
+                <span class="obs-pop-lbl">${esc(t('obs.popWastedTok'))}</span>
+                <span class="obs-pop-val mono bad">${esc(fmtTokens(wastedTok))}</span>
+              </div>`
+            : ''
+        }
+      </div>
+      ${unbucketed > 0 ? `<div class="obs-pop-foot">${esc(t('obs.popUnbucketed', { n: unbucketed }))}</div>` : ''}
+      ${!pinned ? `<div class="obs-pop-foot">${esc(t('obs.popPinHint'))}</div>` : ''}
+    `;
+  }
+
+  function positionObsPopover(anchorEl) {
+    if (!anchorEl || !dom.obsCellPopover) return;
+    const pad = 10;
+    const aRect = anchorEl.getBoundingClientRect();
+    const pRect = dom.obsCellPopover.getBoundingClientRect();
+    let x = aRect.left + aRect.width / 2 - pRect.width / 2;
+    let y = aRect.top - pRect.height - 8;
+    if (y < pad) {
+      y = aRect.bottom + 8;
+    }
+    if (y + pRect.height > window.innerHeight - pad) {
+      y = Math.max(pad, window.innerHeight - pRect.height - pad);
+    }
+    if (x + pRect.width > window.innerWidth - pad) {
+      x = window.innerWidth - pRect.width - pad;
+    }
+    if (x < pad) x = pad;
+    dom.obsCellPopover.style.left = `${Math.round(x)}px`;
+    dom.obsCellPopover.style.top = `${Math.round(y)}px`;
+  }
+
+  function showObsCellPopover(cellEl, pinned) {
+    if (!cellEl || !dom.obsCellPopover) return;
+    const modelIdx = Number(cellEl.dataset.modelIdx);
+    const bucketKey = cellEl.dataset.bucketKey;
+    const info = resolveObsCellData(modelIdx, bucketKey);
+    if (!info) return;
+    dom.obsCellPopover.innerHTML = buildObsPopoverHtml(info, pinned);
+    dom.obsCellPopover.classList.toggle('is-pinned', Boolean(pinned));
+    dom.obsCellPopover.classList.remove('hidden');
+    positionObsPopover(cellEl);
+  }
+
+  function hideObsCellPopover() {
+    if (!dom.obsCellPopover) return;
+    dom.obsCellPopover.classList.add('hidden');
+    dom.obsCellPopover.classList.remove('is-pinned');
+  }
+
+  function dismissObsCellPopover() {
+    if (state.obsPinnedCell) {
+      const prev = dom.modulesGrid.querySelector('.heat-cell.is-pinned');
+      if (prev) prev.classList.remove('is-pinned');
+      state.obsPinnedCell = null;
+    }
+    hideObsCellPopover();
+  }
+
+  function syncPinnedObsPopover() {
+    if (!state.obsPinnedCell) {
+      hideObsCellPopover();
+      return;
+    }
+    const { modelIdx, bucketKey } = state.obsPinnedCell;
+    const cellEl = dom.modulesGrid.querySelector(
+      `[data-obs-cell="1"][data-model-idx="${modelIdx}"][data-bucket-key="${CSS.escape(bucketKey)}"]`
+    );
+    if (!cellEl) {
+      state.obsPinnedCell = null;
+      hideObsCellPopover();
+      return;
+    }
+    showObsCellPopover(cellEl, true);
+  }
+
   function positionTooltip(clientX, clientY) {
     const pad = 10;
     const rect = dom.chartTooltip.getBoundingClientRect();
@@ -4664,6 +5208,13 @@
   }
 
   document.addEventListener('pointerover', (e) => {
+    const obsCell = e.target.closest?.('[data-obs-cell="1"]');
+    if (obsCell) {
+      if (!state.obsPinnedCell && !state.obsMetricMenuOpen) {
+        showObsCellPopover(obsCell, false);
+      }
+      return;
+    }
     const tipEl = e.target.closest?.('[data-tip]');
     if (!tipEl) return;
     if (tipEl.classList.contains('help-tip')) {
@@ -4685,6 +5236,13 @@
   });
 
   document.addEventListener('pointerout', (e) => {
+    const fromObs = e.target.closest?.('[data-obs-cell="1"]');
+    if (fromObs) {
+      const toObs = e.relatedTarget?.closest?.('[data-obs-cell="1"]');
+      if (!toObs && !state.obsPinnedCell) {
+        hideObsCellPopover();
+      }
+    }
     const fromTip = e.target.closest?.('[data-tip]');
     if (!fromTip) return;
     const toTip = e.relatedTarget?.closest?.('[data-tip]');
@@ -4714,6 +5272,53 @@
   });
 
   document.addEventListener('click', (e) => {
+    if (e.target.closest?.('[data-obs-pop-close="1"]')) {
+      e.preventDefault();
+      e.stopPropagation();
+      dismissObsCellPopover();
+      return;
+    }
+
+    const obsCell = e.target.closest?.('[data-obs-cell="1"]');
+    if (obsCell) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (state.obsMetricMenuOpen) {
+        state.obsMetricMenuOpen = false;
+        renderGrid();
+      }
+      const mIdx = Number(obsCell.dataset.modelIdx);
+      const bk = obsCell.dataset.bucketKey;
+      const same =
+        state.obsPinnedCell &&
+        state.obsPinnedCell.modelIdx === mIdx &&
+        state.obsPinnedCell.bucketKey === bk;
+      if (same) {
+        dismissObsCellPopover();
+      } else {
+        const prev = dom.modulesGrid.querySelector('.heat-cell.is-pinned');
+        if (prev) prev.classList.remove('is-pinned');
+        state.obsPinnedCell = { modelIdx: mIdx, bucketKey: bk };
+        const freshCell = dom.modulesGrid.querySelector(
+          `[data-obs-cell="1"][data-model-idx="${mIdx}"][data-bucket-key="${CSS.escape(bk)}"]`
+        );
+        if (freshCell) {
+          freshCell.classList.add('is-pinned');
+          showObsCellPopover(freshCell, true);
+        }
+      }
+      return;
+    }
+
+    if (state.obsPinnedCell && !e.target.closest?.('#obs-cell-popover')) {
+      dismissObsCellPopover();
+    }
+
+    if (state.obsMetricMenuOpen && !e.target.closest?.('.obs-metric-ctrl')) {
+      state.obsMetricMenuOpen = false;
+      renderGrid();
+    }
+
     const helpBtn = e.target.closest?.('.help-tip[data-tip]');
     if (helpBtn) {
       e.preventDefault();
@@ -4732,6 +5337,31 @@
       dismissHelpPin();
     }
   });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if (state.obsPinnedCell) dismissObsCellPopover();
+      if (state.obsMetricMenuOpen) {
+        state.obsMetricMenuOpen = false;
+        renderGrid();
+      }
+      return;
+    }
+    if (e.key === 'Enter' || e.key === ' ') {
+      const obsCell = e.target.closest?.('[data-obs-cell="1"]');
+      if (obsCell) {
+        e.preventDefault();
+        obsCell.click();
+      }
+    }
+  });
+
+  window.addEventListener('resize', () => {
+    if (state.obsPinnedCell) syncPinnedObsPopover();
+  });
+  window.addEventListener('scroll', () => {
+    if (state.obsPinnedCell) syncPinnedObsPopover();
+  }, true);
 
   const mqWide = window.matchMedia('(min-width: 680px)');
   mqWide.addEventListener('change', (ev) => {

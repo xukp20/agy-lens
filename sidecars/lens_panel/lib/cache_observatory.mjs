@@ -3,7 +3,7 @@
  * Analyzes consecutive turn transitions per conversation to detect unexpected 0% misses,
  * boundary cuts, bounce-backs, idle-gap decay curves, and excess API cost penalties.
  */
-import { calcMissPenaltyUsd } from './pricing.mjs';
+import { calcMissPenaltyUsd, calculateTurnCost } from './pricing.mjs';
 
 export const GAP_BUCKETS = ['<=2s', '2-5s', '5-10s', '10-20s', '20-60s', '1-5m', '>5m'];
 const GAP_THRESHOLDS_MS = [2000, 5000, 10000, 20000, 60000, 300000];
@@ -157,8 +157,9 @@ function queryConversationTurns(cacheDb, { sources, fromMs, toMs, workspace = ''
     SELECT
       t.conversation_id, t.step_idx, t.source,
       t.created_at_ms, t.completed_at_ms,
-      t.canonical_model_id, t.display_name,
+      t.canonical_model_id, t.display_name, t.pool,
       t.uncached_in, t.cache_read, t.cache_create,
+      t.thinking_out, t.visible_out, t.total_out,
       t.provider_request_id
     FROM turns t
     WHERE t.source IN (${placeholders})
@@ -228,11 +229,13 @@ export function analyzeTurnsForObservatory(rows, pricingState, { fromMs = 0, toM
 
       const prevUncached = prev.uncached_in || 0;
       const prevCacheRead = prev.cache_read || 0;
+      const prevCacheCreate = prev.cache_create || 0;
       const curUncached = cur.uncached_in || 0;
       const curCacheRead = cur.cache_read || 0;
+      const curCacheCreate = cur.cache_create || 0;
 
-      const prevTotalIn = prevUncached + prevCacheRead;
-      const curTotalIn = curUncached + curCacheRead;
+      const prevTotalIn = prevUncached + prevCacheRead + prevCacheCreate;
+      const curTotalIn = curUncached + curCacheRead + curCacheCreate;
       const prevHit = prevTotalIn > 0 ? prevCacheRead / prevTotalIn : 0;
       const curHit = curTotalIn > 0 ? curCacheRead / curTotalIn : 0;
 
@@ -274,7 +277,9 @@ export function analyzeTurnsForObservatory(rows, pricingState, { fromMs = 0, toM
         continue;
       }
 
-      const nextTotalIn = next ? (next.uncached_in || 0) + (next.cache_read || 0) : 0;
+      const nextTotalIn = next
+        ? (next.uncached_in || 0) + (next.cache_read || 0) + (next.cache_create || 0)
+        : 0;
       const nextHit = next && nextTotalIn > 0 ? (next.cache_read || 0) / nextTotalIn : null;
       const nextSameModel = Boolean(
         next &&
@@ -304,6 +309,10 @@ export function analyzeTurnsForObservatory(rows, pricingState, { fromMs = 0, toM
         boundaryCuts++;
       }
 
+      const turnCost = pricingState ? calculateTurnCost(cur, pricingState) : null;
+      const costUsd = turnCost && !turnCost.unpriced ? turnCost.costUsd : 0;
+      const cacheSavedUsd = turnCost && !turnCost.unpriced ? turnCost.cacheSavedUsd : 0;
+
       if (bounceBack) bounceBackCount++;
       totalWastedTokens += wastedTokens;
       totalMissPenaltyUsd += penaltyUsd;
@@ -318,27 +327,53 @@ export function analyzeTurnsForObservatory(rows, pricingState, { fromMs = 0, toM
       if (!m) {
         const bucketMap = new Map();
         for (const key of GAP_BUCKETS) {
-          bucketMap.set(key, { key, total: 0, hits: 0, misses: 0, sumHitRatio: 0 });
+          bucketMap.set(key, {
+            key,
+            total: 0,
+            hits: 0,
+            misses: 0,
+            sumHitRatio: 0,
+            cacheReadSum: 0,
+            totalInSum: 0,
+            costUsd: 0,
+            cacheSavedUsd: 0,
+            unexpectedFullMisses: 0,
+            boundaryCuts: 0,
+            bounceBacks: 0,
+            wastedTokens: 0,
+            missPenaltyUsd: 0,
+          });
         }
         m = {
           canonicalId: modelId,
           displayName,
           followUpTurns: 0,
+          hits: 0,
+          misses: 0,
+          sumHitRatio: 0,
           cacheReadSum: 0,
           totalInSum: 0,
+          costUsd: 0,
+          cacheSavedUsd: 0,
           unexpectedFullMisses: 0,
           boundaryCuts: 0,
           bounceBacks: 0,
           wastedTokens: 0,
           missPenaltyUsd: 0,
+          unbucketedTurns: 0,
           bucketMap,
         };
         modelStats.set(modelId, m);
       }
 
       m.followUpTurns++;
+      if (kind === 'hit') m.hits++;
+      else m.misses++;
+      m.sumHitRatio += curHit;
       m.cacheReadSum += curCacheRead;
       m.totalInSum += curTotalIn;
+      m.costUsd += costUsd;
+      m.cacheSavedUsd += cacheSavedUsd;
       if (kind === 'unexpected_full_miss') m.unexpectedFullMisses++;
       if (kind === 'boundary_cut') m.boundaryCuts++;
       if (bounceBack) m.bounceBacks++;
@@ -352,6 +387,17 @@ export function analyzeTurnsForObservatory(rows, pricingState, { fromMs = 0, toM
         if (kind === 'hit') b.hits++;
         else b.misses++;
         b.sumHitRatio += curHit;
+        b.cacheReadSum += curCacheRead;
+        b.totalInSum += curTotalIn;
+        b.costUsd += costUsd;
+        b.cacheSavedUsd += cacheSavedUsd;
+        if (kind === 'unexpected_full_miss') b.unexpectedFullMisses++;
+        if (kind === 'boundary_cut') b.boundaryCuts++;
+        if (bounceBack) b.bounceBacks++;
+        b.wastedTokens += wastedTokens;
+        b.missPenaltyUsd += penaltyUsd;
+      } else {
+        m.unbucketedTurns++;
       }
 
       if (idleGapMs !== null) {
@@ -410,12 +456,24 @@ export function analyzeTurnsForObservatory(rows, pricingState, { fromMs = 0, toM
       canonicalId: m.canonicalId,
       displayName: m.displayName,
       followUpTurns: m.followUpTurns,
+      hits: m.hits,
+      misses: m.misses,
+      hitRate: m.followUpTurns > 0 ? m.hits / m.followUpTurns : null,
       weightedHitRatio: m.totalInSum > 0 ? m.cacheReadSum / m.totalInSum : 0,
+      avgHitRatio: m.followUpTurns > 0 ? m.sumHitRatio / m.followUpTurns : null,
+      cacheReadSum: m.cacheReadSum,
+      totalInSum: m.totalInSum,
+      avgContextTokens: m.followUpTurns > 0 ? m.totalInSum / m.followUpTurns : 0,
+      costUsd: m.costUsd,
+      avgCostUsd: m.followUpTurns > 0 ? m.costUsd / m.followUpTurns : 0,
+      cacheSavedUsd: m.cacheSavedUsd,
       unexpectedFullMisses: m.unexpectedFullMisses,
       boundaryCuts: m.boundaryCuts,
       bounceBacks: m.bounceBacks,
       wastedTokens: m.wastedTokens,
       missPenaltyUsd: m.missPenaltyUsd,
+      avgMissPenaltyUsd: m.followUpTurns > 0 ? m.missPenaltyUsd / m.followUpTurns : 0,
+      unbucketedTurns: m.unbucketedTurns,
       buckets: GAP_BUCKETS.map((key) => {
         const b = m.bucketMap.get(key);
         return {
@@ -424,7 +482,20 @@ export function analyzeTurnsForObservatory(rows, pricingState, { fromMs = 0, toM
           hits: b.hits,
           misses: b.misses,
           hitRate: b.total > 0 ? b.hits / b.total : null,
+          weightedHitRatio: b.totalInSum > 0 ? b.cacheReadSum / b.totalInSum : null,
           avgHitRatio: b.total > 0 ? b.sumHitRatio / b.total : null,
+          cacheReadSum: b.cacheReadSum,
+          totalInSum: b.totalInSum,
+          avgContextTokens: b.total > 0 ? b.totalInSum / b.total : 0,
+          costUsd: b.costUsd,
+          avgCostUsd: b.total > 0 ? b.costUsd / b.total : 0,
+          cacheSavedUsd: b.cacheSavedUsd,
+          unexpectedFullMisses: b.unexpectedFullMisses,
+          boundaryCuts: b.boundaryCuts,
+          bounceBacks: b.bounceBacks,
+          wastedTokens: b.wastedTokens,
+          missPenaltyUsd: b.missPenaltyUsd,
+          avgMissPenaltyUsd: b.total > 0 ? b.missPenaltyUsd / b.total : 0,
         };
       }),
     }))
