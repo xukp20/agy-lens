@@ -609,136 +609,235 @@ def render_hero_dual_theme() -> Path:
 
 
 # ---------------------------------------------------------------------------
-# 2. Global Cache Observatory Showcase (Dark Theme)
+# 2. Global Cache Observatory Showcase (v1.3.0 Dark Theme + Popover Callouts)
 # ---------------------------------------------------------------------------
 def build_cache_observatory_svg() -> str:
     th = DARK
-    W, H = 1120, 704
+    W, H = 1380, 774
     parts: list[str] = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}">',
         f'<rect width="{W}" height="{H}" fill="{th["bg"]}"/>',
     ]
 
-    # Card container
-    cx, cy, cw, ch = 16, 16, W - 32, H - 32
+    # Left main Observatory card container
+    cx, cy, cw, ch = 14, 14, 972, H - 28
+    right_x = cx + cw
     parts.append(f'<rect x="{cx}" y="{cy}" width="{cw}" height="{ch}" rx="12" fill="{th["surface"]}" stroke="{th["card_border"]}" stroke-width="1"/>')
 
     # Card header
     obs_title = "Global Cache Observatory"
-    parts.append(f'<text x="34" y="44" font-family="{FONT_UI}" font-size="14.5" font-weight="700" fill="{th["fg"]}">{obs_title}</text>')
-    parts.append(svg_help_dot(34 + text_w(obs_title, 14.5, bold=True) + 12, 39.5, th))
-    p_badge, _ = svg_pill(W - 150, 29, "14 0%-misses", th["bad_bg"], th["bad"], font_size=10.5, h=20, pad_x=9, mono=True)
+    parts.append(f'<text x="32" y="42" font-family="{FONT_UI}" font-size="14.5" font-weight="700" fill="{th["fg"]}">{obs_title}</text>')
+    parts.append(svg_help_dot(32 + text_w(obs_title, 14.5, bold=True) + 12, 37.5, th))
+    p_badge, _ = svg_pill(right_x - 148, 27, "64 0%-misses", th["bad_bg"], th["bad"], font_size=10.5, h=20, pad_x=9, mono=True)
     parts.append(p_badge)
-    parts.append(svg_chevron(W - 36, 39.5, th["fg_muted"], up=True))
+    parts.append(svg_chevron(right_x - 24, 37.5, th["fg_muted"], up=True))
 
     # 4 KPI tiles
     kpis = [
-        ("Follow-up Hit %", "84.9%", "358 follow-up turns", th["warn"]),
-        ("Unexpected 0% Misses", "14", "12 bounce-backs", th["bad"]),
-        ("Boundary Cuts", "2", "0 switch · 0 compact", th["warn"]),
-        ("Miss Penalty", "$14.82", "3.12M wasted", th["bad"]),
+        ("Follow-up Hit %", "85.6%", "1,420 follow-up turns", th["ok"]),
+        ("Unexpected 0% Misses", "64", "48 bounce-backs", th["bad"]),
+        ("Boundary Cuts", "11", "6 switch · 4 compact", th["warn"]),
+        ("Miss Penalty", "$48.60", "9.84M wasted", th["bad"]),
     ]
     kw = (cw - 36 - 24) / 4
     for i, (lbl, val, sub, col) in enumerate(kpis):
-        kx = 34 + i * (kw + 8)
-        ky = 62
+        kx = 32 + i * (kw + 8)
+        ky = 58
         parts.append(f'<rect x="{kx:.1f}" y="{ky}" width="{kw:.1f}" height="58" rx="7" fill="{th["field"]}"/>')
         parts.append(f'<text x="{kx + 12:.1f}" y="{ky + 18}" font-family="{FONT_UI}" font-size="11" fill="{th["fg_muted"]}">{lbl}</text>')
         parts.append(f'<text x="{kx + 12:.1f}" y="{ky + 38}" font-family="{FONT_MONO}" font-size="16" font-weight="700" fill="{col}">{val}</text>')
         parts.append(f'<text x="{kx + 12:.1f}" y="{ky + 51}" font-family="{FONT_MONO}" font-size="10" fill="{th["fg_muted"]}">{sub}</text>')
 
-    parts.append(f'<line x1="34" y1="134" x2="{W - 34}" y2="134" stroke="{th["line"]}" stroke-width="1"/>')
+    parts.append(f'<line x1="32" y1="128" x2="{right_x - 18}" y2="128" stroke="{th["line"]}" stroke-width="1"/>')
 
-    # Section 1: Model x Idle-Gap Hit-Rate Matrix
-    parts.append(f'<text x="34" y="156" font-family="{FONT_UI}" font-size="12" font-weight="700" fill="{th["fg"]}">Model × Idle-Gap Hit-Rate Matrix</text>')
-    parts.append(f'<text x="{W - 34}" y="156" text-anchor="end" font-family="{FONT_UI}" font-size="11" fill="{th["fg_muted"]}">Excl. Turn-0 cold starts · cell shows hit %</text>')
+    # Section 1: Model x Idle-Gap Configurable Metric Matrix
+    parts.append(f'<text x="32" y="151" font-family="{FONT_UI}" font-size="12" font-weight="700" fill="{th["fg"]}">Model × Idle-Gap Matrix</text>')
 
-    mx, my, mw = 34, 166, cw - 36
-    row_h = 34
-    hdr_h = 28
-    # Column widths: Model (240), All (72), 7 buckets (~105.7 each)
+    # Active Metric Trigger Pill ("Hit % +2 ▾")
+    trig_w, trig_h = 88.0, 22.0
+    trig_x = right_x - 18 - trig_w
+    trig_y = 136.0
+    parts.append(
+        f'<rect x="{trig_x:.1f}" y="{trig_y:.1f}" width="{trig_w:.1f}" height="{trig_h:.1f}" rx="11" '
+        f'fill="{th["accent_bg"]}" stroke="{th["accent"]}" stroke-width="1.2"/>'
+    )
+    parts.append(
+        f'<text x="{trig_x + trig_w/2:.1f}" y="{trig_y + 14.8:.1f}" text-anchor="middle" '
+        f'font-family="{FONT_UI}" font-size="10.5" font-weight="600" fill="{th["fg"]}">Hit % +2 ▾</text>'
+    )
+
+    # Legend line
+    parts.append(
+        f'<text x="32" y="168" font-family="{FONT_UI}" font-size="10.2" fill="{th["fg_muted"]}">'
+        f'Primary: Token Hit Ratio · Sub: Keep % / $/turn · Hover preview / Click to pin</text>'
+    )
+
+    mx, my, mw = 32, 178, cw - 36
+    hdr_h = 26
+    row_h = 46
     cols = ["Model", "All", "<=2s", "2-5s", "5-10s", "10-20s", "20-60s", "1-5m", ">5m"]
-    col_w = [240.0, 74.0] + [(mw - 314.0) / 7.0] * 7
+    col_w = [208.0, 86.0] + [(mw - 294.0) / 7.0] * 7
+
+    # Synthetic yet realistic curves mirroring real TTL decay & >5m cost surge
+    # Each entry: (tokenHit%, keepRate%, avgCostStr) or None
     matrix_rows = [
-        ("Gemini 4 Neon (High)", "173t · 14m", [79, 96, 95, 76, 50, 72, 78, 74]),
-        ("Claude Opus 5.5 (High)", "80t", [99, 100, 100, 100, 100, 100, 100, 100]),
-        ("Gemini 4 Hydrogen (High)", "60t · 2m", [89, 100, 92, 100, 91, 89, 95, 83]),
-        ("Gemini 3.8 Flash", "45t", [94, 100, 100, 100, 100, 100, 100, 100]),
+        (
+            "Gemini 4 Neon (High)",
+            "412t · 28m",
+            [
+                (86, 90, "$0.26"),
+                (96, 98, "$0.11"),
+                (97, 99, "$0.10"),
+                (98, 100, "$0.13"),
+                (98, 100, "$0.14"),
+                (97, 99, "$0.13"),
+                (84, 88, "$0.31"),
+                (22, 25, "$1.32"),
+            ],
+        ),
+        (
+            "Gemini 4 Hydrogen (High)",
+            "586t · 14m",
+            [
+                (91, 95, "$0.04"),
+                (93, 96, "$0.04"),
+                (95, 97, "$0.03"),
+                (92, 95, "$0.04"),
+                (89, 93, "$0.05"),
+                (88, 90, "$0.05"),
+                (76, 88, "$0.04"),
+                (12, 15, "$0.29"),
+            ],
+        ),
+        (
+            "Orchestrator (Carbon)",
+            "316t · 22m",
+            [
+                (73, 77, "$0.13"),
+                (87, 89, "$0.08"),
+                (90, 91, "$0.06"),
+                (89, 91, "$0.08"),
+                (73, 79, "$0.15"),
+                (71, 76, "$0.14"),
+                (54, 61, "$0.17"),
+                (17, 14, "$0.41"),
+            ],
+        ),
+        (
+            "Claude Opus 5.5 (High)",
+            "106t",
+            [
+                (88, 93, "$0.12"),
+                (87, 92, "$0.15"),
+                (91, 97, "$0.09"),
+                (93, 100, "$0.07"),
+                (89, 95, "$0.09"),
+                (81, 85, "$0.16"),
+                (62, 68, "$0.24"),
+                None,
+            ],
+        ),
     ]
     total_mh = hdr_h + len(matrix_rows) * row_h
     parts.append(f'<rect x="{mx}" y="{my}" width="{mw}" height="{total_mh}" rx="8" fill="{th["surface"]}" stroke="{th["border"]}" stroke-width="1"/>')
     parts.append(f'<rect x="{mx}" y="{my}" width="{mw}" height="{hdr_h}" rx="8" fill="{th["field"]}"/>')
     parts.append(f'<rect x="{mx}" y="{my + hdr_h - 6}" width="{mw}" height="6" fill="{th["field"]}"/>')
 
-    # Header labels
+    # Header labels & vertical gridlines
     cx_cur = mx
     for idx, cname in enumerate(cols):
         w_c = col_w[idx]
         if idx == 0:
-            parts.append(f'<text x="{cx_cur + 12:.1f}" y="{my + 18}" font-family="{FONT_UI}" font-size="10.5" font-weight="700" fill="{th["fg_muted"]}">{esc(cname)}</text>')
+            parts.append(f'<text x="{cx_cur + 11:.1f}" y="{my + 17}" font-family="{FONT_UI}" font-size="10.2" font-weight="700" fill="{th["fg_muted"]}">{esc(cname)}</text>')
         else:
-            parts.append(f'<text x="{cx_cur + w_c/2:.1f}" y="{my + 18}" text-anchor="middle" font-family="{FONT_MONO}" font-size="10.5" font-weight="700" fill="{th["fg_muted"]}">{esc(cname)}</text>')
+            parts.append(f'<text x="{cx_cur + w_c/2:.1f}" y="{my + 17}" text-anchor="middle" font-family="{FONT_MONO}" font-size="10.2" font-weight="700" fill="{th["fg_muted"]}">{esc(cname)}</text>')
         if idx > 0:
-            parts.append(f'<line x1="{cx_cur:.1f}" y1="{my}" x2="{cx_cur:.1f}" y2="{my + total_mh}" stroke="{th["line"]}" stroke-width="1"/>')
+            sw_line = "1.6" if idx == 2 else "1"
+            sc_line = th["card_border"] if idx == 2 else th["line"]
+            parts.append(f'<line x1="{cx_cur:.1f}" y1="{my}" x2="{cx_cur:.1f}" y2="{my + total_mh}" stroke="{sc_line}" stroke-width="{sw_line}"/>')
         cx_cur += w_c
 
     def cell_colors(rate: int) -> tuple[str, str]:
-        if rate >= 90:
+        if rate >= 85:
             return th["heat_deep_bg"], th["ok"]
-        if rate >= 75:
+        if rate >= 65:
             return th["heat_soft_bg"], th["ch_cache"]
         if rate >= 40:
             return th["heat_amber_bg"], th["warn"]
         return th["heat_coral_bg"], th["bad"]
 
-    for r_idx, (mname, mmeta, vals) in enumerate(matrix_rows):
+    pinned_anchor: tuple[float, float] = (mx + mw, my + hdr_h + row_h / 2)
+    for r_idx, (mname, mmeta, cells) in enumerate(matrix_rows):
         ry = my + hdr_h + r_idx * row_h
         parts.append(f'<line x1="{mx}" y1="{ry}" x2="{mx + mw}" y2="{ry}" stroke="{th["line"]}" stroke-width="1"/>')
-        parts.append(f'<text x="{mx + 12}" y="{ry + 14.5}" font-family="{FONT_UI}" font-size="11.5" font-weight="600" fill="{th["fg"]}">{mname}</text>')
-        parts.append(f'<text x="{mx + 12}" y="{ry + 27}" font-family="{FONT_MONO}" font-size="9.5" fill="{th["fg_muted"]}">{mmeta}</text>')
+        parts.append(f'<text x="{mx + 11}" y="{ry + 20}" font-family="{FONT_UI}" font-size="11" font-weight="600" fill="{th["fg"]}">{esc(mname)}</text>')
+        parts.append(f'<text x="{mx + 11}" y="{ry + 33}" font-family="{FONT_MONO}" font-size="9.2" fill="{th["fg_muted"]}">{esc(mmeta)}</text>')
         cx_cur = mx + col_w[0]
-        for c_idx, v in enumerate(vals):
+        for c_idx, cell in enumerate(cells):
             w_c = col_w[c_idx + 1]
-            cbg, cfg = cell_colors(v)
-            parts.append(f'<rect x="{cx_cur + 1:.1f}" y="{ry + 1:.1f}" width="{w_c - 2:.1f}" height="{row_h - 2:.1f}" fill="{cbg}"/>')
-            parts.append(
-                f'<text x="{cx_cur + w_c/2:.1f}" y="{ry + 21:.1f}" text-anchor="middle" '
-                f'font-family="{FONT_MONO}" font-size="11.5" font-weight="700" fill="{cfg}">{v}%</text>'
-            )
+            if cell is None:
+                parts.append(
+                    f'<text x="{cx_cur + w_c/2:.1f}" y="{ry + 27:.1f}" text-anchor="middle" '
+                    f'font-family="{FONT_MONO}" font-size="11" fill="{th["fg_faint"]}">—</text>'
+                )
+            else:
+                hit_p, keep_p, avg_c = cell
+                cbg, cfg = cell_colors(hit_p)
+                is_pinned = (r_idx == 0 and c_idx == 7)
+                if is_pinned:
+                    pinned_anchor = (cx_cur + w_c, ry + row_h / 2)
+                parts.append(f'<rect x="{cx_cur + 1:.1f}" y="{ry + 1:.1f}" width="{w_c - 2:.1f}" height="{row_h - 2:.1f}" fill="{cbg}"/>')
+                if is_pinned:
+                    parts.append(
+                        f'<rect x="{cx_cur + 1.5:.1f}" y="{ry + 1.5:.1f}" width="{w_c - 3:.1f}" height="{row_h - 3:.1f}" '
+                        f'fill="none" stroke="{th["accent"]}" stroke-width="1.8" rx="2"/>'
+                    )
+                parts.append(
+                    f'<text x="{cx_cur + w_c/2:.1f}" y="{ry + 15.5:.1f}" text-anchor="middle" '
+                    f'font-family="{FONT_MONO}" font-size="11" font-weight="700" fill="{cfg}">{hit_p}%</text>'
+                )
+                parts.append(
+                    f'<text x="{cx_cur + w_c/2:.1f}" y="{ry + 27.5:.1f}" text-anchor="middle" '
+                    f'font-family="{FONT_MONO}" font-size="8.6" fill="{th["fg2"]}" opacity="0.86">{keep_p}%</text>'
+                )
+                parts.append(
+                    f'<text x="{cx_cur + w_c/2:.1f}" y="{ry + 38.5:.1f}" text-anchor="middle" '
+                    f'font-family="{FONT_MONO}" font-size="8.6" fill="{th["fg2"]}" opacity="0.86">{esc(avg_c)}</text>'
+                )
             cx_cur += w_c
 
     # Section 2: Idle-Gap vs Hit-Rate (Log Scale)
-    sc_top = my + total_mh + 16
-    parts.append(f'<text x="34" y="{sc_top + 12}" font-family="{FONT_UI}" font-size="12" font-weight="700" fill="{th["fg"]}">Idle-Gap vs Hit-Rate (Log Scale)</text>')
+    sc_top = my + total_mh + 14
+    parts.append(f'<text x="32" y="{sc_top + 12}" font-family="{FONT_UI}" font-size="12" font-weight="700" fill="{th["fg"]}">Idle-Gap vs Hit-Rate (Log Scale)</text>')
 
     sc_leg = [("Hit", th["ch_uncached"], "dot"), ("0% Miss", th["bad"], "dot"), ("Boundary Cut", th["warn"], "tri"), ("Low Hit", th["fg_muted"], "dot")]
-    lx = W - 34
+    lx = right_x - 18
     for lbl, col, shape in reversed(sc_leg):
         lw = len(lbl) * 6.0 + 18
         lx -= lw
         if shape == "tri":
             parts.append(f'<polygon points="{lx+4:.1f},{sc_top+4} {lx:.1f},{sc_top+11} {lx+8:.1f},{sc_top+11}" fill="{col}"/>')
         else:
-            parts.append(f'<circle cx="{lx+4:.1f}" cy="{sc_top+8}" r="3.5" fill="{col}"/>')
-        parts.append(f'<text x="{lx + 12:.1f}" y="{sc_top + 11.5}" font-family="{FONT_UI}" font-size="10.5" fill="{th["fg_muted"]}">{lbl}</text>')
+            parts.append(f'<circle cx="{lx+4:.1f}" cy="{sc_top+8}" r="3.4" fill="{col}"/>')
+        parts.append(f'<text x="{lx + 12:.1f}" y="{sc_top + 11.5}" font-family="{FONT_UI}" font-size="10.2" fill="{th["fg_muted"]}">{lbl}</text>')
 
-    box_y, box_h = sc_top + 22, 184
-    parts.append(f'<rect x="34" y="{box_y}" width="{mw}" height="{box_h}" rx="8" fill="{th["field"]}" stroke="{th["line"]}" stroke-width="1"/>')
+    box_y, box_h = sc_top + 20, 170
+    parts.append(f'<rect x="32" y="{box_y}" width="{mw}" height="{box_h}" rx="8" fill="{th["field"]}" stroke="{th["line"]}" stroke-width="1"/>')
 
     # Model filter pills inside scatter box
-    f_pills = ["All", "Gemini 4 Neon (High)", "Claude Opus 5.5 (High)", "Gemini 4 Hydrogen (High)", "Gemini 3.8 Flash"]
-    fx = 44.0
+    f_pills = ["All", "Gemini 4 Neon (High)", "Gemini 4 Hydrogen (High)", "Orchestrator (Carbon)", "Claude Opus 5.5 (High)"]
+    fx = 42.0
     for idx, fp in enumerate(f_pills):
-        fw = len(fp) * 6.1 + 16
+        fw = text_w(fp, 10.2, bold=True) + 16
         active = idx == 0
         fbg = th["accent_bg"] if active else th["fill"]
         ffg = th["accent"] if active else th["fg_muted"]
-        parts.append(f'<rect x="{fx:.1f}" y="{box_y + 10}" width="{fw:.1f}" height="21" rx="5" fill="{fbg}"/>')
-        parts.append(f'<text x="{fx + fw/2:.1f}" y="{box_y + 24}" text-anchor="middle" font-family="{FONT_UI}" font-size="10.5" font-weight="600" fill="{ffg}">{fp}</text>')
+        parts.append(f'<rect x="{fx:.1f}" y="{box_y + 9}" width="{fw:.1f}" height="20" rx="5" fill="{fbg}"/>')
+        parts.append(f'<text x="{fx + fw/2:.1f}" y="{box_y + 22.5}" text-anchor="middle" font-family="{FONT_UI}" font-size="10.2" font-weight="600" fill="{ffg}">{esc(fp)}</text>')
         fx += fw + 6
 
     # Plot grid
-    pl, pr, pt, pb = 78.0, W - 52.0, box_y + 44.0, box_y + box_h - 24.0
+    pl, pr, pt, pb = 74.0, right_x - 36.0, box_y + 42.0, box_y + box_h - 22.0
     pw_plot = pr - pl
     ph_plot = pb - pt
     log_min, log_max = math.log10(500), math.log10(600000)
@@ -758,59 +857,226 @@ def build_cache_observatory_svg() -> str:
     for ms_val, ms_lbl in [(1000, "1s"), (5000, "5s"), (20000, "20s"), (60000, "1m"), (300000, "5m")]:
         xx = x_for_ms(ms_val)
         parts.append(f'<line x1="{xx:.1f}" y1="{pt}" x2="{xx:.1f}" y2="{pb}" stroke="{th["border"]}" stroke-width="1" stroke-dasharray="3,3"/>')
-        parts.append(f'<text x="{xx:.1f}" y="{pb + 14}" text-anchor="middle" font-family="{FONT_MONO}" font-size="9.5" fill="{th["fg_muted"]}">{ms_lbl}</text>')
+        parts.append(f'<text x="{xx:.1f}" y="{pb + 13}" text-anchor="middle" font-family="{FONT_MONO}" font-size="9.5" fill="{th["fg_muted"]}">{ms_lbl}</text>')
 
-    # Deterministic realistic scatter points
+    # Deterministic realistic scatter points reflecting >5m TTL cliff + occasional mid-gap drops
     rng = random.Random(1533)
-    for _ in range(130):
-        ms = 10 ** rng.uniform(math.log10(650), math.log10(520000))
-        hr = rng.uniform(0.88, 0.99)
-        parts.append(f'<circle cx="{x_for_ms(ms):.1f}" cy="{y_for_r(hr):.1f}" r="3.1" fill="{th["ch_uncached"]}" fill-opacity="0.58"/>')
-    for _ in range(9):
-        ms = 10 ** rng.uniform(math.log10(5500), math.log10(95000))
-        hr = rng.uniform(0.45, 0.72)
-        parts.append(f'<circle cx="{x_for_ms(ms):.1f}" cy="{y_for_r(hr):.1f}" r="2.8" fill="{th["fg_muted"]}" fill-opacity="0.62"/>')
-    # Unexpected 0% misses concentrated in 5s..90s (#1533 pattern)
-    miss_gaps = [4200, 6800, 8900, 11200, 13400, 15800, 17300, 19500, 24000, 32700, 48000, 75000, 130000, 290000]
+    for _ in range(135):
+        ms = 10 ** rng.uniform(math.log10(620), math.log10(260000))
+        hr = rng.uniform(0.86, 0.99)
+        parts.append(f'<circle cx="{x_for_ms(ms):.1f}" cy="{y_for_r(hr):.1f}" r="3.0" fill="{th["ch_uncached"]}" fill-opacity="0.56"/>')
+    for _ in range(14):
+        ms = 10 ** rng.uniform(math.log10(8000), math.log10(420000))
+        hr = rng.uniform(0.38, 0.74)
+        parts.append(f'<circle cx="{x_for_ms(ms):.1f}" cy="{y_for_r(hr):.1f}" r="2.7" fill="{th["fg_muted"]}" fill-opacity="0.62"/>')
+    miss_gaps = [4800, 11500, 16200, 24000, 46000, 82000, 145000, 230000, 315000, 350000, 395000, 440000, 490000, 540000, 580000]
     for ms in miss_gaps:
         cx_p, cy_p = x_for_ms(ms), y_for_r(0.0)
-        parts.append(f'<circle cx="{cx_p:.1f}" cy="{cy_p:.1f}" r="4.5" fill="{th["bad"]}" fill-opacity="0.94" stroke="{th["surface"]}" stroke-width="1"/>')
-    # 2 Boundary cuts
-    for ms, hr in [(9400, 0.11), (22500, 0.14)]:
+        parts.append(f'<circle cx="{cx_p:.1f}" cy="{cy_p:.1f}" r="4.3" fill="{th["bad"]}" fill-opacity="0.93" stroke="{th["surface"]}" stroke-width="0.9"/>')
+    for ms, hr in [(12400, 0.14), (58000, 0.21), (185000, 0.12), (340000, 0.18)]:
         cx_p, cy_p = x_for_ms(ms), y_for_r(hr)
-        parts.append(f'<polygon points="{cx_p:.1f},{cy_p-5:.1f} {cx_p-4.5:.1f},{cy_p+4:.1f} {cx_p+4.5:.1f},{cy_p+4:.1f}" fill="{th["warn"]}" stroke="{th["surface"]}" stroke-width="0.8"/>')
+        parts.append(f'<polygon points="{cx_p:.1f},{cy_p-4.8:.1f} {cx_p-4.3:.1f},{cy_p+3.8:.1f} {cx_p+4.3:.1f},{cy_p+3.8:.1f}" fill="{th["warn"]}" stroke="{th["surface"]}" stroke-width="0.8"/>')
 
-    # Section 3: Action buttons & Top Anomaly Rows
-    act_y = box_y + box_h + 14
-    parts.append(f'<rect x="34" y="{act_y}" width="174" height="27" rx="6" fill="{th["surface"]}" stroke="{th["border"]}" stroke-width="1"/>')
-    parts.append(f'<text x="121" y="{act_y + 17.5}" text-anchor="middle" font-family="{FONT_UI}" font-size="11.5" font-weight="500" fill="{th["fg"]}">Hide Top Anomalies (16)</text>')
+    # Section 3: Action buttons & Top 2 Anomalies
+    act_y = box_y + box_h + 12
+    parts.append(f'<rect x="32" y="{act_y}" width="174" height="26" rx="6" fill="{th["surface"]}" stroke="{th["border"]}" stroke-width="1"/>')
+    parts.append(f'<text x="119" y="{act_y + 16.5}" text-anchor="middle" font-family="{FONT_UI}" font-size="11" font-weight="500" fill="{th["fg"]}">Hide Top Anomalies (20)</text>')
 
-    parts.append(f'<rect x="{W - 34 - 168}" y="{act_y}" width="168" height="27" rx="6" fill="{th["accent_bg"]}" stroke="{th["accent_border"]}" stroke-width="1"/>')
-    parts.append(f'<text x="{W - 34 - 84}" y="{act_y + 17.5}" text-anchor="middle" font-family="{FONT_UI}" font-size="11.5" font-weight="600" fill="{th["accent"]}">Copy Issue Markdown</text>')
+    parts.append(f'<rect x="{right_x - 18 - 166}" y="{act_y}" width="166" height="26" rx="6" fill="{th["accent_bg"]}" stroke="{th["accent_border"]}" stroke-width="1"/>')
+    parts.append(f'<text x="{right_x - 18 - 83}" y="{act_y + 16.5}" text-anchor="middle" font-family="{FONT_UI}" font-size="11" font-weight="600" fill="{th["accent"]}">Copy Issue Markdown</text>')
 
-    # 2 Top Anomaly rows
     anomalies = [
-        ("Gemini 4 Neon (High)", "Unexpected 0% Miss", True, "-$1.33", "232.8k tok", "Idle 17.3s / Start 25.0s", "92% → 0% → 97%", "req_demo_1146", th["bad_bg"], th["bad"]),
-        ("Gemini 4 Neon (High)", "Boundary Cut", True, "-$1.14", "204.2k tok", "Idle 9.4s / Start 14.2s", "93% → 11% → 96%", "req_demo_1189", th["warn_bg"], th["warn"]),
+        ("Gemini 4 Neon (High)", "Unexpected 0% Miss", True, "-$1.42", "218.4k tok", "Idle 6m14s / Start 6m28s", "96% → 0% → 97%", "req_demo_4108", th["bad_bg"], th["bad"]),
+        ("Orchestrator (Carbon)", "Boundary Cut", True, "-$0.74", "164.2k tok", "Idle 1m32s / Start 1m44s", "91% → 14% → 93%", "req_demo_4192", th["warn_bg"], th["warn"]),
     ]
-    ay = act_y + 36
+    ay = act_y + 34
     for mname, kind_lbl, bounce, pen, tok, gap_s, seq_s, req_id, kbg, kfg in anomalies:
-        parts.append(f'<rect x="34" y="{ay}" width="{mw}" height="46" rx="7" fill="{th["field"]}" stroke="{th["line"]}" stroke-width="1"/>')
-        parts.append(f'<text x="46" y="{ay + 19}" font-family="{FONT_UI}" font-size="11.5" font-weight="700" fill="{th["fg"]}">{esc(mname)}</text>')
-        px_tag = 46 + text_w(mname, 11.5, bold=True) + 10
-        pk, pkw = svg_pill(px_tag, ay + 6, kind_lbl, kbg, kfg, font_size=9.5, h=18, pad_x=7)
+        parts.append(f'<rect x="32" y="{ay}" width="{mw}" height="44" rx="7" fill="{th["field"]}" stroke="{th["line"]}" stroke-width="1"/>')
+        parts.append(f'<text x="44" y="{ay + 18}" font-family="{FONT_UI}" font-size="11" font-weight="700" fill="{th["fg"]}">{esc(mname)}</text>')
+        px_tag = 44 + text_w(mname, 11, bold=True) + 9
+        pk, pkw = svg_pill(px_tag, ay + 5, kind_lbl, kbg, kfg, font_size=9.2, h=17, pad_x=7)
         parts.append(pk)
         if bounce:
-            pb_p, _ = svg_pill(px_tag + pkw + 6, ay + 6, "Bounce-Back", th["ok_bg"], th["ok"], font_size=9.5, h=18, pad_x=7)
+            pb_p, _ = svg_pill(px_tag + pkw + 6, ay + 5, "Bounce-Back", th["ok_bg"], th["ok"], font_size=9.2, h=17, pad_x=7)
             parts.append(pb_p)
         tok_s = f"({tok})"
-        parts.append(f'<text x="{W - 46}" y="{ay + 19}" text-anchor="end" font-family="{FONT_MONO}" font-size="11" fill="{th["fg_muted"]}">{esc(tok_s)}</text>')
-        tok_w = text_w(tok_s, 11, mono=True)
-        parts.append(f'<text x="{W - 46 - tok_w - 6:.1f}" y="{ay + 19}" text-anchor="end" font-family="{FONT_MONO}" font-size="11.5" font-weight="700" fill="{th["bad"]}">{esc(pen)}</text>')
-        parts.append(f'<text x="46" y="{ay + 36}" font-family="{FONT_MONO}" font-size="10.5" fill="{th["fg_muted"]}">{esc(gap_s)}</text>')
-        parts.append(f'<text x="{W/2:.1f}" y="{ay + 36}" text-anchor="middle" font-family="{FONT_MONO}" font-size="10.5" fill="{th["fg2"]}">{esc(seq_s)}</text>')
-        parts.append(f'<text x="{W - 46}" y="{ay + 36}" text-anchor="end" font-family="{FONT_MONO}" font-size="10.5" fill="{th["fg_muted"]}">{esc(req_id)}</text>')
-        ay += 52
+        parts.append(f'<text x="{right_x - 30}" y="{ay + 18}" text-anchor="end" font-family="{FONT_MONO}" font-size="10.5" fill="{th["fg_muted"]}">{esc(tok_s)}</text>')
+        tok_w = text_w(tok_s, 10.5, mono=True)
+        parts.append(f'<text x="{right_x - 30 - tok_w - 6:.1f}" y="{ay + 18}" text-anchor="end" font-family="{FONT_MONO}" font-size="11" font-weight="700" fill="{th["bad"]}">{esc(pen)}</text>')
+        parts.append(f'<text x="44" y="{ay + 34}" font-family="{FONT_MONO}" font-size="10" fill="{th["fg_muted"]}">{esc(gap_s)}</text>')
+        parts.append(f'<text x="{cx + cw/2:.1f}" y="{ay + 34}" text-anchor="middle" font-family="{FONT_MONO}" font-size="10" fill="{th["fg2"]}">{esc(seq_s)}</text>')
+        parts.append(f'<text x="{right_x - 30}" y="{ay + 34}" text-anchor="end" font-family="{FONT_MONO}" font-size="10" fill="{th["fg_muted"]}">{esc(req_id)}</text>')
+        ay += 50
+
+    # =========================================================================
+    # Right Callout Column: Interactive Popovers (Config + Pinned Cell Detail)
+    # =========================================================================
+    pop_x = 1018
+    pop_w = W - pop_x - 16  # 346px
+
+    # 1) Metric Config Popover (Top Right)
+    mp_y = 48
+    mp_h = 264
+    parts.append(
+        f'<text x="{pop_x + 2}" y="{mp_y - 10}" font-family="{FONT_MONO}" font-size="9.5" font-weight="700" '
+        f'letter-spacing="0.8" fill="{th["fg_muted"]}">METRIC CONFIG POPOVER</text>'
+    )
+    # Connector from Hit % +2 trigger to Metric Config Popover
+    parts.append(
+        f'<path d="M {trig_x + trig_w:.1f},{trig_y + trig_h/2:.1f} C {trig_x + trig_w + 22:.1f},{trig_y + trig_h/2:.1f} '
+        f'{pop_x - 22:.1f},{mp_y + 30:.1f} {pop_x:.1f},{mp_y + 30:.1f}" '
+        f'fill="none" stroke="{th["accent"]}" stroke-width="1.3" stroke-dasharray="4,3" opacity="0.85"/>'
+    )
+    parts.append(f'<circle cx="{trig_x + trig_w:.1f}" cy="{trig_y + trig_h/2:.1f}" r="3" fill="{th["accent"]}"/>')
+    parts.append(f'<circle cx="{pop_x:.1f}" cy="{mp_y + 30:.1f}" r="3" fill="{th["accent"]}"/>')
+
+    parts.append(
+        f'<rect x="{pop_x}" y="{mp_y}" width="{pop_w}" height="{mp_h}" rx="10" '
+        f'fill="{th["surface"]}" stroke="{th["accent_border"]}" stroke-width="1.2"/>'
+    )
+    # Popover header
+    parts.append(f'<text x="{pop_x + 14}" y="{mp_y + 24}" font-family="{FONT_UI}" font-size="12" font-weight="700" fill="{th["fg"]}">Matrix Metrics</text>')
+    parts.append(f'<text x="{pop_x + pop_w - 14}" y="{mp_y + 24}" text-anchor="end" font-family="{FONT_UI}" font-size="11" font-weight="600" fill="{th["accent"]}">Reset</text>')
+    parts.append(f'<line x1="{pop_x + 12}" y1="{mp_y + 35}" x2="{pop_x + pop_w - 12}" y2="{mp_y + 35}" stroke="{th["line"]}" stroke-width="1"/>')
+
+    # Column labels
+    c_pri_x = pop_x + pop_w - 96
+    c_sub_x = pop_x + pop_w - 34
+    parts.append(f'<text x="{pop_x + 14}" y="{mp_y + 52}" font-family="{FONT_UI}" font-size="10" font-weight="600" fill="{th["fg_muted"]}">Metric</text>')
+    parts.append(f'<text x="{c_pri_x}" y="{mp_y + 52}" text-anchor="middle" font-family="{FONT_UI}" font-size="10" font-weight="600" fill="{th["fg_muted"]}">Primary</text>')
+    parts.append(f'<text x="{c_sub_x}" y="{mp_y + 52}" text-anchor="middle" font-family="{FONT_UI}" font-size="10" font-weight="600" fill="{th["fg_muted"]}">In-Cell</text>')
+
+    cfg_metrics = [
+        ("Token Hit Ratio", True, False),
+        ("Cache Keep Rate", False, True),
+        ("Avg Cost / Turn", False, True),
+        ("Bucket Total Cost", False, False),
+        ("Miss Penalty", False, False),
+        ("Follow-up Turns", False, False),
+    ]
+    my_row = mp_y + 62
+    for label, is_pri, is_sub in cfg_metrics:
+        if is_pri:
+            parts.append(
+                f'<rect x="{pop_x + 8}" y="{my_row - 3}" width="{pop_w - 16}" height="24" rx="5" fill="{th["accent_bg"]}" opacity="0.62"/>'
+            )
+        parts.append(f'<text x="{pop_x + 14}" y="{my_row + 12.5}" font-family="{FONT_UI}" font-size="11" font-weight="{"600" if is_pri else "500"}" fill="{th["fg"]}">{esc(label)}</text>')
+        # Radio button
+        r_stroke = th["accent"] if is_pri else th["border"]
+        parts.append(f'<circle cx="{c_pri_x}" cy="{my_row + 9}" r="7" fill="{th["field"]}" stroke="{r_stroke}" stroke-width="1.3"/>')
+        if is_pri:
+            parts.append(f'<circle cx="{c_pri_x}" cy="{my_row + 9}" r="3.4" fill="{th["accent"]}"/>')
+            # Main tag
+            ptag, _ = svg_pill(c_sub_x - 19, my_row + 1, "Main", th["accent_bg"], th["accent"], font_size=9.2, h=16, pad_x=7)
+            parts.append(ptag)
+        else:
+            cb_fill = th["accent"] if is_sub else th["field"]
+            cb_stroke = th["accent"] if is_sub else th["border"]
+            parts.append(f'<rect x="{c_sub_x - 8}" y="{my_row + 1}" width="16" height="16" rx="4" fill="{cb_fill}" stroke="{cb_stroke}" stroke-width="1.2"/>')
+            if is_sub:
+                parts.append(
+                    f'<path d="M {c_sub_x - 4.2},{my_row + 9.2} L {c_sub_x - 1.2},{my_row + 12.2} L {c_sub_x + 4.4},{my_row + 5.8}" '
+                    f'fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>'
+                )
+        my_row += 26
+
+    parts.append(f'<line x1="{pop_x + 12}" y1="{mp_y + mp_h - 40}" x2="{pop_x + pop_w - 12}" y2="{mp_y + mp_h - 40}" stroke="{th["line"]}" stroke-width="1"/>')
+    parts.append(f'<text x="{pop_x + 14}" y="{mp_y + mp_h - 24}" font-family="{FONT_UI}" font-size="9.5" fill="{th["fg_muted"]}">Stack any number of in-cell sub-rows. Switching primary</text>')
+    parts.append(f'<text x="{pop_x + 14}" y="{mp_y + mp_h - 11}" font-family="{FONT_UI}" font-size="9.5" fill="{th["fg_muted"]}">automatically retains the previous primary as a sub-row.</text>')
+
+    # 2) Pinned Cell Detail Card (Bottom Right)
+    dp_y = 348
+    dp_h = 412
+    parts.append(
+        f'<text x="{pop_x + 2}" y="{dp_y - 10}" font-family="{FONT_MONO}" font-size="9.5" font-weight="700" '
+        f'letter-spacing="0.8" fill="{th["fg_muted"]}">HOVER PREVIEW / PINNED CELL DETAIL</text>'
+    )
+    # Connector from pinned >5m cell to detail card
+    pax, pay = pinned_anchor
+    parts.append(
+        f'<path d="M {pax:.1f},{pay:.1f} C {pax + 26:.1f},{pay:.1f} '
+        f'{pop_x - 28:.1f},{dp_y + 38:.1f} {pop_x:.1f},{dp_y + 38:.1f}" '
+        f'fill="none" stroke="{th["accent"]}" stroke-width="1.3" stroke-dasharray="4,3" opacity="0.85"/>'
+    )
+    parts.append(f'<circle cx="{pax:.1f}" cy="{pay:.1f}" r="3" fill="{th["accent"]}"/>')
+    parts.append(f'<circle cx="{pop_x:.1f}" cy="{dp_y + 38:.1f}" r="3" fill="{th["accent"]}"/>')
+
+    parts.append(
+        f'<rect x="{pop_x}" y="{dp_y}" width="{pop_w}" height="{dp_h}" rx="10" '
+        f'fill="{th["surface"]}" stroke="{th["accent_border"]}" stroke-width="1.2"/>'
+    )
+
+    # Detail header
+    parts.append(f'<text x="{pop_x + 14}" y="{dp_y + 25}" font-family="{FONT_UI}" font-size="11.5" font-weight="700" fill="{th["fg"]}">Gemini 4 Neon (High)</text>')
+    mn_w = text_w("Gemini 4 Neon (High)", 11.5, bold=True)
+    parts.append(f'<text x="{pop_x + 14 + mn_w + 5:.1f}" y="{dp_y + 25}" font-family="{FONT_UI}" font-size="11" fill="{th["fg_faint"]}">·</text>')
+    parts.append(f'<text x="{pop_x + 14 + mn_w + 13:.1f}" y="{dp_y + 25}" font-family="{FONT_MONO}" font-size="11" font-weight="700" fill="{th["accent"]}">&gt;5m</text>')
+    parts.append(f'<text x="{pop_x + pop_w - 38}" y="{dp_y + 25}" text-anchor="end" font-family="{FONT_MONO}" font-size="10.2" fill="{th["fg_muted"]}">24 turns</text>')
+    # Close button [x]
+    parts.append(f'<rect x="{pop_x + pop_w - 30}" y="{dp_y + 11}" width="18" height="18" rx="4" fill="{th["field"]}"/>')
+    parts.append(f'<text x="{pop_x + pop_w - 21}" y="{dp_y + 24}" text-anchor="middle" font-family="{FONT_UI}" font-size="12" fill="{th["fg_muted"]}">×</text>')
+    parts.append(f'<line x1="{pop_x + 12}" y1="{dp_y + 38}" x2="{pop_x + pop_w - 12}" y2="{dp_y + 38}" stroke="{th["line"]}" stroke-width="1"/>')
+
+    def draw_detail_row(
+        y_pos: float,
+        lbl: str,
+        val: str,
+        val_col: str,
+        tag: str = "",
+        sub_val: str = "",
+    ) -> None:
+        parts.append(f'<text x="{pop_x + 14}" y="{y_pos:.1f}" font-family="{FONT_UI}" font-size="11" fill="{th["fg_muted"]}">{esc(lbl)}</text>')
+        if tag:
+            lw_t = text_w(lbl, 11, bold=False)
+            tbg = th["accent_bg"] if tag == "Main" else th["field"]
+            tfg = th["accent"] if tag == "Main" else th["fg2"]
+            tp, _ = svg_pill(pop_x + 14 + lw_t + 6, y_pos - 11.5, tag, tbg, tfg, font_size=8.8, h=15, pad_x=5)
+            parts.append(tp)
+        rx = pop_x + pop_w - 14
+        if sub_val:
+            parts.append(f'<text x="{rx}" y="{y_pos:.1f}" text-anchor="end" font-family="{FONT_MONO}" font-size="9.6" fill="{th["fg_muted"]}">{esc(sub_val)}</text>')
+            sw = text_w(sub_val, 9.6, mono=True)
+            parts.append(f'<text x="{rx - sw - 5:.1f}" y="{y_pos:.1f}" text-anchor="end" font-family="{FONT_MONO}" font-size="11" font-weight="700" fill="{val_col}">{esc(val)}</text>')
+        else:
+            parts.append(f'<text x="{rx}" y="{y_pos:.1f}" text-anchor="end" font-family="{FONT_MONO}" font-size="11" font-weight="700" fill="{val_col}">{esc(val)}</text>')
+
+    # Group 1: Cache Performance
+    dy = dp_y + 58
+    draw_detail_row(dy, "Token Hit Ratio", "22.4%", th["bad"], tag="Main", sub_val="(avg 24.8%)")
+    dy += 26
+    draw_detail_row(dy, "Cache Keep Rate", "25.0% (6/24)", th["fg"], tag="Sub")
+    dy += 26
+    draw_detail_row(dy, "Anomalies", "14 0%-miss · 2 cut · 11 bounce", th["bad"])
+    dy += 14
+    parts.append(f'<line x1="{pop_x + 12}" y1="{dy}" x2="{pop_x + pop_w - 12}" y2="{dy}" stroke="{th["line"]}" stroke-width="1"/>')
+
+    # Group 2: Cost & Impact
+    dy += 22
+    draw_detail_row(dy, "Avg Cost / Turn", "$1.32", th["fg"], tag="Sub")
+    dy += 26
+    draw_detail_row(dy, "Bucket Total Cost", "$31.68", th["fg"])
+    dy += 26
+    draw_detail_row(dy, "Miss Penalty", "$19.45", th["bad"], sub_val="($0.81/t)")
+    dy += 26
+    draw_detail_row(dy, "Cache Saved", "$11.20", th["ok"])
+    dy += 14
+    parts.append(f'<line x1="{pop_x + 12}" y1="{dy}" x2="{pop_x + pop_w - 12}" y2="{dy}" stroke="{th["line"]}" stroke-width="1"/>')
+
+    # Group 3: Token Scale
+    dy += 22
+    draw_detail_row(dy, "Avg Input Context", "194.2k", th["fg"])
+    dy += 26
+    draw_detail_row(dy, "Cache Read / Input", "1.04M / 4.66M", th["fg"])
+    dy += 26
+    draw_detail_row(dy, "Wasted Tokens", "3.18M", th["bad"])
+
+    # Footer
+    fy = dp_y + dp_h - 26
+    parts.append(f'<line x1="{pop_x + 12}" y1="{fy}" x2="{pop_x + pop_w - 12}" y2="{fy}" stroke="{th["line"]}" stroke-width="1" stroke-dasharray="3,3"/>')
+    parts.append(
+        f'<text x="{pop_x + pop_w/2:.1f}" y="{fy + 16}" text-anchor="middle" '
+        f'font-family="{FONT_UI}" font-size="9.5" fill="{th["fg_muted"]}">Pinned cell detail · click cell or Esc to close</text>'
+    )
 
     parts.append("</svg>")
     return "\n".join(parts)
@@ -819,8 +1085,8 @@ def build_cache_observatory_svg() -> str:
 def render_cache_observatory() -> Path:
     svg_str = build_cache_observatory_svg()
     img = composite_panels(
-        1180,
-        764,
+        1440,
+        834,
         [(svg_str, 30, 30, 14)],
         scale=2,
         top_rgb=(16, 19, 27),

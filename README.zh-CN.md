@@ -51,18 +51,10 @@ AGY Lens 内置 **7 个可独立开关与自由排序的模块**——默认全�
 
 ### 2. 全局缓存观测台（模块 #6）
 
-专为排查跨会话 Prompt Cache 不稳定问题而设——精准识别随空闲间隔（Idle Gap）衰减、瞬态 0% 断崖与前缀边界截断，并一键导出脱敏诊断报告。
-
-**真实面板实拍（`Model × Idle-Gap` 命中率矩阵）：**
+专为排查跨会话 Prompt Cache 不稳定问题而设——精准识别随空闲间隔（Idle Gap）衰减、瞬态 0% 断崖与前缀边界截断，支持多指标可配置矩阵、单元格全量详情卡与一键脱敏报告导出。
 
 <p align="center">
-  <img src="assets/screenshots/cache-matrix-real-zh.png" alt="AGY Lens 真实面板实拍：Model × Idle-Gap 缓存命中率矩阵" width="100%" />
-</p>
-
-**完整观测台视图（KPI + 矩阵 + 对数散点图 + Top 异常）：**
-
-<p align="center">
-  <img src="assets/screenshots/cache-observatory.png" alt="AGY Lens 全局缓存观测台" width="100%" />
+  <img src="assets/screenshots/cache-observatory.png" alt="AGY Lens 全局缓存观测台：多指标矩阵、指标配置弹窗、单元格详情卡、对数散点图与 Top 异常" width="100%" />
 </p>
 
 - **4 项健康 KPI 卡片**：跟随轮总命中率、意外 `0%` 断崖次数（含 **Bounce-Back** 下一轮立刻恢复计数）、边界截断（自动剔除正常换模与上下文压缩）以及估算 Miss 损失金额与浪费 Token。

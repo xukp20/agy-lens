@@ -51,18 +51,10 @@ Shown above in the dual-theme hero preview:
 
 ### 2. Global Cache Observatory (Module #6)
 
-Diagnose cross-session prompt-cache instability—such as idle-gap TTL decay, transient routing misses, and prefix boundary cuts—with a single anonymized report generator.
-
-**Live Production Capture (`Model × Idle-Gap` Hit-Rate Matrix):**
+Diagnose cross-session prompt-cache instability—such as idle-gap TTL decay, transient routing misses, and prefix boundary cuts—with a configurable multi-metric matrix, rich cell inspection cards, and an anonymized report generator.
 
 <p align="center">
-  <img src="assets/screenshots/cache-matrix-real-zh.png" alt="AGY Lens Live Production Capture: Model × Idle-Gap Hit-Rate Matrix" width="100%" />
-</p>
-
-**Full Observatory Layout (KPIs + Matrix + Log Scatter + Top Anomalies):**
-
-<p align="center">
-  <img src="assets/screenshots/cache-observatory.png" alt="AGY Lens Global Cache Observatory" width="100%" />
+  <img src="assets/screenshots/cache-observatory.png" alt="AGY Lens Global Cache Observatory: Multi-Metric Matrix, Metric Config Popover, Pinned Cell Detail Card, Log Scatter & Top Anomalies" width="100%" />
 </p>
 
 - **4 Health KPI Tiles**: Follow-up Hit %, Unexpected `0%` Misses (with **Bounce-Back** recovery count), Boundary Cuts (excluding intentional model switches and compactions), and estimated Miss Penalty USD.
