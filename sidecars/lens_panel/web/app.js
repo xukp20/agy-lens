@@ -617,7 +617,9 @@
         installTarball: '独立安装',
         installBuiltin: '内置插件',
         modeLabel: '更新策略',
-        modeHelp: '自动更新：每 24h 检查 GitHub Releases，发现新版自动下载校验，点击重启或闲置/重开面板时无感生效。\n仅提醒：只显示新版徽标，点击后手动更新。\n关闭：完全离线，不发起更新检查。',
+        modeHelp: '自动更新：每 6h 检查 GitHub Releases，发现新版自动下载校验，点击重启或闲置/重开面板时无感生效。\n仅提醒：只显示新版徽标，点击后手动更新。\n关闭：完全离线，不发起更新检查。',
+        manualOnlyBadge: '可选小更新',
+        manualOnlyNote: '该版本已由发布者标记为可选小更新，不会自动推送或打扰顶栏；如需升级可在此手动点击更新。',
         modeAuto: '自动更新',
         modeNotify: '仅提醒',
         modeOff: '关闭',
@@ -1135,7 +1137,9 @@
         installTarball: 'Standalone',
         installBuiltin: 'Built-in',
         modeLabel: 'Update Policy',
-        modeHelp: 'Auto: Checks GitHub Releases every 24h, downloads & smoke-tests in the background, and applies on click or next restart.\nNotify: Shows update badge only; downloads when you click Update.\nOff: 100% offline, never checks for updates.',
+        modeHelp: 'Auto: Checks GitHub Releases every 6h, downloads & smoke-tests in the background, and applies on click or next restart.\nNotify: Shows update badge only; downloads when you click Update.\nOff: 100% offline, never checks for updates.',
+        manualOnlyBadge: 'Optional',
+        manualOnlyNote: 'Marked by the maintainer as an optional minor release (auto-push skipped). Click Update anytime to install manually.',
         modeAuto: 'Auto',
         modeNotify: 'Notify',
         modeOff: 'Off',
@@ -2094,10 +2098,11 @@
     const diskVer = typeof window.__AGY_LENS_DISK_VERSION__ === 'string' ? window.__AGY_LENS_DISK_VERSION__ : '';
     const hasMismatch = Boolean(diskVer && state.runningVersion && diskVer !== state.runningVersion);
 
-    // 1. Header pill (shown only when an undismissed update exists)
+    // 1. Header pill (shown only when an undismissed, auto-pushable update exists)
     const showPill = Boolean(
       u &&
         u.hasUpdate &&
+        !u.manualOnly &&
         u.latestVersion &&
         u.latestVersion !== state.config.dismissedUpdateVersion
     );
@@ -4709,7 +4714,7 @@
             <span class="muted-note num" style="font-size:11px">
               ${
                 u && u.hasUpdate
-                  ? `<strong style="color:var(--accent)">v${esc(u.latestVersion)}</strong> · ${esc(t('update.lastChecked', { time: u.lastCheckedAt ? fmtTimeShort(u.lastCheckedAt) : t('update.neverChecked') }))}`
+                  ? `<strong style="color:var(--accent)">v${esc(u.latestVersion)}</strong>${u.manualOnly ? ` <span class="pill outline" style="font-size:9.5px">${esc(t('update.manualOnlyBadge'))}</span>` : ''} · ${esc(t('update.lastChecked', { time: u.lastCheckedAt ? fmtTimeShort(u.lastCheckedAt) : t('update.neverChecked') }))}`
                   : `${esc(t('update.upToDate'))} · ${esc(t('update.lastChecked', { time: u?.lastCheckedAt ? fmtTimeShort(u.lastCheckedAt) : t('update.neverChecked') }))}`
               }
             </span>
@@ -4725,6 +4730,7 @@
             </div>
           </div>
 
+          ${u && u.hasUpdate && u.manualOnly ? `<div class="muted-note" style="font-size:11px">${esc(t('update.manualOnlyNote'))}</div>` : ''}
           ${isStaged ? `<div class="muted-note" style="color:var(--ok);font-size:11px">${esc(t('update.stagedReady'))}</div>` : ''}
           ${u && u.staging && !isStaged ? `<div class="muted-note" style="font-size:11px">${esc(t('update.staging'))}</div>` : ''}
           ${u && u.hasUpdate && !u.canAutoApply ? `<div class="muted-note" style="color:var(--warn);font-size:11px">${esc(getUpdateBlockedMessage(u.blockedReason))}</div>` : ''}

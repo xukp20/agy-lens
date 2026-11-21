@@ -441,6 +441,9 @@ button { cursor: pointer; }
   font-size: var(--text-xs); line-height: 1.4;
   display: flex; align-items: flex-start; gap: 6px;
 }
+.main > .banner {
+  margin-bottom: 10px;
+}
 .banner.warn { background: var(--warn-bg); color: var(--warn); }
 .banner.error { background: var(--bad-bg); color: var(--bad); margin-bottom: 10px; }
 .banner.info { background: var(--accent-bg); color: var(--accent); }

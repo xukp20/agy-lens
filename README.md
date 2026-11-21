@@ -92,7 +92,7 @@ Because Antigravity exposes no official Sidecar Quota API, AGY Lens keeps quota 
 
 - **In-Panel Auto-Update & One-Click Rollback**:
   - **Header Micro-Pill & Release Popover**: When a newer release is available, a compact `↑ vX.Y.Z` badge appears right beside the `AGY Lens` title (blue while pending, green once verified & staged). Click it to inspect release notes and trigger **Restart to Apply** in one click, or skip the version.
-  - **3 Configurable Policies (`Auto` | `Notify` | `Off`)**: Defaults to **`Auto`**—checks GitHub Releases every 24h while the pane is active, downloads & smoke-tests in an isolated subprocess (`AGY_LENS_SMOKE=1`), and applies cleanly at next cold start (or after 10 minutes idle / immediate click). Switch to **`Notify`** (manual trigger) or **`Off`** (100% offline) anytime in **Settings → Version & Auto-Update**.
+  - **3 Configurable Policies (`Auto` | `Notify` | `Off`)**: Defaults to **`Auto`**—checks GitHub Releases every 6h while the pane is active, downloads & smoke-tests in an isolated subprocess (`AGY_LENS_SMOKE=1`), and applies cleanly at next cold start (or after 10 minutes idle / immediate click). Maintainers can also mark minor releases as manual-only via an invisible `<!-- agy-lens:manual-only -->` tag in the GitHub Release body (skips auto-push & header pill while remaining manually installable from Settings). Switch to **`Notify`** or **`Off`** (100% offline) anytime in **Settings → Version & Auto-Update**.
   - **Crash-Safe `boot.mjs` Bootstrap & Auto-Rollback**: Updates are applied by a minimal, self-contained `boot.mjs` before `main.mjs` loads—preventing frontend/backend mismatches. If a new version ever fails startup twice, `boot.mjs` **automatically rolls back** to the previous backup and marks the bad version; a manual **Rollback to vX.Y.Z** button is also available in Settings.
 - **7 Independent Modules & Reordering**: All 7 modules are enabled out of the box (with compact collapsed KPI cards for secondary views); disable or reorder (`↑ / ↓`) any module anytime.
 - **Built-in `?` Help Tooltips**: Every module header and settings control carries an interactive `?` callout explaining *what it shows*, *when to enable*, and *exact scan scope*.
@@ -137,7 +137,7 @@ agy plugin install /tmp/agy-lens
 
 ### How Updates Work (3 Ways)
 
-1. **Automatic In-Panel Updates (Default — Recommended)**: Checks GitHub Releases every 24h while active, stages & smoke-tests updates in the background, and applies automatically at next cold start (or immediately when you click the green `↑ vX.Y.Z` pill next to `AGY Lens`). Works for **both** Git clone and Standalone installs; preserves all user data in `sidecar_data/` and protects uncommitted local Git edits.
+1. **Automatic In-Panel Updates (Default — Recommended)**: Checks GitHub Releases every 6h while active, stages & smoke-tests updates in the background, and applies automatically at next cold start (or immediately when you click the green `↑ vX.Y.Z` pill next to `AGY Lens`). Works for **both** Git clone and Standalone installs; preserves all user data in `sidecar_data/` and protects uncommitted local Git edits.
 2. **Manual In-Panel Check & Apply**: Set **Settings → Version & Auto-Update → Update Policy** to `Notify` or `Off`, then click **Check Now** / **Update & Restart** whenever you want (with one-click **Rollback** to the previous version).
 3. **CLI Manual Update** (for `git clone` installs):
    ```bash

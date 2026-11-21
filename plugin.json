@@ -3,7 +3,7 @@
   "displayName": "AGY Lens",
   "description": "Local-first Antigravity telemetry sidecar: live context composition, prompt cache diagnostics, global cache-miss observatory, long-context API cost analytics, calendar heatmap, and 2-decimal manual quota alignment.",
   "logo": "assets/logo.svg",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "author": "xukp20",
   "homepage": "https://github.com/xukp20/agy-lens",
   "repository": "https://github.com/xukp20/agy-lens",

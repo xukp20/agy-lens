@@ -37,14 +37,15 @@ const ALLOWED_HOSTS = new Set([
   'release-assets.githubusercontent.com',
 ]);
 
-const CHECK_TTL_MS = 24 * 3600 * 1000;
-const CHECK_JITTER_MS = 30 * 60 * 1000;
+const CHECK_TTL_MS = 6 * 3600 * 1000;
+const CHECK_JITTER_MS = 15 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 15000;
 const DOWNLOAD_TIMEOUT_MS = 60000;
 const MAX_DOWNLOAD_BYTES = 15 * 1024 * 1024;
 const MAX_REDIRECTS = 5;
 const LOCK_STALE_MS = 3 * 60 * 1000;
 const TAG_RE = /^v(\d+)\.(\d+)\.(\d+)$/;
+const MANUAL_ONLY_RE = /<!--\s*agy-lens:\s*(?:manual-only|no-auto-update)\s*-->/i;
 
 const ALLOWED_ROOT_FILES = new Set(['plugin.json', 'README.md', 'README.zh-CN.md', 'LICENSE']);
 const ALLOWED_ROOT_DIRS = ['sidecars/', 'assets/', 'skills/', 'rules/', 'agents/'];
@@ -413,6 +414,9 @@ async function fetchLatestReleaseMeta(runningVersion, prevEtag = '') {
     const latestVersion = `${m[1]}.${m[2]}.${m[3]}`;
     const tarballUrl = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/archive/refs/tags/${tagName}.tar.gz`;
     const releaseUrl = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/tag/${tagName}`;
+    const rawBody = typeof json.body === 'string' ? json.body : '';
+    const manualOnly = MANUAL_ONLY_RE.test(rawBody);
+    const cleanNotes = rawBody.replace(MANUAL_ONLY_RE, '').trim().slice(0, 4000);
     return {
       notModified: false,
       etag: res.headers.get('etag') || '',
@@ -420,7 +424,8 @@ async function fetchLatestReleaseMeta(runningVersion, prevEtag = '') {
       latestVersion,
       tarballUrl,
       releaseUrl,
-      releaseNotes: typeof json.body === 'string' ? json.body.slice(0, 4000) : '',
+      releaseNotes: cleanNotes,
+      manualOnly,
       publishedAt: typeof json.published_at === 'string' ? json.published_at : null,
     };
   }
@@ -456,6 +461,7 @@ async function fetchLatestReleaseMeta(runningVersion, prevEtag = '') {
       tarballUrl: `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/archive/refs/tags/${tagName}.tar.gz`,
       releaseUrl: `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/tag/${tagName}`,
       releaseNotes: '',
+      manualOnly: false,
       publishedAt: null,
     };
   }
@@ -599,7 +605,7 @@ export async function stageUpdate(dataDir, pluginRoot, config) {
           tagName,
           targetCommit,
           requiresHostRestart,
-          autoApply: config?.updateMode === 'auto',
+          autoApply: Boolean(config?.updateMode === 'auto' && !st.manualOnly),
           applyNow: false,
           stagedAt: Date.now(),
         };
@@ -667,7 +673,7 @@ export async function stageUpdate(dataDir, pluginRoot, config) {
         stagedDir,
         manifest,
         requiresHostRestart,
-        autoApply: config?.updateMode === 'auto',
+        autoApply: Boolean(config?.updateMode === 'auto' && !st.manualOnly),
         applyNow: false,
         stagedAt: Date.now(),
       };
@@ -713,6 +719,7 @@ export async function checkForUpdate(dataDir, pluginRoot, config, { force = fals
         st.tarballUrl = meta.tarballUrl;
         st.releaseUrl = meta.releaseUrl;
         st.releaseNotes = meta.releaseNotes;
+        st.manualOnly = Boolean(meta.manualOnly);
         st.publishedAt = meta.publishedAt;
       }
       st.lastError = null;
@@ -721,6 +728,7 @@ export async function checkForUpdate(dataDir, pluginRoot, config, { force = fals
       const hasUpdate = Boolean(st.latestVersion && compareSemver(st.latestVersion, runningVersion) > 0);
       if (
         hasUpdate &&
+        !st.manualOnly &&
         config?.updateMode === 'auto' &&
         st.latestVersion !== st.failedVersion &&
         st.latestVersion !== st.rolledBackFrom &&
@@ -797,6 +805,7 @@ export async function getUpdateStatus(dataDir, pluginRoot, config) {
     releaseUrl:
       (hasUpdate && st.releaseUrl) || `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases`,
     releaseNotes: hasUpdate ? st.releaseNotes || '' : '',
+    manualOnly: hasUpdate ? Boolean(st.manualOnly) : false,
     publishedAt: hasUpdate ? st.publishedAt || null : null,
     hasUpdate,
     stagedVersion: stagedReady ? pending.targetVersion : null,
@@ -884,6 +893,6 @@ export function hasPendingAutoApplyOnIdle(dataDir, runningVersion, config) {
   if (!config || config.updateMode !== 'auto') return false;
   const pending = readJsonSafe(join(dataDir, 'pending_update.json'), null);
   if (!pending || pending.status !== 'staged') return false;
-  if (pending.requiresHostRestart) return false;
+  if (!pending.autoApply || pending.requiresHostRestart) return false;
   return compareSemver(pending.targetVersion, runningVersion) > 0;
 }

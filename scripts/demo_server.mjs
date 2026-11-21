@@ -1391,20 +1391,21 @@ const server = createServer(async (req, res) => {
         return res.end(buildDemoPreloadJs(theme));
       }
       if (url.pathname === '/api/health') {
-        return sendJson(res, 200, { ok: true, version: '1.4.1', diskVersion: '1.4.1', pid: process.pid });
+        return sendJson(res, 200, { ok: true, version: '1.4.2', diskVersion: '1.4.2', pid: process.pid });
       }
       if (url.pathname === '/api/update/status') {
         return sendJson(res, 200, {
-          currentVersion: '1.4.1',
+          currentVersion: '1.4.2',
           installKind: 'git',
           canAutoApply: true,
           blockedReason: '',
           updateMode: demoConfig.updateMode || 'auto',
           dismissedVersion: demoConfig.dismissedUpdateVersion || '',
-          latestVersion: '1.4.1',
-          tagName: 'v1.4.1',
+          latestVersion: '1.4.2',
+          tagName: 'v1.4.2',
           releaseUrl: 'https://github.com/xukp20/agy-lens/releases',
           releaseNotes: '',
+          manualOnly: false,
           publishedAt: null,
           hasUpdate: false,
           stagedVersion: null,
