@@ -47,8 +47,8 @@ const LOCK_STALE_MS = 3 * 60 * 1000;
 const TAG_RE = /^v(\d+)\.(\d+)\.(\d+)$/;
 const MANUAL_ONLY_RE = /<!--\s*agy-lens:\s*(?:manual-only|no-auto-update)\s*-->/i;
 
-const ALLOWED_ROOT_FILES = new Set(['plugin.json', 'README.md', 'README.zh-CN.md', 'LICENSE']);
-const ALLOWED_ROOT_DIRS = ['sidecars/', 'assets/', 'skills/', 'rules/', 'agents/'];
+export const ALLOWED_ROOT_FILES = new Set(['plugin.json', 'package.json', 'README.md', 'README.zh-CN.md', 'LICENSE']);
+export const ALLOWED_ROOT_DIRS = ['sidecars/', 'assets/', 'skills/', 'rules/', 'agents/', 'bin/'];
 
 let inflightCheck = null;
 let inflightStage = null;

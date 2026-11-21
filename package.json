@@ -1,0 +1,29 @@
+{
+  "name": "agy-lens",
+  "version": "1.7.0",
+  "description": "Local-first Antigravity telemetry sidecar & standalone web/CLI dashboard: live context, prompt cache observatory, long-context API cost analytics, calendar heatmap, and 2-decimal quota alignment.",
+  "type": "module",
+  "license": "MIT",
+  "author": "xukp20",
+  "homepage": "https://github.com/xukp20/agy-lens",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xukp20/agy-lens.git"
+  },
+  "bin": {
+    "agy-lens": "./bin/agy-lens.mjs"
+  },
+  "files": [
+    "bin/",
+    "sidecars/",
+    "assets/",
+    "plugin.json",
+    "README.md",
+    "README.zh-CN.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "dependencies": {}
+}

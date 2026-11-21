@@ -10,6 +10,7 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
+  chmodSync,
   copyFileSync,
   existsSync,
   mkdirSync,
@@ -29,8 +30,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const PLUGIN_ROOT = resolve(__dirname, '..', '..');
 
 const LOCK_STALE_MS = 3 * 60 * 1000;
-const ALLOWED_ROOT_FILES = new Set(['plugin.json', 'README.md', 'README.zh-CN.md', 'LICENSE']);
-const ALLOWED_ROOT_DIRS = ['sidecars/', 'assets/', 'skills/', 'rules/', 'agents/'];
+const ALLOWED_ROOT_FILES = new Set(['plugin.json', 'package.json', 'README.md', 'README.zh-CN.md', 'LICENSE']);
+const ALLOWED_ROOT_DIRS = ['sidecars/', 'assets/', 'skills/', 'rules/', 'agents/', 'bin/'];
 
 function resolveDataDir() {
   const dir =
@@ -89,6 +90,16 @@ function copyFileAtomic(src, dest) {
   mkdirSync(dirname(dest), { recursive: true });
   const tmp = `${dest}.agy_tmp.${process.pid}`;
   copyFileSync(src, tmp);
+  if (process.platform !== 'win32') {
+    try {
+      const mode = statSync(src).mode;
+      if ((mode & 0o111) !== 0 || dest.includes('/bin/')) {
+        chmodSync(tmp, 0o755);
+      }
+    } catch {
+      // ignore chmod errors on unsupported FS
+    }
+  }
   renameWithRetry(tmp, dest);
 }
 

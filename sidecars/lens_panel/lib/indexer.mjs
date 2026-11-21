@@ -2,7 +2,7 @@
  * WAL-aware incremental SQLite indexer & telemetry query engine for AGY Lens.
  * Source conversation DBs are ALWAYS opened strictly read-only.
  */
-import { existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -17,6 +17,11 @@ import { computeCacheObservatory } from './cache_observatory.mjs';
 
 const MAX_GEN_METADATA_BYTES = 2097152; // 2 MB cap
 const UUID_DB_RE = /^([0-9a-f-]{8,})\.db$/i;
+export const CONVERSATION_ID_RE = /^[0-9a-f-]{8,64}$/i;
+
+export function isValidConversationId(id) {
+  return typeof id === 'string' && CONVERSATION_ID_RE.test(id.trim());
+}
 
 export function resolveDataDir() {
   const dir =
@@ -44,11 +49,14 @@ export function resolveSourceDirs() {
 export function openTelemetryCacheDb(dataDir) {
   mkdirSync(dataDir, { recursive: true });
   const dbPath = join(dataDir, 'telemetry_cache.db');
-  const db = new DatabaseSync(dbPath, { timeout: 2000 });
+  const db = new DatabaseSync(dbPath, { timeout: 8000 });
+  db.exec('PRAGMA busy_timeout = 8000;');
+  const curMode = String(db.prepare('PRAGMA journal_mode').get()?.journal_mode || '').toLowerCase();
+  if (curMode !== 'wal') {
+    db.exec('PRAGMA journal_mode = WAL;');
+  }
   db.exec(`
-    PRAGMA journal_mode = WAL;
     PRAGMA synchronous = NORMAL;
-    PRAGMA busy_timeout = 2000;
 
     CREATE TABLE IF NOT EXISTS indexed_files (
       db_path TEXT PRIMARY KEY,
@@ -596,21 +604,57 @@ export function runIncrementalIndex(cacheDb, { sources = ['desktop', 'cli'] } = 
   };
 }
 
-export function rebuildIndex(cacheDb, { sources = ['desktop', 'cli'] } = {}) {
-  cacheDb.exec('BEGIN IMMEDIATE');
-  try {
-    // Never touch quota_anchors!
-    cacheDb.exec('DELETE FROM turns; DELETE FROM indexed_files;');
-    cacheDb.exec('COMMIT');
-  } catch (err) {
+function acquireIndexLock(dataDir) {
+  if (!dataDir) return () => {};
+  const lockDir = join(dataDir, '.index.lock');
+  for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      cacheDb.exec('ROLLBACK');
-    } catch {
-      // ignore
+      mkdirSync(lockDir);
+      writeFileSync(join(lockDir, 'owner.json'), JSON.stringify({ pid: process.pid, ts: Date.now() }), 'utf-8');
+      return () => {
+        try {
+          rmSync(lockDir, { recursive: true, force: true });
+        } catch {
+          // ignore
+        }
+      };
+    } catch (err) {
+      if (err?.code !== 'EEXIST') return () => {};
+      try {
+        const age = Date.now() - statSync(lockDir).mtimeMs;
+        if (age > 2 * 60 * 1000) {
+          rmSync(lockDir, { recursive: true, force: true });
+          continue;
+        }
+      } catch {
+        // ignore
+      }
+      throw new Error('Another index rebuild is currently in progress');
     }
-    throw err;
   }
-  return runIncrementalIndex(cacheDb, { sources });
+  return () => {};
+}
+
+export function rebuildIndex(cacheDb, { sources = ['desktop', 'cli'], dataDir = null } = {}) {
+  const release = acquireIndexLock(dataDir);
+  try {
+    cacheDb.exec('BEGIN IMMEDIATE');
+    try {
+      // Never touch quota_anchors!
+      cacheDb.exec('DELETE FROM turns; DELETE FROM indexed_files;');
+      cacheDb.exec('COMMIT');
+    } catch (err) {
+      try {
+        cacheDb.exec('ROLLBACK');
+      } catch {
+        // ignore
+      }
+      throw err;
+    }
+    return runIncrementalIndex(cacheDb, { sources });
+  } finally {
+    release();
+  }
 }
 
 export function getIndexStatus(cacheDb) {
@@ -639,54 +683,91 @@ export function getIndexStatus(cacheDb) {
 }
 
 function findConversationEntry(sourceDirs, conversationId) {
+  if (!isValidConversationId(conversationId)) return null;
+  const cleanId = conversationId.trim();
   for (const source of ['desktop', 'cli']) {
-    const p = join(sourceDirs[source], 'conversations', `${conversationId}.db`);
+    const p = join(sourceDirs[source], 'conversations', `${cleanId}.db`);
     if (existsSync(p)) {
-      return { source, conversationId, dbPath: p };
+      return { source, conversationId: cleanId, dbPath: p };
     }
   }
   return null;
 }
 
-function discoverActiveConversationEntry(sourceDirs) {
-  // 1. Prefer active Desktop presence/*.lock with newest DB/WAL mtime.
-  const presenceDir = join(sourceDirs.desktop, 'presence');
-  if (existsSync(presenceDir)) {
-    let best = null;
-    try {
-      for (const name of readdirSync(presenceDir)) {
-        if (!name.endsWith('.lock')) continue;
-        const cid = name.slice(0, -5);
-        const dbPath = join(sourceDirs.desktop, 'conversations', `${cid}.db`);
-        if (!existsSync(dbPath)) continue;
-        const m = statDbAndWal(dbPath).newestMtimeMs;
-        if (!best || m > best.mtimeMs) {
-          best = { source: 'desktop', conversationId: cid, dbPath, mtimeMs: m };
-        }
-      }
-    } catch {
-      // ignore
-    }
-    if (best) return best;
-  }
+function discoverActiveConversationEntry(sourceDirs, sources = ['desktop', 'cli']) {
+  const enabledSources = Array.isArray(sources) && sources.length > 0 ? sources : ['desktop', 'cli'];
 
-  // 2. Fallback: newest DB/WAL across desktop, then cli.
-  for (const source of ['desktop', 'cli']) {
-    const list = listConversationDbs(sourceDirs, [source]);
-    let best = null;
-    for (const entry of list) {
+  // 1. Prefer active Desktop presence/*.lock when desktop source is enabled.
+  if (enabledSources.includes('desktop')) {
+    const presenceDir = join(sourceDirs.desktop, 'presence');
+    if (existsSync(presenceDir)) {
+      let best = null;
       try {
-        const m = statDbAndWal(entry.dbPath).newestMtimeMs;
-        if (!best || m > best.mtimeMs) {
-          best = { ...entry, mtimeMs: m };
+        for (const name of readdirSync(presenceDir)) {
+          if (!name.endsWith('.lock')) continue;
+          const cid = name.slice(0, -5);
+          if (!isValidConversationId(cid)) continue;
+          const dbPath = join(sourceDirs.desktop, 'conversations', `${cid}.db`);
+          if (!existsSync(dbPath)) continue;
+          const m = statDbAndWal(dbPath).newestMtimeMs;
+          if (!best || m > best.mtimeMs) {
+            best = { source: 'desktop', conversationId: cid, dbPath, mtimeMs: m };
+          }
         }
       } catch {
         // ignore
       }
+      if (best) return best;
     }
-    if (best) return best;
   }
-  return null;
+
+  // 2. Fallback: global newest DB/WAL across ALL enabled sources (so newer CLI sessions win on headless machines).
+  const list = listConversationDbs(sourceDirs, enabledSources);
+  let best = null;
+  for (const entry of list) {
+    try {
+      const m = statDbAndWal(entry.dbPath).newestMtimeMs;
+      if (!best || m > best.mtimeMs) {
+        best = { ...entry, mtimeMs: m };
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return best;
+}
+
+export function listRecentConversations(cacheDb, { limit = 15, sources = ['desktop', 'cli'] } = {}) {
+  const enabledSources = Array.isArray(sources) && sources.length > 0 ? sources : ['desktop', 'cli'];
+  const cap = Math.max(1, Math.min(50, Math.round(Number(limit) || 15)));
+  runIncrementalIndex(cacheDb, { sources: enabledSources });
+
+  const placeholders = enabledSources.map(() => '?').join(', ');
+  const rows = cacheDb
+    .prepare(
+      `SELECT f.conversation_id, f.source, f.title, f.workspace,
+              MAX(f.db_mtime_ms, f.wal_mtime_ms, f.last_activity_ms) AS recent_ms,
+              (SELECT t.canonical_model_id FROM turns t
+               WHERE t.conversation_id = f.conversation_id AND t.source = f.source
+               ORDER BY t.step_idx DESC LIMIT 1) AS last_model,
+              (SELECT COUNT(*) FROM turns t
+               WHERE t.conversation_id = f.conversation_id AND t.source = f.source) AS turns
+       FROM indexed_files f
+       WHERE f.source IN (${placeholders})
+       ORDER BY recent_ms DESC
+       LIMIT ?`
+    )
+    .all(...enabledSources, cap);
+
+  return rows.map((r) => ({
+    conversationId: r.conversation_id,
+    source: r.source,
+    title: r.title || '',
+    workspace: r.workspace || '',
+    lastActiveMs: Math.round(Number(r.recent_ms || 0)),
+    lastModel: r.last_model || '',
+    turns: Number(r.turns || 0),
+  }));
 }
 
 function readLatestBreakdown(dbPath) {
@@ -715,11 +796,15 @@ function readLatestBreakdown(dbPath) {
  * Module-gated single-conversation telemetry for `GET /api/session`.
  * Never scans all conversation DBs.
  */
-export function getSessionSnapshot(cacheDb, pricingState, { conversationId = '', modules = null } = {}) {
+export function getSessionSnapshot(
+  cacheDb,
+  pricingState,
+  { conversationId = '', modules = null, sources = ['desktop', 'cli'] } = {}
+) {
   const sourceDirs = resolveSourceDirs();
   const entry = conversationId
     ? findConversationEntry(sourceDirs, conversationId)
-    : discoverActiveConversationEntry(sourceDirs);
+    : discoverActiveConversationEntry(sourceDirs, sources);
 
   if (!entry) {
     return {

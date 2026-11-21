@@ -582,9 +582,18 @@ function normalizeObservedSet(observedModelIds) {
   const out = new Set();
   if (!observedModelIds) return out;
   for (const id of observedModelIds) {
-    const norm = normalizeModelId(String(id || ''));
+    const raw = String(id || '').trim();
+    if (!raw) continue;
+    const norm = normalizeModelId(raw);
     if (norm && norm !== 'unknown' && !norm.startsWith('model-')) {
       out.add(norm);
+    }
+    const slashIdx = raw.indexOf('/');
+    if (slashIdx !== -1) {
+      const stripped = normalizeModelId(raw.slice(slashIdx + 1));
+      if (stripped && stripped !== 'unknown' && !stripped.startsWith('model-')) {
+        out.add(stripped);
+      }
     }
   }
   return out;

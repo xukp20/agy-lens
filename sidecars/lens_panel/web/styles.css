@@ -307,6 +307,9 @@ button { cursor: pointer; }
 
 @media (min-width: 680px) {
   .header { padding: 12px 18px 10px; }
+  .header-row, .range-bar, .custom-range-row {
+    width: 100%; max-width: 1120px; margin: 0 auto;
+  }
   .main { padding: 14px 18px 32px; }
   .modules-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -315,6 +318,16 @@ button { cursor: pointer; }
   }
   .card.span-wide { grid-column: 1 / -1; }
 }
+
+.session-picker-bar {
+  display: flex; align-items: center; gap: 6px; margin-bottom: 6px; min-width: 0;
+}
+.session-picker-select {
+  flex: 1 1 auto; min-width: 0; height: 24px; padding: 0 7px;
+  border-radius: var(--r-md); border: 1px solid var(--border-c);
+  background: var(--field); color: var(--fg); font-size: var(--text-2xs);
+}
+.session-picker-select:focus { border-color: var(--accent); }
 
 .card {
   min-width: 0;
@@ -1611,6 +1624,16 @@ button { cursor: pointer; }
   font-size: 10.5px; color: var(--fg-muted); overflow-wrap: anywhere;
 }
 
+.pricing-list-scroll {
+  max-height: min(340px, 46vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--bg-soft, var(--field));
+  scrollbar-width: thin;
+}
 .pricing-model-row {
   padding: 7px 0; border-bottom: 1px solid var(--line);
   display: flex; flex-direction: column; gap: 6px;

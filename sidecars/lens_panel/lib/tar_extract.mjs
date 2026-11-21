@@ -5,7 +5,7 @@
  * cross-platform (Windows/macOS/Linux) path safety checks.
  */
 import { createHash } from 'node:crypto';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { Readable } from 'node:stream';
 import { createGunzip } from 'node:zlib';
@@ -184,6 +184,7 @@ export async function extractTarGz(
       entries.push({
         rawPath: currentEntry.rawPath,
         type: 'file',
+        mode: currentEntry.mode ?? 0o644,
         data: dataBuf,
       });
     } else if (tf === '5') {
@@ -216,6 +217,7 @@ export async function extractTarGz(
         }
 
         const namePart = readCString(header, 0, 100);
+        const mode = parseTarNumber(header, 100, 8);
         const magic = readCString(header, 257, 6);
         const prefixPart = magic.startsWith('ustar') ? readCString(header, 345, 155) : '';
         let rawPath = prefixPart ? `${prefixPart}/${namePart}` : namePart;
@@ -261,7 +263,7 @@ export async function extractTarGz(
           throw new Error(`Tar archive exceeds max entry limit (${maxEntries})`);
         }
 
-        currentEntry = { rawPath, typeflag, size };
+        currentEntry = { rawPath, typeflag, size, mode };
         remainingBytes = size;
         padBytes = (BLOCK_SIZE - (size % BLOCK_SIZE)) % BLOCK_SIZE;
         currentDataChunks = [];
@@ -362,7 +364,7 @@ export async function extractTarGz(
         throw new Error(`Case-insensitive path collision in archive: "${relPath}"`);
       }
       lowerSeen.add(lower);
-      cleanEntries.push({ relPath, data: e.data });
+      cleanEntries.push({ relPath, data: e.data, mode: e.mode ?? 0o644 });
     }
   }
 
@@ -376,6 +378,13 @@ export async function extractTarGz(
     const outPath = join(destDir, ...item.relPath.split('/'));
     mkdirSync(dirname(outPath), { recursive: true });
     writeFileSync(outPath, item.data);
+    if (process.platform !== 'win32' && (item.relPath.startsWith('bin/') || (item.mode & 0o111) !== 0)) {
+      try {
+        chmodSync(outPath, 0o755);
+      } catch {
+        // ignore chmod errors
+      }
+    }
     const sha256 = createHash('sha256').update(item.data).digest('hex');
     files.push({ relPath: item.relPath, sha256, size: item.data.length });
   }

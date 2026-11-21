@@ -135,6 +135,27 @@ agy plugin install /tmp/agy-lens
 
 > **环境要求**：Antigravity `2.22+`（支持 Sidecar Web UI）与 Node.js `24+`（内置 `node:sqlite`）。无需执行 `npm install`。
 
+### 方式三：独立 Web 服务与 Headless SSH / CLI 模式（无需 Antigravity 桌面端）
+
+在无图形界面的 Linux / SSH 服务器上，可直接以独立命令启动本地 Web URL（通过 SSH 端口转发或反向代理在浏览器打开），与插件模式共享同一份只读对话库与 `sidecar_data/`，同样零依赖：
+
+```bash
+# 默认监听 127.0.0.1:4319（本机可用 ssh -L 4319:127.0.0.1:4319 user@remote 转发查看）
+node bin/agy-lens.mjs serve --port 4319
+# 或直接从已安装插件目录启动：
+node ~/.gemini/config/plugins/agy-lens/sidecars/lens_panel/standalone.mjs --port 4319
+
+# 在 SSH 终端直接输出今日 / 7d 花费与三池 7d 额度摘要：
+node bin/agy-lens.mjs status
+
+# 配合反向代理子路径 + Token 鉴权（推荐环境变量或 --token-file 避免 ps aux 泄露）：
+AGY_LENS_TOKEN=your-secret node bin/agy-lens.mjs serve \
+  --base-path /agy-lens --trust-proxy --allowed-hosts lens.example.com --read-only
+```
+
+- **安全防护**：默认仅绑定 `127.0.0.1`，全量请求强校验 `Host` 白名单防 DNS Rebinding（放行回环任意端口兼容 `ssh -L` 跨端口转发）、POST 强校验 `Origin` / `Sec-Fetch-Site` 防 CSRF；绑定非回环地址或开启 `--trust-proxy` 时自动强制启用 Token + `HttpOnly` HMAC Cookie 鉴权，并支持 `--read-only` 全局只读模式。
+- **独立浏览器体验**：自动跟随系统暗/亮主题并支持顶栏一键切换、提供最近 CLI/Desktop 会话下拉切换、宽屏自动双列居中排版。
+
 ### 支持的 3 种更新方式
 
 1. **面板内自动更新（默认，最省心）**：每 6h 自动检测新版本 -> 后台预下载并通过烟雾测试 -> 顶栏 `AGY Lens` 旁亮出绿色 `↑ vX.Y.Z` 微徽标。点击立即重启生效，不点也会在下次重开面板时无感升级；Git 与独立安装均支持，且绝不触碰 `sidecar_data/` 中的个人数据。

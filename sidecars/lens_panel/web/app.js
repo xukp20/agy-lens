@@ -33,7 +33,8 @@
     if (window.sidecar && typeof window.sidecar.fetch === 'function') {
       return window.sidecar.fetch(path, options);
     }
-    return fetch(path, options);
+    const rel = typeof path === 'string' && path.startsWith('/') ? '.' + path : path;
+    return fetch(rel, options);
   }
 
   async function getJson(path) {
@@ -66,9 +67,20 @@
     return res.json();
   }
 
+  function isStandaloneMode() {
+    return Boolean(window.__AGY_LENS_STANDALONE__ || state.runtime?.mode === 'standalone');
+  }
+
+  function isReadOnlyMode() {
+    return Boolean(state.runtime?.readOnly);
+  }
+
   function resolveConversationId() {
     if (window.sidecar && window.sidecar.conversationId) {
       return String(window.sidecar.conversationId);
+    }
+    if (state.selectedConversationId) {
+      return String(state.selectedConversationId);
     }
     try {
       return new URLSearchParams(window.location.search).get('conversationId') || '';
@@ -174,6 +186,9 @@
         off: '关',
         refreshNow: '立即刷新',
         settingsTitle: '面板设置',
+        themeToggleTitle: '切换浅色 / 深色主题',
+        readonlyTitle: '只读模式：写操作与后台同步已禁用',
+        readonlyBadge: '只读',
         rangeGroupAria: '全局时间范围',
         rangeToday: '今日',
         rangeAll: '全部',
@@ -699,6 +714,7 @@
           git_locked: '检测到 .git/index.lock，请稍后再试。',
           not_writable: '插件目录无写权限，无法自动替换文件。',
           builtin_plugin: '内置插件由宿主统一管理，不支持自更新。',
+          standalone_cli: '当前为独立 Web / CLI 运行模式，请通过 git pull 或 npm 更新后手动重启服务。',
           git_error: '无法读取 Git 仓库状态。'
         }
       }
@@ -738,6 +754,9 @@
         off: 'Off',
         refreshNow: 'Refresh now',
         settingsTitle: 'Panel settings',
+        themeToggleTitle: 'Toggle light / dark theme',
+        readonlyTitle: 'Read-only mode: write operations and background sync are disabled',
+        readonlyBadge: 'Read-Only',
         rangeGroupAria: 'Global time range',
         rangeToday: 'Today',
         rangeAll: 'All',
@@ -1263,6 +1282,7 @@
           git_locked: 'Active .git/index.lock detected; retry later.',
           not_writable: 'Plugin directory is not writable.',
           builtin_plugin: 'Built-in plugins are managed by Antigravity.',
+          standalone_cli: 'Running in Standalone Web / CLI mode. Update via git pull or npm, then restart the server.',
           git_error: 'Unable to inspect Git repository state.'
         }
       }
@@ -1737,6 +1757,13 @@
     localExpandedOverrides: new Map(), // temporary per-session expand override when ?expand is set
     config: structuredClone(DEFAULT_CONFIG),
     runningVersion: '',
+    runtime: {
+      mode: window.__AGY_LENS_STANDALONE__ ? 'standalone' : 'sidecar',
+      readOnly: false,
+      basePath: '/',
+    },
+    selectedConversationId: '',
+    recentSessions: [],
     paths: {},
     pricingStatus: {},
     indexStatus: {},
@@ -1843,6 +1870,8 @@
     freshness: $('freshness'),
     freshnessText: $('freshness-text'),
     btnUpdatePill: $('btn-update-pill'),
+    readonlyPill: $('readonly-pill'),
+    btnThemeToggle: $('btn-theme-toggle'),
     refreshSelectWrap: $('refresh-select-wrap'),
     refreshSelect: $('refresh-select'),
     btnRefresh: $('btn-refresh'),
@@ -2033,12 +2062,29 @@
     if (typeof res.version === 'string' && res.version) {
       state.runningVersion = res.version;
     }
+    if (res.runtime && typeof res.runtime === 'object') {
+      state.runtime = {
+        mode: res.runtime.mode === 'standalone' ? 'standalone' : 'sidecar',
+        readOnly: Boolean(res.runtime.readOnly),
+        basePath: typeof res.runtime.basePath === 'string' ? res.runtime.basePath : '/',
+      };
+    }
     state.paths = res.paths || {};
     state.pricingStatus = res.pricingStatus || {};
     state.indexStatus = res.indexStatus || {};
+    if (dom.readonlyPill) {
+      dom.readonlyPill.classList.toggle('hidden', !state.runtime.readOnly);
+    }
+    if (dom.btnThemeToggle) {
+      dom.btnThemeToggle.classList.toggle('hidden', !isStandaloneMode() || typeof window.__AGY_LENS_SET_THEME__ !== 'function');
+    }
   }
 
   async function saveConfigPatch(patch) {
+    if (isReadOnlyMode()) {
+      // Read-only mode: keep view-state changes in local memory without hitting POST /api/config.
+      return true;
+    }
     try {
       const res = await postJson('/api/config', patch);
       normalizeConfigPayload(res);
@@ -2088,6 +2134,16 @@
               state.sessionError = e.message;
             })
         );
+        if (isStandaloneMode()) {
+          const srcs = encodeURIComponent(getActiveSourcesList().join(','));
+          tasks.push(
+            getJson(`/api/sessions/recent?limit=15&sources=${srcs}`)
+              .then((d) => {
+                if (Array.isArray(d?.sessions)) state.recentSessions = d.sessions;
+              })
+              .catch(() => {})
+          );
+        }
       }
 
       if (analyticsMods.length > 0) {
@@ -2237,6 +2293,14 @@
     dom.btnRefresh.setAttribute('aria-label', t('header.refreshNow'));
     dom.btnSettings.title = t('header.settingsTitle');
     dom.btnSettings.setAttribute('aria-label', t('header.settingsTitle'));
+    if (dom.readonlyPill) {
+      dom.readonlyPill.textContent = t('header.readonlyBadge');
+      dom.readonlyPill.title = t('header.readonlyTitle');
+    }
+    if (dom.btnThemeToggle) {
+      dom.btnThemeToggle.title = t('header.themeToggleTitle');
+      dom.btnThemeToggle.setAttribute('aria-label', t('header.themeToggleTitle'));
+    }
 
     dom.rangePills.setAttribute('aria-label', t('header.rangeGroupAria'));
     const pillLabels = {
@@ -2438,7 +2502,7 @@
   }
 
   async function triggerUpdateCheck() {
-    if (state.update.checking) return;
+    if (isReadOnlyMode() || state.update.checking) return;
     state.update.checking = true;
     if (state.settingsOpen) renderSettings();
     try {
@@ -2458,7 +2522,7 @@
     while (Date.now() < deadline) {
       await new Promise((r) => setTimeout(r, 800));
       try {
-        const res = await fetch('/api/health', { cache: 'no-store' });
+        const res = await apiFetch('/api/health', { cache: 'no-store' });
         if (res.ok) {
           const h = await res.json();
           if (h && h.ok && (sawDown || (h.version && h.version !== prevVersion))) {
@@ -2479,7 +2543,7 @@
   }
 
   async function triggerUpdateApply() {
-    if (state.update.applying) return;
+    if (isReadOnlyMode() || state.update.applying) return;
     const prevVersion = state.update.data?.currentVersion || state.runningVersion;
     const targetVersion = state.update.data?.latestVersion || '';
     state.update.applying = true;
@@ -2501,7 +2565,7 @@
   }
 
   async function triggerUpdateRollback() {
-    if (state.update.rollingBack) return;
+    if (isReadOnlyMode() || state.update.rollingBack) return;
     const prevVersion = state.update.data?.currentVersion || state.runningVersion;
     const targetVersion = state.update.data?.rollbackVersion || '';
     state.update.rollingBack = true;
@@ -2540,6 +2604,31 @@
     return palette[idx % palette.length];
   }
 
+  function renderSessionPickerHtml(currentSession) {
+    if (!isStandaloneMode() || state.recentSessions.length === 0) return '';
+    const activeId = currentSession?.found && currentSession.conversationId ? currentSession.conversationId : '';
+    const hasActiveInList = activeId ? state.recentSessions.some((rs) => rs.conversationId === activeId) : false;
+    const options = [];
+    if (!activeId) {
+      options.push(`<option value="" selected disabled>— ${esc(t('ctx.noActive'))} —</option>`);
+    } else if (!hasActiveInList) {
+      const curLbl = currentSession.title || baseName(currentSession.workspace) || activeId.slice(0, 8);
+      const curSrcTag = currentSession.source === 'cli' ? 'CLI' : 'Desktop';
+      options.push(`<option value="${esc(activeId)}" selected>[${curSrcTag}] ${esc(curLbl.slice(0, 56))}</option>`);
+    }
+    for (const rs of state.recentSessions) {
+      const lbl = rs.title || baseName(rs.workspace) || rs.conversationId.slice(0, 8);
+      const srcTag = rs.source === 'cli' ? 'CLI' : 'Desktop';
+      const selected = activeId && rs.conversationId === activeId ? 'selected' : '';
+      options.push(`<option value="${esc(rs.conversationId)}" ${selected}>[${srcTag}] ${esc(lbl.slice(0, 56))}</option>`);
+    }
+    return `<div class="session-picker-bar" data-stop-card>
+      <select class="session-picker-select" data-action="select-session" aria-label="Switch conversation">
+        ${options.join('')}
+      </select>
+    </div>`;
+  }
+
   function renderLiveContext(expanded) {
     if (state.sessionError) {
       return {
@@ -2548,10 +2637,11 @@
       };
     }
     const s = state.session;
+    const sessionPickerHtml = renderSessionPickerHtml(s);
     if (!s || !s.found || !s.liveContext) {
       return {
         badges: `<span class="pill outline">${esc(t('ctx.noActive'))}</span>`,
-        body: `<div class="muted-note">${esc(t('ctx.noData'))}</div>`
+        body: `${sessionPickerHtml}<div class="muted-note">${esc(t('ctx.noData'))}</div>`
       };
     }
 
@@ -2569,6 +2659,7 @@
 
     const titleText = s.title || baseName(s.workspace) || (s.conversationId ? s.conversationId.slice(0, 8) : '');
     let html = `
+      ${sessionPickerHtml}
       <div class="session-meta-row">
         <span class="pill outline">${esc(sourceLabel(s.source))}</span>
         <span class="truncate" title="${esc(s.title || s.workspace || s.conversationId)}">${esc(titleText)}</span>
@@ -4138,7 +4229,7 @@
           </div>
           ${f.error ? `<div class="banner error" style="margin:0">${esc(f.error)}</div>` : ''}
           <div style="display:flex;justify-content:flex-end;gap:8px">
-            <button type="submit" class="btn-sm primary" ${f.submitting ? 'disabled' : ''}>${esc(f.submitting ? t('quota.submitting') : t('quota.submitBtn'))}</button>
+            <button type="submit" class="btn-sm primary" ${f.submitting || isReadOnlyMode() ? 'disabled' : ''}>${esc(f.submitting ? t('quota.submitting') : t('quota.submitBtn'))}</button>
           </div>
         </form>
     `;
@@ -4550,8 +4641,8 @@
                 }
               </div>
               <div class="anchor-actions">
-                <button type="button" class="btn-sm" data-action="edit-anchor-reset" data-id="${esc(a.id)}">${esc(t('quota.editResetBtn'))}</button>
-                <button type="button" class="btn-sm danger" data-action="delete-anchor" data-id="${esc(a.id)}">${esc(t('common.delete'))}</button>
+                <button type="button" class="btn-sm" data-action="edit-anchor-reset" data-id="${esc(a.id)}" ${isReadOnlyMode() ? 'disabled' : ''}>${esc(t('quota.editResetBtn'))}</button>
+                <button type="button" class="btn-sm danger" data-action="delete-anchor" data-id="${esc(a.id)}" ${isReadOnlyMode() ? 'disabled' : ''}>${esc(t('common.delete'))}</button>
               </div>
             </div>
             ${editInlineHtml}
@@ -5147,6 +5238,10 @@
   function renderSettings() {
     if (!state.settingsOpen) return;
 
+    const prevPricingScrollEl = dom.settingsBody.querySelector('[data-pricing-scroll]');
+    const prevPricingScrollTop = prevPricingScrollEl ? prevPricingScrollEl.scrollTop : 0;
+    const ro = isReadOnlyMode();
+
     const lang = getLang();
     const order = state.config.moduleOrder || DEFAULT_CONFIG.moduleOrder;
     const modRows = order
@@ -5200,9 +5295,9 @@
       } else if (pr.error) {
         pricingModelsHtml = `<div class="banner error">${esc(pr.error)}</div>`;
       } else if (pr.data && Array.isArray(pr.data.models)) {
-        pricingModelsHtml = pr.data.models
+        const rowsHtml = pr.data.models
           .map((m) => {
-            const isEditing = pr.editingId === m.canonicalId;
+            const isEditing = !ro && pr.editingId === m.canonicalId;
             const d = pr.draft || m;
             return `
               <div class="pricing-model-row">
@@ -5213,8 +5308,8 @@
                     ${m.promoLabel ? `<span class="pill warn promo-pill" data-tip="${esc(m.promoLabel)}">${esc(t('settings.promoBadge'))}</span>` : ''}
                   </div>
                   <div style="display:flex;gap:4px">
-                    <button type="button" class="btn-sm" data-action="toggle-edit-price" data-id="${esc(m.canonicalId)}">${esc(isEditing ? t('common.cancel') : t('common.edit'))}</button>
-                    ${m.source === 'override' ? `<button type="button" class="btn-sm danger" data-action="reset-price-override" data-id="${esc(m.canonicalId)}">${esc(t('settings.restoreDefault'))}</button>` : ''}
+                    <button type="button" class="btn-sm" data-action="toggle-edit-price" data-id="${esc(m.canonicalId)}" ${ro ? 'disabled' : ''}>${esc(isEditing ? t('common.cancel') : t('common.edit'))}</button>
+                    ${m.source === 'override' ? `<button type="button" class="btn-sm danger" data-action="reset-price-override" data-id="${esc(m.canonicalId)}" ${ro ? 'disabled' : ''}>${esc(t('settings.restoreDefault'))}</button>` : ''}
                   </div>
                 </div>
                 <div class="muted-note num mono" style="font-size:11px">
@@ -5243,6 +5338,7 @@
             `;
           })
           .join('');
+        pricingModelsHtml = `<div class="pricing-list-scroll" data-pricing-scroll>${rowsHtml}</div>`;
       }
     }
 
@@ -5324,7 +5420,7 @@
           </div>
           <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
             <span class="muted-note" style="font-size:11px">${esc(t('settings.rebuildHint'))}</span>
-            <button type="button" class="btn-sm" data-action="rebuild-index" ${state.rebuilding ? 'disabled' : ''}>${esc(state.rebuilding ? t('settings.rebuilding') : t('settings.rebuildBtn'))}</button>
+            <button type="button" class="btn-sm" data-action="rebuild-index" ${state.rebuilding || ro ? 'disabled' : ''}>${esc(state.rebuilding ? t('settings.rebuilding') : t('settings.rebuildBtn'))}</button>
           </div>
           ${state.rebuildMsg ? `<div class="muted-note" style="color:var(--ok)">${esc(state.rebuildMsg)}</div>` : ''}
         </div>
@@ -5353,18 +5449,18 @@
               <span class="set-mod-desc">${esc(t('settings.autoSyncDesc'))}</span>
             </div>
             <label class="switch">
-              <input type="checkbox" data-action="toggle-auto-sync" ${state.config.pricingAutoSync ? 'checked' : ''}>
+              <input type="checkbox" data-action="toggle-auto-sync" ${state.config.pricingAutoSync ? 'checked' : ''} ${ro ? 'disabled' : ''}>
               <span class="switch-track"></span>
             </label>
           </div>
           <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
             <span class="muted-note num" style="font-size:11px">${esc(t('settings.lastSynced', { time: prSt.lastSyncedAt ? fmtTimeShort(prSt.lastSyncedAt) : t('settings.neverSynced') }))}</span>
-            <button type="button" class="btn-sm" data-action="sync-pricing" ${pr.syncing ? 'disabled' : ''}>${esc(pr.syncing ? t('settings.syncing') : t('settings.syncBtn'))}</button>
+            <button type="button" class="btn-sm" data-action="sync-pricing" ${pr.syncing || ro ? 'disabled' : ''}>${esc(pr.syncing ? t('settings.syncing') : t('settings.syncBtn'))}</button>
           </div>
           ${pr.syncMsg ? `<div class="muted-note">${esc(pr.syncMsg)}</div>` : ''}
           <div style="border-top:1px solid var(--line);padding-top:8px">
             <button type="button" class="btn-sm" style="width:100%" data-action="toggle-pricing-list">
-              ${esc(pr.expanded ? t('settings.collapsePricing') : t('settings.expandPricing'))}
+              ${esc(pr.expanded ? t('settings.collapsePricing') : t('settings.expandPricing'))}${pr.expanded && Array.isArray(pr.data?.models) ? ` (${pr.data.models.length})` : ''}
             </button>
           </div>
           ${pricingModelsHtml}
@@ -5373,10 +5469,16 @@
 
       ${renderSettingsUpdateSection()}
     `;
+
+    if (prevPricingScrollTop > 0) {
+      const nextPricingScrollEl = dom.settingsBody.querySelector('[data-pricing-scroll]');
+      if (nextPricingScrollEl) nextPricingScrollEl.scrollTop = prevPricingScrollTop;
+    }
   }
 
   function renderSettingsUpdateSection() {
     const u = state.update.data;
+    const ro = isReadOnlyMode();
     const mode = state.config.updateMode || 'auto';
     const verStr = u?.currentVersion || state.runningVersion || '—';
     const installLbl = u ? getUpdateInstallLabel(u.installKind) : '';
@@ -5402,9 +5504,9 @@
               </span>
             </div>
             <div class="seg">
-              <button type="button" class="${mode === 'auto' ? 'active' : ''}" data-action="set-update-mode" data-mode="auto">${esc(t('update.modeAuto'))}</button>
-              <button type="button" class="${mode === 'notify' ? 'active' : ''}" data-action="set-update-mode" data-mode="notify">${esc(t('update.modeNotify'))}</button>
-              <button type="button" class="${mode === 'off' ? 'active' : ''}" data-action="set-update-mode" data-mode="off">${esc(t('update.modeOff'))}</button>
+              <button type="button" class="${mode === 'auto' ? 'active' : ''}" data-action="set-update-mode" data-mode="auto" ${ro ? 'disabled' : ''}>${esc(t('update.modeAuto'))}</button>
+              <button type="button" class="${mode === 'notify' ? 'active' : ''}" data-action="set-update-mode" data-mode="notify" ${ro ? 'disabled' : ''}>${esc(t('update.modeNotify'))}</button>
+              <button type="button" class="${mode === 'off' ? 'active' : ''}" data-action="set-update-mode" data-mode="off" ${ro ? 'disabled' : ''}>${esc(t('update.modeOff'))}</button>
             </div>
           </div>
 
@@ -5417,12 +5519,12 @@
               }
             </span>
             <div style="display:flex;gap:6px;flex-wrap:wrap">
-              <button type="button" class="btn-sm" data-action="check-update" ${state.update.checking ? 'disabled' : ''}>
+              <button type="button" class="btn-sm" data-action="check-update" ${state.update.checking || ro ? 'disabled' : ''}>
                 ${esc(state.update.checking ? t('update.checking') : t('update.checkBtn'))}
               </button>
               ${
                 u && u.hasUpdate && u.canAutoApply
-                  ? `<button type="button" class="btn-sm primary" data-action="apply-update" ${state.update.applying || u.staging ? 'disabled' : ''}>${esc(applyLbl)}</button>`
+                  ? `<button type="button" class="btn-sm primary" data-action="apply-update" ${state.update.applying || u.staging || ro ? 'disabled' : ''}>${esc(applyLbl)}</button>`
                   : ''
               }
             </div>
@@ -5438,7 +5540,7 @@
           ${
             u && u.canRollback && u.rollbackVersion
               ? `<div style="border-top:1px solid var(--line);padding-top:8px;display:flex;align-items:center;justify-content:flex-end">
-                  <button type="button" class="btn-sm" data-action="rollback-update" ${state.update.rollingBack ? 'disabled' : ''}>
+                  <button type="button" class="btn-sm" data-action="rollback-update" ${state.update.rollingBack || ro ? 'disabled' : ''}>
                     ${esc(state.update.rollingBack ? t('update.rollingBack') : t('update.rollbackBtn', { ver: u.rollbackVersion }))}
                   </button>
                 </div>`
@@ -5551,6 +5653,13 @@
   });
 
   dom.btnRefresh.addEventListener('click', () => refreshAll(true));
+  if (dom.btnThemeToggle) {
+    dom.btnThemeToggle.addEventListener('click', () => {
+      if (typeof window.__AGY_LENS_SET_THEME__ !== 'function') return;
+      const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+      window.__AGY_LENS_SET_THEME__(next);
+    });
+  }
   dom.btnSettings.addEventListener('click', openSettings);
   dom.btnOpenSettingsEmpty.addEventListener('click', openSettings);
   dom.btnCloseSettings.addEventListener('click', closeSettings);
@@ -5936,6 +6045,7 @@
       }
 
       if (action === 'edit-anchor-reset') {
+        if (isReadOnlyMode()) return;
         const id = Number(actionEl.dataset.id);
         if (!Number.isFinite(id)) return;
         const anchor = (state.quotaData?.anchors || []).find((a) => a.id === id);
@@ -5961,6 +6071,7 @@
       }
 
       if (action === 'clear-anchor-reset') {
+        if (isReadOnlyMode()) return;
         const id = Number(actionEl.dataset.id);
         if (!Number.isFinite(id)) return;
         state.quotaEditingSaving = true;
@@ -5981,6 +6092,7 @@
       }
 
       if (action === 'save-anchor-reset') {
+        if (isReadOnlyMode()) return;
         const id = Number(actionEl.dataset.id);
         if (!Number.isFinite(id)) return;
         const anchor = (state.quotaData?.anchors || []).find((a) => a.id === id);
@@ -6018,6 +6130,7 @@
       }
 
       if (action === 'delete-anchor') {
+        if (isReadOnlyMode()) return;
         const id = Number(actionEl.dataset.id);
         if (!Number.isFinite(id)) return;
         try {
@@ -6118,6 +6231,9 @@
         if (has5h) state.quotaOlderOpen = true;
       }
       renderGrid();
+    } else if (tgt.dataset?.action === 'select-session') {
+      state.selectedConversationId = tgt.value || '';
+      await refreshAll(true);
     } else if (tgt.dataset?.action === 'set-pool-anchor') {
       const pool = tgt.dataset.pool;
       const modelId = tgt.value;
@@ -6132,6 +6248,7 @@
   dom.modulesGrid.addEventListener('submit', async (e) => {
     if (e.target.id !== 'quota-anchor-form') return;
     e.preventDefault();
+    if (isReadOnlyMode()) return;
     const f = state.quotaForm;
     const rawStr = String(f.remainingPct ?? '').trim();
     const pctVal = Number(rawStr);
@@ -6204,6 +6321,7 @@
     }
 
     if (action === 'set-update-mode') {
+      if (isReadOnlyMode()) return;
       const mode = actionEl.dataset.mode;
       if (!['auto', 'notify', 'off'].includes(mode)) return;
       state.config.updateMode = mode;
@@ -6243,6 +6361,7 @@
     }
 
     if (action === 'rebuild-index') {
+      if (isReadOnlyMode()) return;
       state.rebuilding = true;
       state.rebuildMsg = '';
       renderSettings();
@@ -6264,6 +6383,7 @@
     }
 
     if (action === 'sync-pricing') {
+      if (isReadOnlyMode()) return;
       state.pricing.syncing = true;
       state.pricing.syncMsg = '';
       renderSettings();
@@ -6296,6 +6416,7 @@
     }
 
     if (action === 'toggle-edit-price') {
+      if (isReadOnlyMode()) return;
       const id = actionEl.dataset.id;
       if (state.pricing.editingId === id) {
         state.pricing.editingId = null;
@@ -6310,6 +6431,7 @@
     }
 
     if (action === 'reset-price-override') {
+      if (isReadOnlyMode()) return;
       const id = actionEl.dataset.id;
       try {
         state.pricing.data = await postJson('/api/pricing/overrides', {
@@ -6360,6 +6482,7 @@
     }
 
     if (action === 'toggle-auto-sync') {
+      if (isReadOnlyMode()) return;
       state.config.pricingAutoSync = tgt.checked;
       await saveConfigPatch({ pricingAutoSync: tgt.checked });
       return;
@@ -6370,6 +6493,7 @@
     const form = e.target.closest('form[data-action="save-price-override"]');
     if (!form) return;
     e.preventDefault();
+    if (isReadOnlyMode()) return;
     const id = form.dataset.id;
     const fd = new FormData(form);
     const toNumOrNull = (v) => {
@@ -6836,6 +6960,7 @@
       if (action === 'ack-just-updated') {
         if (state.update.data) state.update.data.justUpdated = null;
         renderUpdateUI();
+        if (isReadOnlyMode()) return;
         try {
           await postJson('/api/update/ack-updated', {});
         } catch {}

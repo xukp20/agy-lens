@@ -135,6 +135,27 @@ agy plugin install /tmp/agy-lens
 
 > **Note**: Requires Antigravity `2.22+` (Sidecar Web UI support) and Node.js `24+` (built-in `node:sqlite`). No `npm install` step is needed.
 
+### Option C: Standalone Web Server & Headless SSH / CLI Mode (No Antigravity Desktop Required)
+
+On headless Linux / SSH machines running Antigravity CLI, launch the full AGY Lens dashboard directly at a local URL—sharing the same read-only conversation DBs and `sidecar_data/` directory with zero npm dependencies:
+
+```bash
+# Start on 127.0.0.1:4319 (forward via `ssh -L 4319:127.0.0.1:4319 user@remote`)
+node bin/agy-lens.mjs serve --port 4319
+# Or directly from an installed plugin directory:
+node ~/.gemini/config/plugins/agy-lens/sidecars/lens_panel/standalone.mjs --port 4319
+
+# Print a compact Today / 7d API-eq. cost & 7d quota summary right in the terminal:
+node bin/agy-lens.mjs status
+
+# Reverse proxy under a subpath with token authentication (env var avoids ps aux exposure):
+AGY_LENS_TOKEN=your-secret node bin/agy-lens.mjs serve \
+  --base-path /agy-lens --trust-proxy --allowed-hosts lens.example.com --read-only
+```
+
+- **Security Guardrails**: Defaults to `127.0.0.1` with strict `Host` validation (DNS Rebinding protection, allowing arbitrary SSH-forwarded ports on loopback), `Origin`/`Sec-Fetch-Site` CSRF checks, mandatory token + `HttpOnly` HMAC cookie auth whenever bound to non-loopback hosts or `--trust-proxy`, optional `--read-only` mode, and `256 KB` request body caps.
+- **Standalone UX**: Auto-detects browser Dark/Light preference with a header theme toggle, provides a recent CLI/Desktop conversation switcher in Live Context, and aligns the header cleanly with the wide-screen 2-column grid.
+
 ### How Updates Work (3 Ways)
 
 1. **Automatic In-Panel Updates (Default — Recommended)**: Checks GitHub Releases every 6h while active, stages & smoke-tests updates in the background, and applies automatically at next cold start (or immediately when you click the green `↑ vX.Y.Z` pill next to `AGY Lens`). Works for **both** Git clone and Standalone installs; preserves all user data in `sidecar_data/` and protects uncommitted local Git edits.
