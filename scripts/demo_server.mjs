@@ -1613,11 +1613,13 @@ const server = createServer(async (req, res) => {
       }
 
       if (url.pathname === '/api/pricing/sync') {
+        const listed = buildPricingPayload();
         return sendJson(res, 200, {
           ok: true,
           syncedAt: Date.now(),
-          matchedCount: buildPricingPayload().models.length,
-          pricing: buildPricingPayload(),
+          matchedCount: listed.models.length,
+          remoteTotalCount: 4980,
+          pricing: listed,
         });
       }
 

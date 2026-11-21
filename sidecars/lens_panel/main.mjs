@@ -337,9 +337,29 @@ function buildConfigPayload(config) {
   };
 }
 
+function collectObservedModelIds(db) {
+  if (!db) return [];
+  const ids = new Set();
+  try {
+    for (const r of db.prepare("SELECT DISTINCT canonical_model_id FROM turns WHERE canonical_model_id != ''").all()) {
+      ids.add(r.canonical_model_id);
+    }
+    for (const r of db.prepare("SELECT DISTINCT raw_model_id FROM turns WHERE raw_model_id != ''").all()) {
+      ids.add(r.raw_model_id);
+    }
+    for (const r of db.prepare("SELECT DISTINCT raw_model_id FROM model_enums WHERE raw_model_id != ''").all()) {
+      ids.add(r.raw_model_id);
+    }
+  } catch {
+    // ignore partial DB errors
+  }
+  return [...ids];
+}
+
 function buildPricingPayload(config) {
   const state = loadPricingState(DATA_DIR);
-  const listed = listPricingModels(state);
+  const observedModelIds = collectObservedModelIds(cacheDb);
+  const listed = listPricingModels(state, Date.now(), { observedModelIds });
   return {
     ...listed,
     overridesFile: getOverridesPath(DATA_DIR),
@@ -480,7 +500,7 @@ app.api('/api/health', () => ({
 app.api('/api/config', () => {
   touchActivity();
   const config = loadConfig();
-  maybeAutoSync(DATA_DIR, config.pricingAutoSync);
+  maybeAutoSync(DATA_DIR, config.pricingAutoSync, () => collectObservedModelIds(cacheDb));
   maybeAutoCheckUpdate(DATA_DIR, PLUGIN_ROOT, config);
   return buildConfigPayload(config);
 }, 'GET');
@@ -488,7 +508,7 @@ app.api('/api/config', () => {
 app.api('/api/config', (data) => {
   touchActivity();
   const next = saveConfig(data);
-  maybeAutoSync(DATA_DIR, next.pricingAutoSync);
+  maybeAutoSync(DATA_DIR, next.pricingAutoSync, () => collectObservedModelIds(cacheDb));
   maybeAutoCheckUpdate(DATA_DIR, PLUGIN_ROOT, next);
   return buildConfigPayload(next);
 }, 'POST');
@@ -496,7 +516,7 @@ app.api('/api/config', (data) => {
 app.api('/api/session', (data) => {
   touchActivity();
   const config = loadConfig();
-  maybeAutoSync(DATA_DIR, config.pricingAutoSync);
+  maybeAutoSync(DATA_DIR, config.pricingAutoSync, () => collectObservedModelIds(cacheDb));
   maybeAutoCheckUpdate(DATA_DIR, PLUGIN_ROOT, config);
   const pricingState = loadPricingState(DATA_DIR);
   const convId =
@@ -510,7 +530,7 @@ app.api('/api/session', (data) => {
 app.api('/api/analytics', (data) => {
   touchActivity();
   const config = loadConfig();
-  maybeAutoSync(DATA_DIR, config.pricingAutoSync);
+  maybeAutoSync(DATA_DIR, config.pricingAutoSync, () => collectObservedModelIds(cacheDb));
   const pricingState = loadPricingState(DATA_DIR);
   const sources = enabledSourcesList(config, data.sources);
   const modules = parseModulesSet(data.modules);
@@ -552,7 +572,9 @@ app.api('/api/pricing/overrides', (data) => {
 
 app.api('/api/pricing/sync', async () => {
   const config = loadConfig();
-  const res = await syncRemotePricing(DATA_DIR);
+  const res = await syncRemotePricing(DATA_DIR, {
+    observedModelIds: collectObservedModelIds(cacheDb),
+  });
   return {
     ...res,
     pricing: buildPricingPayload(config),

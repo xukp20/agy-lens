@@ -635,6 +635,7 @@
         syncing: '同步中…',
         syncBtn: '立即手动刷新定价',
         syncOk: '同步成功，已匹配 {n} 个模型',
+        syncOkFiltered: '同步成功：扫描远端 {total} 条，已匹配保留 {n} 个相关模型',
         syncErr: '同步异常: {msg}',
         syncFail: '同步失败: {msg}',
         collapsePricing: '收起模型单价表',
@@ -1198,6 +1199,7 @@
         syncing: 'Syncing…',
         syncBtn: 'Sync Pricing Now',
         syncOk: 'Synced successfully ({n} models matched)',
+        syncOkFiltered: 'Synced: scanned {total} remote entries, kept {n} relevant models',
         syncErr: 'Sync warning: {msg}',
         syncFail: 'Sync failed: {msg}',
         collapsePricing: 'Hide Model Pricing & Overrides',
@@ -6270,7 +6272,9 @@
         if (res.pricing) state.pricing.data = res.pricing;
         if (res.syncedAt) state.pricingStatus.lastSyncedAt = res.syncedAt;
         state.pricing.syncMsg = res.ok
-          ? t('settings.syncOk', { n: num(res.matchedCount, 0) })
+          ? res.remoteTotalCount != null && Number.isFinite(Number(res.remoteTotalCount))
+            ? t('settings.syncOkFiltered', { total: num(res.remoteTotalCount, 0), n: num(res.matchedCount, 0) })
+            : t('settings.syncOk', { n: num(res.matchedCount, 0) })
           : t('settings.syncErr', { msg: res.error || t('common.unknown') });
       } catch (err) {
         state.pricing.syncMsg = t('settings.syncFail', { msg: err.message });

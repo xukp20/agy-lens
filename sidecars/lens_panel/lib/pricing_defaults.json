@@ -141,7 +141,7 @@
     },
     "gemini-3.5-flash-lite": {
       "pool": "gemini",
-      "aliases": [],
+      "aliases": ["gemini-3-5-flash-lite"],
       "rates": [
         {
           "effective_from": "2026-01-01",

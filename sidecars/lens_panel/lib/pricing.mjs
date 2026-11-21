@@ -2,7 +2,7 @@
  * Pricing engine for Antigravity telemetry (AGY Lens).
  * Precedence: user overrides > bundled date-versioned defaults > remote catalog cache > unpriced.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -14,6 +14,44 @@ const LITELLM_URL =
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/models';
 const REMOTE_TIMEOUT_MS = 8000;
 const REMOTE_TTL_MS = 24 * 3600 * 1000;
+
+const LITELLM_DIRECT_PREFIXES = new Set(['gemini', 'google', 'anthropic', 'openai']);
+const LITELLM_BLOCKED_PROVIDERS = new Set([
+  'bedrock',
+  'bedrock_converse',
+  'vertex_ai',
+  'vertex_ai_beta',
+  'vertex_ai-language-models',
+  'vertex_ai-vision-models',
+  'azure',
+  'azure_ai',
+  'sagemaker',
+  'sagemaker_chat',
+  'openrouter',
+  'together_ai',
+  'fireworks_ai',
+  'groq',
+  'replicate',
+  'perplexity',
+  'cloudflare',
+  'databricks',
+  'snowflake',
+  'nebius',
+  'novita',
+  'deepinfra',
+  'hosted_vllm',
+  'sambanova',
+  'cerebras',
+  'baseten',
+  'featherless_ai',
+]);
+const RELEVANT_CHAT_FAMILY_RE = /^(?:gemini-|claude-|gpt-oss)/i;
+const EXCLUDED_NON_CHAT_RE =
+  /(?:embedding|imagen|veo|tts|audio|whisper|realtime|moderation|dall-e|bison|gecko|aqa|lyria|chirp|transcribe|robotics|computer-use|image-generation|live-)/i;
+const OPENROUTER_VARIANT_SUFFIX_RE = /:(?:free|beta|extended|nitro|floor|exacto|thinking)$/i;
+
+let tmpWriteSeq = 0;
+const jsonStatCache = new Map(); // filePath -> { sig, value }
 
 export const MODEL_ENUM_FALLBACK = {
   1198: 'gemini-3.5-flash-lite',
@@ -60,7 +98,7 @@ export function normalizeModelId(rawModelId, modelEnum = null, learnedEnums = nu
   if (!raw) return 'unknown';
 
   // Strip provider prefixes from remote keys or Antigravity effort/tier suffixes.
-  let clean = raw.replace(/^(?:anthropic|google|openai|vertex_ai|openrouter)\//, '');
+  let clean = raw.replace(/^(?:anthropic|google|gemini|openai|vertex_ai|openrouter)\//, '');
   clean = clean.replace(/(?:-(?:xhigh|high|medium|low|tiered(?:-[a-z0-9-]+)?))+$/i, '');
 
   if (ORCHESTRATOR_ALIASES[clean]) {
@@ -102,10 +140,46 @@ export function inferPool(canonicalId, rawModelId = '') {
   return 'gemini';
 }
 
-function readJsonSafe(filePath, fallback) {
+export function writeJsonAtomic(filePath, obj, pretty = true) {
+  mkdirSync(dirname(filePath), { recursive: true });
+  const tmpPath = `${filePath}.tmp.${process.pid}.${++tmpWriteSeq}`;
+  const content = (pretty ? JSON.stringify(obj, null, 2) : JSON.stringify(obj)) + '\n';
   try {
-    if (!existsSync(filePath)) return fallback;
-    return JSON.parse(readFileSync(filePath, 'utf-8'));
+    writeFileSync(tmpPath, content, 'utf-8');
+    renameSync(tmpPath, filePath);
+    jsonStatCache.delete(filePath);
+  } catch (err) {
+    try {
+      unlinkSync(tmpPath);
+    } catch {
+      // ignore cleanup error
+    }
+    throw err;
+  }
+}
+
+export function clearPricingJsonCache(filePath = null) {
+  if (filePath) jsonStatCache.delete(filePath);
+  else jsonStatCache.clear();
+}
+
+function readJsonCached(filePath, fallback) {
+  try {
+    let st;
+    try {
+      st = statSync(filePath, { bigint: true });
+    } catch (err) {
+      if (err?.code === 'ENOENT') jsonStatCache.delete(filePath);
+      return fallback;
+    }
+    const sig = `${st.mtimeNs}:${st.size}:${st.ino}`;
+    const hit = jsonStatCache.get(filePath);
+    if (hit && hit.sig === sig) {
+      return hit.value;
+    }
+    const parsed = JSON.parse(readFileSync(filePath, 'utf-8'));
+    jsonStatCache.set(filePath, { sig, value: parsed });
+    return parsed;
   } catch {
     return fallback;
   }
@@ -121,8 +195,8 @@ export function getRemoteCachePath(dataDir) {
 
 export function loadPricingState(dataDir) {
   const defaults = loadDefaults();
-  const overridesRaw = readJsonSafe(getOverridesPath(dataDir), { models: {} });
-  const remoteRaw = readJsonSafe(getRemoteCachePath(dataDir), { fetchedAt: null, models: {} });
+  const overridesRaw = readJsonCached(getOverridesPath(dataDir), null);
+  const remoteRaw = readJsonCached(getRemoteCachePath(dataDir), null);
   const defaultAnchors =
     defaults?.defaultAnchors && typeof defaults.defaultAnchors === 'object'
       ? { ...defaults.defaultAnchors }
@@ -133,6 +207,10 @@ export function loadPricingState(dataDir) {
     overrides: overridesRaw?.models && typeof overridesRaw.models === 'object' ? overridesRaw.models : {},
     remote: {
       fetchedAt: remoteRaw?.fetchedAt || null,
+      remoteTotalCount:
+        remoteRaw?.remoteTotalCount != null && Number.isFinite(Number(remoteRaw.remoteTotalCount))
+          ? Number(remoteRaw.remoteTotalCount)
+          : null,
       models: remoteRaw?.models && typeof remoteRaw.models === 'object' ? remoteRaw.models : {},
     },
   };
@@ -141,7 +219,7 @@ export function loadPricingState(dataDir) {
 export function saveOverride(dataDir, canonicalId, override) {
   mkdirSync(dataDir, { recursive: true });
   const overridesPath = getOverridesPath(dataDir);
-  const current = readJsonSafe(overridesPath, { schemaVersion: 1, models: {} });
+  const current = readJsonCached(overridesPath, null);
   const models = current?.models && typeof current.models === 'object' ? { ...current.models } : {};
 
   if (override === null || override === undefined) {
@@ -150,7 +228,7 @@ export function saveOverride(dataDir, canonicalId, override) {
     models[canonicalId] = sanitizeRateFields(override, canonicalId);
   }
 
-  writeFileSync(overridesPath, JSON.stringify({ schemaVersion: 1, models }, null, 2) + '\n', 'utf-8');
+  writeJsonAtomic(overridesPath, { schemaVersion: 1, models }, true);
   return loadPricingState(dataDir);
 }
 
@@ -500,13 +578,64 @@ export function calcMissPenaltyUsd(turn, wastedTokens, state) {
   return (wasted * deltaPer1m) / 1e6;
 }
 
-export function listPricingModels(state, nowMs = Date.now()) {
+function normalizeObservedSet(observedModelIds) {
+  const out = new Set();
+  if (!observedModelIds) return out;
+  for (const id of observedModelIds) {
+    const norm = normalizeModelId(String(id || ''));
+    if (norm && norm !== 'unknown' && !norm.startsWith('model-')) {
+      out.add(norm);
+    }
+  }
+  return out;
+}
+
+function buildCanonicalAliasLookup(defaults, overrides, observedSet) {
+  const map = new Map();
+  const register = (canonical) => {
+    if (!canonical) return;
+    const low = String(canonical).trim().toLowerCase();
+    if (!low) return;
+    map.set(low, low);
+    const dashed = low.replace(/\./g, '-');
+    if (dashed !== low && !map.has(dashed)) map.set(dashed, low);
+  };
+  for (const [canonical, entry] of Object.entries(defaults?.models || {})) {
+    register(canonical);
+    for (const a of entry?.aliases || []) {
+      const al = String(a || '').trim().toLowerCase();
+      if (al) map.set(al, canonical);
+    }
+  }
+  for (const canonical of Object.keys(overrides || {})) register(canonical);
+  for (const canonical of observedSet || []) register(canonical);
+  for (const [alias, canonical] of Object.entries(ORCHESTRATOR_ALIASES)) {
+    map.set(alias, canonical);
+  }
+  return map;
+}
+
+export function isRelevantPricingModel(canonicalId, defaults, overrides, observedSet = null) {
+  if (!canonicalId || canonicalId === 'sample_spec' || canonicalId === 'unknown') return false;
+  if (defaults?.models?.[canonicalId]) return true;
+  if (overrides?.[canonicalId]) return true;
+  if (observedSet?.has?.(canonicalId)) return true;
+  if (EXCLUDED_NON_CHAT_RE.test(canonicalId)) return false;
+  return RELEVANT_CHAT_FAMILY_RE.test(canonicalId);
+}
+
+export function listPricingModels(state, nowMs = Date.now(), { observedModelIds = null } = {}) {
   const dateStr = new Date(nowMs).toISOString().slice(0, 10);
+  const observedSet = normalizeObservedSet(observedModelIds);
   const allIds = new Set([
     ...Object.keys(state.defaults?.models || {}),
     ...Object.keys(state.overrides || {}),
-    ...Object.keys(state.remote?.models || {}),
   ]);
+  for (const remoteId of Object.keys(state.remote?.models || {})) {
+    if (isRelevantPricingModel(remoteId, state.defaults, state.overrides, observedSet)) {
+      allIds.add(remoteId);
+    }
+  }
 
   const models = [];
   for (const canonicalId of [...allIds].sort()) {
@@ -536,6 +665,7 @@ export function listPricingModels(state, nowMs = Date.now()) {
     defaultsFile: DEFAULTS_FILE,
     overridesFile: '', // filled by caller with dataDir
     lastSyncedAt: state.remote?.fetchedAt || null,
+    remoteTotalCount: state.remote?.remoteTotalCount ?? null,
     defaultAnchors:
       state.defaultAnchors ||
       state.defaults?.defaultAnchors || {
@@ -554,28 +684,79 @@ function parsePositivePerToken(val) {
   return Number((n * 1e6).toFixed(6));
 }
 
-function normalizeRemoteKey(key) {
-  return String(key || '')
-    .trim()
-    .toLowerCase()
-    .replace(/^(?:anthropic|google|openai|vertex_ai|bedrock|azure|openrouter)\//, '')
-    .replace(/:(?:free|beta|extended)$/, '')
-    .replace(/\./g, '-');
+function resolveCanonicalRemoteKey(rawModelPart, aliasLookup) {
+  const clean = String(rawModelPart || '').trim().toLowerCase();
+  if (!clean || clean === 'sample_spec') return '';
+  if (aliasLookup?.has(clean)) return aliasLookup.get(clean);
+  const dashed = clean.replace(/\./g, '-');
+  if (aliasLookup?.has(dashed)) return aliasLookup.get(dashed);
+  // Preserve dots for Gemini & other models (e.g. gemini-2.5-pro); convert dots to hyphens for Claude.
+  if (clean.startsWith('claude-')) return dashed;
+  return clean;
 }
 
-export async function syncRemotePricing(dataDir) {
+function parseLiteLlmKey(rawKey, info, aliasLookup) {
+  const key = String(rawKey || '').trim().toLowerCase();
+  if (!key || key === 'sample_spec') return null;
+
+  const provider = String(info?.litellm_provider || '').trim().toLowerCase();
+  if (provider && LITELLM_BLOCKED_PROVIDERS.has(provider)) return null;
+  if (provider.startsWith('vertex_ai') || provider.startsWith('bedrock') || provider.startsWith('azure')) {
+    return null;
+  }
+
+  const slashIdx = key.indexOf('/');
+  let rank = 3; // Bare direct key has highest priority
+  let modelPart = key;
+  if (slashIdx !== -1) {
+    const prefix = key.slice(0, slashIdx);
+    const rest = key.slice(slashIdx + 1);
+    if (!LITELLM_DIRECT_PREFIXES.has(prefix) || rest.includes('/')) {
+      return null;
+    }
+    rank = 2;
+    modelPart = rest;
+  }
+
+  if (OPENROUTER_VARIANT_SUFFIX_RE.test(modelPart)) return null;
+  const canonical = resolveCanonicalRemoteKey(modelPart, aliasLookup);
+  if (!canonical) return null;
+  return { canonical, rank };
+}
+
+function parseOpenRouterKey(rawId, aliasLookup) {
+  const key = String(rawId || '').trim().toLowerCase();
+  if (!key) return null;
+  if (OPENROUTER_VARIANT_SUFFIX_RE.test(key)) return null;
+  const slashIdx = key.indexOf('/');
+  const modelPart = slashIdx !== -1 ? key.slice(slashIdx + 1) : key;
+  if (!modelPart || modelPart.includes('/')) return null;
+  const canonical = resolveCanonicalRemoteKey(modelPart, aliasLookup);
+  if (!canonical) return null;
+  return { canonical, rank: 1 };
+}
+
+export async function syncRemotePricing(dataDir, { observedModelIds = null, fetchImpl = fetch } = {}) {
   if (inflightSync) return inflightSync;
   inflightSync = (async () => {
     mkdirSync(dataDir, { recursive: true });
     const defaults = loadDefaults();
+    const overridesRaw = readJsonCached(getOverridesPath(dataDir), null);
+    const overrides = overridesRaw?.models && typeof overridesRaw.models === 'object' ? overridesRaw.models : {};
+    const observedSet = normalizeObservedSet(observedModelIds);
+    const aliasLookup = buildCanonicalAliasLookup(defaults, overrides, observedSet);
+
     const syncDateStr = new Date().toISOString().slice(0, 10);
     const merged = {};
+    const mergedRanks = {};
     const errors = [];
-    let litellmCount = 0;
-    let openrouterCount = 0;
+    let litellmScanned = 0;
+    let openrouterScanned = 0;
+    let litellmKept = 0;
+    let openrouterKept = 0;
 
     try {
-      const resp = await fetch(LITELLM_URL, { signal: AbortSignal.timeout(REMOTE_TIMEOUT_MS) });
+      const resp = await fetchImpl(LITELLM_URL, { signal: AbortSignal.timeout(REMOTE_TIMEOUT_MS) });
       if (!resp.ok) throw new Error(`LiteLLM HTTP ${resp.status}`);
       const json = await resp.json();
       for (const [key, info] of Object.entries(json || {})) {
@@ -583,14 +764,21 @@ export async function syncRemotePricing(dataDir) {
         const in1m = parsePositivePerToken(info.input_cost_per_token);
         const out1m = parsePositivePerToken(info.output_cost_per_token);
         if (in1m === null && out1m === null) continue;
-        const canonical = normalizeRemoteKey(key);
-        if (!canonical || canonical === 'sample_spec') continue;
+        litellmScanned++;
+
+        const parsed = parseLiteLlmKey(key, info, aliasLookup);
+        if (!parsed) continue;
+        const { canonical, rank } = parsed;
+        if (!isRelevantPricingModel(canonical, defaults, overrides, observedSet)) continue;
+        if ((mergedRanks[canonical] || 0) > rank) continue;
+
         const cacheRead = parsePositivePerToken(info.cache_read_input_token_cost);
         const cacheWrite = parsePositivePerToken(info.cache_creation_input_token_cost);
         const inAbove = parsePositivePerToken(info.input_cost_per_token_above_200k_tokens);
         const outAbove = parsePositivePerToken(info.output_cost_per_token_above_200k_tokens);
         const crAbove = parsePositivePerToken(info.cache_read_input_token_cost_above_200k_tokens);
 
+        const isNew = !merged[canonical];
         merged[canonical] = mergeRemoteEntryWithDefault(
           {
             pool: inferPool(canonical, key),
@@ -611,14 +799,15 @@ export async function syncRemotePricing(dataDir) {
           defaults?.models?.[canonical],
           syncDateStr
         );
-        litellmCount++;
+        mergedRanks[canonical] = rank;
+        if (isNew) litellmKept++;
       }
     } catch (err) {
       errors.push(`LiteLLM: ${err.message}`);
     }
 
     try {
-      const resp = await fetch(OPENROUTER_URL, { signal: AbortSignal.timeout(REMOTE_TIMEOUT_MS) });
+      const resp = await fetchImpl(OPENROUTER_URL, { signal: AbortSignal.timeout(REMOTE_TIMEOUT_MS) });
       if (!resp.ok) throw new Error(`OpenRouter HTTP ${resp.status}`);
       const json = await resp.json();
       for (const item of json?.data || []) {
@@ -627,14 +816,18 @@ export async function syncRemotePricing(dataDir) {
         const in1m = parsePositivePerToken(p.prompt);
         const out1m = parsePositivePerToken(p.completion);
         if (in1m === null && out1m === null) continue;
-        const canonical = normalizeRemoteKey(item.id);
-        if (!canonical) continue;
-        const cacheRead = parsePositivePerToken(p.input_cache_read);
-        const cacheWrite = parsePositivePerToken(p.input_cache_write);
-        const reasoning = parsePositivePerToken(p.internal_reasoning);
+        openrouterScanned++;
 
-        // Prefer OpenRouter when LiteLLM didn't already supply an entry, or fill missing fields.
+        const parsed = parseOpenRouterKey(item.id, aliasLookup);
+        if (!parsed) continue;
+        const { canonical, rank } = parsed;
+        if (!isRelevantPricingModel(canonical, defaults, overrides, observedSet)) continue;
+
+        // Prefer LiteLLM direct entry when already present; OpenRouter fills remaining models.
         if (!merged[canonical]) {
+          const cacheRead = parsePositivePerToken(p.input_cache_read);
+          const cacheWrite = parsePositivePerToken(p.input_cache_write);
+          const reasoning = parsePositivePerToken(p.internal_reasoning);
           merged[canonical] = mergeRemoteEntryWithDefault(
             {
               pool: inferPool(canonical, item.id),
@@ -655,8 +848,9 @@ export async function syncRemotePricing(dataDir) {
             defaults?.models?.[canonical],
             syncDateStr
           );
+          mergedRanks[canonical] = rank;
+          openrouterKept++;
         }
-        openrouterCount++;
       }
     } catch (err) {
       errors.push(`OpenRouter: ${err.message}`);
@@ -664,25 +858,30 @@ export async function syncRemotePricing(dataDir) {
 
     const fetchedAt = Date.now();
     const matchedCount = Object.keys(merged).length;
+    const remoteTotalCount = litellmScanned + openrouterScanned;
 
     if (matchedCount > 0) {
-      writeFileSync(
+      writeJsonAtomic(
         getRemoteCachePath(dataDir),
-        JSON.stringify(
-          {
-            fetchedAt,
-            sources: { litellmCount, openrouterCount },
-            models: merged,
+        {
+          fetchedAt,
+          remoteTotalCount,
+          matchedCount,
+          sources: {
+            litellmScanned,
+            openrouterScanned,
+            litellmCount: litellmKept,
+            openrouterCount: openrouterKept,
           },
-          null,
-          2
-        ) + '\n',
-        'utf-8'
+          models: merged,
+        },
+        false
       );
       return {
         ok: true,
         syncedAt: fetchedAt,
         matchedCount,
+        remoteTotalCount,
         error: errors.length > 0 ? errors.join('; ') : undefined,
       };
     }
@@ -691,6 +890,7 @@ export async function syncRemotePricing(dataDir) {
       ok: false,
       syncedAt: null,
       matchedCount: 0,
+      remoteTotalCount,
       error: errors.join('; ') || 'No remote pricing models fetched',
     };
   })().finally(() => {
@@ -700,12 +900,18 @@ export async function syncRemotePricing(dataDir) {
   return inflightSync;
 }
 
-export function maybeAutoSync(dataDir, autoSyncEnabled) {
+export function maybeAutoSync(dataDir, autoSyncEnabled, getObservedModelIds = null) {
   if (!autoSyncEnabled || inflightSync) return;
-  const cache = readJsonSafe(getRemoteCachePath(dataDir), null);
+  const cache = readJsonCached(getRemoteCachePath(dataDir), null);
   const age = cache?.fetchedAt ? Date.now() - cache.fetchedAt : Infinity;
   if (age > REMOTE_TTL_MS) {
-    // Fire and forget in background without blocking API latency.
-    syncRemotePricing(dataDir).catch(() => {});
+    // Lazily query observed models only when a 24h sync is actually due.
+    let observedModelIds = null;
+    try {
+      observedModelIds = typeof getObservedModelIds === 'function' ? getObservedModelIds() : getObservedModelIds;
+    } catch {
+      observedModelIds = null;
+    }
+    syncRemotePricing(dataDir, { observedModelIds }).catch(() => {});
   }
 }
