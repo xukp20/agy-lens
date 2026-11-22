@@ -70,7 +70,7 @@ Diagnose cross-session prompt-cache instability—such as idle-gap TTL decay, tr
   <img src="assets/screenshots/cost-calendar.png" alt="Models API-Equivalent Cost and 16-Week Calendar Heatmap" width="100%" />
 </p>
 
-- **Models & API-Eq. Cost**: Aggregates compute value by model or workspace, computes cache savings, and automatically applies **>200k tiered long-context pricing** on turns exceeding 200k prompt tokens (`>200k` badge).
+- **Models & API-Eq. Cost**: Aggregates compute value by model or workspace, computes cache savings, uses flat 1M standard rates for Gemini 4 & Claude 5.5, and automatically applies **>200k tiered long-context pricing** (`>200k` badge) on models or user overrides that carry a long-context tier.
 - **16-Week Calendar Heatmap & Day Drill-Down**: Tracks active day streaks, Today vs. 7-day average deltas, 14-day sparkbars, and a crisp 1:1 pixel heatmap (`API-eq. $ | Tokens | Turns`). Click any day cell to drill down into that date's sessions and costs.
 
 ### 4. Manual Quota Alignment & Cycle Budget Inversion (Module #7)

@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 export const DEFAULTS_FILE = join(__dirname, 'pricing_defaults.json');
+export const REMOTE_CACHE_VERSION = 2;
 
 const LITELLM_URL =
   'https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json';
@@ -206,6 +207,7 @@ export function loadPricingState(dataDir) {
     defaultAnchors,
     overrides: overridesRaw?.models && typeof overridesRaw.models === 'object' ? overridesRaw.models : {},
     remote: {
+      cacheVersion: Number(remoteRaw?.cacheVersion || 1),
       fetchedAt: remoteRaw?.fetchedAt || null,
       remoteTotalCount:
         remoteRaw?.remoteTotalCount != null && Number.isFinite(Number(remoteRaw.remoteTotalCount))
@@ -302,27 +304,37 @@ function pricesMatchPromo(remoteRate, defSlice) {
  * Merge a remote catalog entry over a bundled default entry for `syncDateStr`,
  * preserving non-null long-context fields and matching promo metadata.
  */
-export function mergeRemoteEntryWithDefault(remoteRate, defEntry, syncDateStr) {
+export function mergeRemoteEntryWithDefault(remoteRate, defEntry, syncDateStr, { legacyCache = false } = {}) {
   if (!remoteRate) return null;
   const effDate = remoteRate.effective_from || syncDateStr || new Date().toISOString().slice(0, 10);
   const defSlice = defEntry ? selectEffectiveDefaultRate(defEntry, effDate) : null;
   const keepPromo = pricesMatchPromo(remoteRate, defSlice);
+  // Pre-v1.9.1 remote caches inherited stale >200k tiers from old bundled defaults
+  // for flat-1M models (gemini-4-neon, claude-opus-5-5, claude-sonnet-5-5).
+  // Strip those stale inherited fields cleanly when the bundled default is flat.
+  const stripLegacyLongCtx = Boolean(legacyCache && defSlice && defSlice.long_context_threshold == null);
   return {
     ...remoteRate,
     pool: remoteRate.pool || defEntry?.pool || 'gemini',
     effective_from: effDate,
-    long_context_threshold:
-      remoteRate.long_context_threshold ?? defSlice?.long_context_threshold ?? null,
-    input_above_per_1m:
-      remoteRate.input_above_per_1m ?? defSlice?.input_above_per_1m ?? null,
-    output_above_per_1m:
-      remoteRate.output_above_per_1m ?? defSlice?.output_above_per_1m ?? null,
-    thinking_above_per_1m:
-      remoteRate.thinking_above_per_1m ?? defSlice?.thinking_above_per_1m ?? null,
-    cache_read_above_per_1m:
-      remoteRate.cache_read_above_per_1m ?? defSlice?.cache_read_above_per_1m ?? null,
-    cache_write_above_per_1m:
-      remoteRate.cache_write_above_per_1m ?? defSlice?.cache_write_above_per_1m ?? null,
+    long_context_threshold: stripLegacyLongCtx
+      ? null
+      : (remoteRate.long_context_threshold ?? defSlice?.long_context_threshold ?? null),
+    input_above_per_1m: stripLegacyLongCtx
+      ? null
+      : (remoteRate.input_above_per_1m ?? defSlice?.input_above_per_1m ?? null),
+    output_above_per_1m: stripLegacyLongCtx
+      ? null
+      : (remoteRate.output_above_per_1m ?? defSlice?.output_above_per_1m ?? null),
+    thinking_above_per_1m: stripLegacyLongCtx
+      ? null
+      : (remoteRate.thinking_above_per_1m ?? defSlice?.thinking_above_per_1m ?? null),
+    cache_read_above_per_1m: stripLegacyLongCtx
+      ? null
+      : (remoteRate.cache_read_above_per_1m ?? defSlice?.cache_read_above_per_1m ?? null),
+    cache_write_above_per_1m: stripLegacyLongCtx
+      ? null
+      : (remoteRate.cache_write_above_per_1m ?? defSlice?.cache_write_above_per_1m ?? null),
     discount_multiplier: keepPromo
       ? defSlice.discount_multiplier
       : (remoteRate.discount_multiplier ?? 1.0),
@@ -371,7 +383,10 @@ export function resolveRate(canonicalId, timestampMs, state) {
     const fallbackSyncDate = state.remote?.fetchedAt
       ? new Date(state.remote.fetchedAt).toISOString().slice(0, 10)
       : dateStr;
-    const mergedRemote = mergeRemoteEntryWithDefault(remoteRateRaw, defEntry, fallbackSyncDate);
+    const legacyCache = Number(state.remote?.cacheVersion || 1) < REMOTE_CACHE_VERSION;
+    const mergedRemote = mergeRemoteEntryWithDefault(remoteRateRaw, defEntry, fallbackSyncDate, {
+      legacyCache,
+    });
     slices.push({
       ...mergedRemote,
       pool: mergedRemote.pool || defEntry?.pool || inferPool(canonicalId),
@@ -873,6 +888,7 @@ export async function syncRemotePricing(dataDir, { observedModelIds = null, fetc
       writeJsonAtomic(
         getRemoteCachePath(dataDir),
         {
+          cacheVersion: REMOTE_CACHE_VERSION,
           fetchedAt,
           remoteTotalCount,
           matchedCount,

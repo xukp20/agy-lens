@@ -13,12 +13,15 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import {
+  REMOTE_CACHE_VERSION,
+  calculateTurnCost,
   clearPricingJsonCache,
   getRemoteCachePath,
   listPricingModels,
   loadPricingState,
   maybeAutoSync,
   normalizeModelId,
+  resolveRate,
   saveOverride,
   syncRemotePricing,
   writeJsonAtomic,
@@ -182,6 +185,123 @@ test('stat cache hits across repeated loads, invalidates immediately on atomic w
       return [];
     });
     assert.equal(getterCalls, 0);
+  } finally {
+    clearPricingJsonCache();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('v1.9.1: Gemini 4 Neon & Claude 5.5 use flat 1M standard rates and strip stale >200K fields from legacy remote caches', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'agy-lens-flat1m-'));
+  try {
+    const cleanState = loadPricingState(dir);
+    const nowMs = Date.parse('2026-11-22T08:00:00Z');
+
+    for (const mid of ['gemini-4-neon', 'claude-opus-5-5', 'claude-sonnet-5-5']) {
+      const rate = resolveRate(mid, nowMs, cleanState);
+      assert.equal(rate.long_context_threshold, null, `${mid} bundled default must be flat 1M (no >200K tier)`);
+    }
+
+    // 300k-token Gemini 4 Neon turn billed strictly at $3/1M in, $0.15/1M cache read, $15/1M out (NOT 2x)
+    const neon300k = calculateTurnCost(
+      {
+        canonical_model_id: 'gemini-4-neon',
+        completed_at_ms: nowMs,
+        uncached_in: 100_000,
+        cache_read: 200_000,
+        cache_create: 0,
+        thinking_out: 0,
+        visible_out: 10_000,
+        total_out: 10_000,
+      },
+      cleanState
+    );
+    // 0.1*3 + 0.2*0.15 + 0.01*15 = 0.3 + 0.03 + 0.15 = $0.48
+    assert.ok(Math.abs(neon300k.costUsd - 0.48) < 1e-9, `expected $0.48, got $${neon300k.costUsd}`);
+    assert.equal(neon300k.longContext, false);
+
+    // Legacy pre-v1.9.1 remote_pricing_cache.json (missing cacheVersion: 2) poisoned with stale >200K fields
+    writeJsonAtomic(
+      getRemoteCachePath(dir),
+      {
+        fetchedAt: nowMs,
+        models: {
+          'gemini-4-neon': {
+            pool: 'gemini',
+            effective_from: '2026-11-21',
+            input_per_1m: 3.0,
+            output_per_1m: 15.0,
+            thinking_per_1m: 15.0,
+            cache_read_per_1m: 0.15,
+            cache_write_per_1m: 0,
+            long_context_threshold: 200000,
+            input_above_per_1m: 6.0,
+            output_above_per_1m: 30.0,
+            thinking_above_per_1m: 30.0,
+            cache_read_above_per_1m: 0.3,
+            cache_write_above_per_1m: 7.5,
+            notes: 'Synced from LiteLLM',
+          },
+          'claude-opus-5-5': {
+            pool: '3p',
+            effective_from: '2026-11-21',
+            input_per_1m: 4.0,
+            output_per_1m: 20.0,
+            thinking_per_1m: 20.0,
+            cache_read_per_1m: 0.2,
+            cache_write_per_1m: 5.0,
+            long_context_threshold: 200000,
+            input_above_per_1m: 8.0,
+            output_above_per_1m: 30.0,
+            notes: 'Synced from LiteLLM',
+          },
+        },
+      },
+      false
+    );
+
+    const legacyState = loadPricingState(dir);
+    assert.equal(legacyState.remote.cacheVersion, 1);
+    const resolvedNeon = resolveRate('gemini-4-neon', nowMs, legacyState);
+    assert.equal(resolvedNeon.long_context_threshold, null, 'legacy poisoned >200K threshold must be stripped');
+    assert.equal(resolvedNeon.input_above_per_1m, null);
+    const resolvedOpus = resolveRate('claude-opus-5-5', nowMs, legacyState);
+    assert.equal(resolvedOpus.long_context_threshold, null);
+
+    // Explicit user override with >200K threshold must STILL be respected
+    const ovState = saveOverride(dir, 'gemini-4-neon', {
+      inputPer1m: 3.0,
+      outputPer1m: 15.0,
+      cacheReadPer1m: 0.15,
+      longContextThreshold: 200000,
+      inputAbovePer1m: 6.0,
+      outputAbovePer1m: 30.0,
+    });
+    assert.equal(resolveRate('gemini-4-neon', nowMs, ovState).long_context_threshold, 200000);
+
+    // Fresh v2 remote cache entry carrying a genuine provider >200K tier is preserved
+    writeJsonAtomic(
+      getRemoteCachePath(dir),
+      {
+        cacheVersion: REMOTE_CACHE_VERSION,
+        fetchedAt: nowMs,
+        models: {
+          'gemini-2.5-pro': {
+            pool: 'gemini',
+            effective_from: '2026-11-22',
+            input_per_1m: 1.25,
+            output_per_1m: 10.0,
+            long_context_threshold: 200000,
+            input_above_per_1m: 2.5,
+            output_above_per_1m: 15.0,
+          },
+        },
+      },
+      false
+    );
+    const v2State = loadPricingState(dir);
+    assert.equal(v2State.remote.cacheVersion, REMOTE_CACHE_VERSION);
+    assert.equal(resolveRate('gemini-2.5-pro', nowMs, v2State).long_context_threshold, 200000);
   } finally {
     clearPricingJsonCache();
     rmSync(dir, { recursive: true, force: true });
