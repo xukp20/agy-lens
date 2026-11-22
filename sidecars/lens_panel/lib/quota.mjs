@@ -12,6 +12,13 @@
  */
 import { calculateTurnCost } from './pricing.mjs';
 import { calibrateQuotaCycle } from './quota_calibrator.mjs';
+import {
+  DEFAULT_ACCOUNT_ID,
+  buildTurnAccountSql,
+  hasAccountSchema,
+  listAccountsState,
+  normalizeAccountIdFilter,
+} from './accounts.mjs';
 
 export const VALID_POOLS = ['gemini', 'argon', '3p'];
 export const VALID_WINDOWS = ['5h', '7d'];
@@ -184,26 +191,71 @@ export function addQuotaAnchor(cacheDb, payload, nowMs = Date.now()) {
 
   const note = typeof payload?.note === 'string' ? payload.note.trim().slice(0, 240) : '';
 
-  const info = cacheDb
-    .prepare(
-      `INSERT INTO quota_anchors (
-         pool, window_type, remaining_pct, precision_step, captured_at,
-         reset_at, reset_source, reset_precision_ms, note, created_at
-       )
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    )
-    .run(
-      pool,
-      windowType,
-      remainingPct,
-      precisionStep,
-      capturedAt,
-      resetAt,
-      resetSource,
-      resetPrecisionMs,
-      note,
-      nowMs
+  const qaCols = cacheDb.prepare('PRAGMA table_info(quota_anchors)').all();
+  const hasAccCol = qaCols.some((c) => c.name === 'account_id');
+  let accountId = DEFAULT_ACCOUNT_ID;
+
+  if (hasAccCol && hasAccountSchema(cacheDb)) {
+    const rawAcc = payload?.accountId != null ? String(payload.accountId).trim() : '';
+    const totalCnt = Number(
+      cacheDb.prepare('SELECT COUNT(*) as cnt FROM accounts').get()?.cnt || 0
     );
+    if (!rawAcc) {
+      if (totalCnt >= 2) {
+        throw new Error('accountId is required when multiple accounts are configured');
+      }
+      accountId = DEFAULT_ACCOUNT_ID;
+    } else {
+      const accRow = cacheDb.prepare('SELECT id FROM accounts WHERE id = ?').get(rawAcc);
+      if (!accRow) throw new Error(`Account "${rawAcc}" not found`);
+      accountId = rawAcc;
+    }
+  } else if (hasAccCol && payload?.accountId) {
+    accountId = String(payload.accountId).trim() || DEFAULT_ACCOUNT_ID;
+  }
+
+  const info = hasAccCol
+    ? cacheDb
+        .prepare(
+          `INSERT INTO quota_anchors (
+             account_id, pool, window_type, remaining_pct, precision_step, captured_at,
+             reset_at, reset_source, reset_precision_ms, note, created_at
+           )
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .run(
+          accountId,
+          pool,
+          windowType,
+          remainingPct,
+          precisionStep,
+          capturedAt,
+          resetAt,
+          resetSource,
+          resetPrecisionMs,
+          note,
+          nowMs
+        )
+    : cacheDb
+        .prepare(
+          `INSERT INTO quota_anchors (
+             pool, window_type, remaining_pct, precision_step, captured_at,
+             reset_at, reset_source, reset_precision_ms, note, created_at
+           )
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .run(
+          pool,
+          windowType,
+          remainingPct,
+          precisionStep,
+          capturedAt,
+          resetAt,
+          resetSource,
+          resetPrecisionMs,
+          note,
+          nowMs
+        );
 
   return Number(info.lastInsertRowid);
 }
@@ -253,13 +305,34 @@ export function updateQuotaAnchor(cacheDb, payload) {
       ? payload.note.trim().slice(0, 240)
       : existing.note || '';
 
-  const info = cacheDb
-    .prepare(
-      `UPDATE quota_anchors
-       SET reset_at = ?, reset_source = ?, reset_precision_ms = ?, note = ?
-       WHERE id = ?`
-    )
-    .run(nextResetAt, nextResetSource, nextResetPrecisionMs, nextNote, numId);
+  const qaCols = cacheDb.prepare('PRAGMA table_info(quota_anchors)').all();
+  const hasAccCol = qaCols.some((c) => c.name === 'account_id');
+  let nextAccountId = existing.account_id || DEFAULT_ACCOUNT_ID;
+  if (hasAccCol && Object.prototype.hasOwnProperty.call(payload, 'accountId')) {
+    const rawAcc = String(payload.accountId || '').trim();
+    if (!rawAcc) throw new Error('accountId cannot be empty');
+    if (hasAccountSchema(cacheDb)) {
+      const accRow = cacheDb.prepare('SELECT id FROM accounts WHERE id = ?').get(rawAcc);
+      if (!accRow) throw new Error(`Account "${rawAcc}" not found`);
+    }
+    nextAccountId = rawAcc;
+  }
+
+  const info = hasAccCol
+    ? cacheDb
+        .prepare(
+          `UPDATE quota_anchors
+           SET account_id = ?, reset_at = ?, reset_source = ?, reset_precision_ms = ?, note = ?
+           WHERE id = ?`
+        )
+        .run(nextAccountId, nextResetAt, nextResetSource, nextResetPrecisionMs, nextNote, numId)
+    : cacheDb
+        .prepare(
+          `UPDATE quota_anchors
+           SET reset_at = ?, reset_source = ?, reset_precision_ms = ?, note = ?
+           WHERE id = ?`
+        )
+        .run(nextResetAt, nextResetSource, nextResetPrecisionMs, nextNote, numId);
 
   return info.changes > 0;
 }
@@ -650,8 +723,20 @@ export function segmentCycles(orderedAnchors, windowType = null) {
   return buildCycleDescriptors(orderedAnchors, windowType).map((c) => c.anchors);
 }
 
-function getPoolTurnsInInterval(cacheDb, pool, startExclusiveMs, endInclusiveMs) {
+function getPoolTurnsInInterval(cacheDb, pool, startExclusiveMs, endInclusiveMs, accountId = 'all') {
   if (!cacheDb || endInclusiveMs <= startExclusiveMs) return [];
+  const accFilter = normalizeAccountIdFilter(accountId);
+  if (accFilter !== 'all' && hasAccountSchema(cacheDb)) {
+    const { tsExprSql, joinSql, exprSql } = buildTurnAccountSql('t');
+    return cacheDb
+      .prepare(
+        `SELECT t.* FROM turns t
+         ${joinSql}
+         WHERE t.pool = ? AND ${tsExprSql} > ? AND ${tsExprSql} <= ? AND (${exprSql}) = ?
+         ORDER BY ${tsExprSql} ASC`
+      )
+      .all(pool, startExclusiveMs, endInclusiveMs, accFilter);
+  }
   return cacheDb
     .prepare(
       `SELECT * FROM turns
@@ -675,9 +760,17 @@ function sumTurnsSpend(turns, pricingState, modelSpendMap) {
   return sum;
 }
 
-function sumPoolSpendInInterval(cacheDb, pricingState, pool, startExclusiveMs, endInclusiveMs, modelSpendMap) {
+function sumPoolSpendInInterval(
+  cacheDb,
+  pricingState,
+  pool,
+  startExclusiveMs,
+  endInclusiveMs,
+  modelSpendMap,
+  accountId = 'all'
+) {
   if (endInclusiveMs <= startExclusiveMs) return 0;
-  const rows = getPoolTurnsInInterval(cacheDb, pool, startExclusiveMs, endInclusiveMs);
+  const rows = getPoolTurnsInInterval(cacheDb, pool, startExclusiveMs, endInclusiveMs, accountId);
   return sumTurnsSpend(rows, pricingState, modelSpendMap);
 }
 
@@ -693,6 +786,7 @@ function formatAnchor(row, effectiveResetAt = null) {
         : '';
   return {
     id: row.id,
+    accountId: row.account_id || DEFAULT_ACCOUNT_ID,
     pool: row.pool,
     windowType: row.window_type,
     remainingPct: row.remaining_pct,
@@ -919,9 +1013,10 @@ export function computeSummaryForPair(
       ? { spendFn: optionsOrSpendFn }
       : optionsOrSpendFn || {};
   const spendFn = opts.spendFn || null;
+  const accountId = normalizeAccountIdFilter(opts.accountId || 'all');
   const turnsFn =
     opts.turnsFn ||
-    (!spendFn && cacheDb ? (p, s, e) => getPoolTurnsInInterval(cacheDb, p, s, e) : null);
+    (!spendFn && cacheDb ? (p, s, e) => getPoolTurnsInInterval(cacheDb, p, s, e, accountId) : null);
   const preferredAnchor = opts.preferredAnchor || null;
   const quotaCalibMode = opts.quotaCalibMode || 'auto';
   const quotaManualFactors = opts.quotaManualFactors || null;
@@ -929,7 +1024,7 @@ export function computeSummaryForPair(
   const forceLevel = opts.forceLevel || null;
 
   const sumSpend =
-    spendFn || ((p, s, e, m) => sumPoolSpendInInterval(cacheDb, pricingState, p, s, e, m));
+    spendFn || ((p, s, e, m) => sumPoolSpendInInterval(cacheDb, pricingState, p, s, e, m, accountId));
   const windowMs = getWindowDurationMs(windowType);
   const descriptors = buildCycleDescriptors(orderedAnchors, windowType);
 
@@ -1592,69 +1687,139 @@ export function getQuotaStatus(
     quotaManualFactors = null,
     forceSubset = null,
     forceLevel = null,
+    accountId = 'all',
   } = {},
   nowMs = Date.now()
 ) {
   const filterPool = pool ? normalizePool(pool) : null;
   const filterWin = windowType ? normalizeWindowType(windowType) : null;
-
-  let sql = 'SELECT * FROM quota_anchors';
-  const clauses = [];
-  const params = [];
-  if (filterPool) {
-    clauses.push('pool = ?');
-    params.push(filterPool);
-  }
-  if (filterWin) {
-    clauses.push('window_type = ?');
-    params.push(filterWin);
-  }
-  if (clauses.length > 0) sql += ' WHERE ' + clauses.join(' AND ');
-  sql += ' ORDER BY captured_at ASC, id ASC';
-
-  const rows = cacheDb.prepare(sql).all(...params);
-  const grouped = new Map();
-  for (const r of rows) {
-    const key = `${r.pool}|${r.window_type}`;
-    if (!grouped.has(key)) grouped.set(key, []);
-    grouped.get(key).push(r);
-  }
-
+  const accFilter = normalizeAccountIdFilter(accountId);
+  const qaCols = cacheDb.prepare('PRAGMA table_info(quota_anchors)').all();
+  const hasAccCol = qaCols.some((c) => c.name === 'account_id');
+  const withAccounts = hasAccCol && hasAccountSchema(cacheDb);
+  const accState = withAccounts ? listAccountsState(cacheDb, nowMs) : null;
   const pools = filterPool ? [filterPool] : VALID_POOLS;
   const windows = filterWin ? [filterWin] : VALID_WINDOWS;
-  const summaries = [];
-  const formattedAnchorById = new Map();
 
-  for (const p of pools) {
-    const preferredAnchor =
-      (filterPool === p && anchorModel) ||
-      quotaAnchorsByPool?.[p] ||
-      null;
-    for (const w of windows) {
-      const list = grouped.get(`${p}|${w}`) || [];
-      const summary = computeSummaryForPair(cacheDb, pricingState, p, w, list, nowMs, {
-        preferredAnchor,
-        quotaCalibMode,
-        quotaManualFactors,
-        forceSubset,
-        forceLevel,
-      });
-      summaries.push(summary);
-      for (const a of summary.currentCycleAnchors || []) {
-        if (a.id != null) formattedAnchorById.set(a.id, a);
-      }
-      for (const a of summary.olderCycleAnchors || []) {
-        if (a.id != null && !formattedAnchorById.has(a.id)) formattedAnchorById.set(a.id, a);
+  function computeSingleAccount(targetAccountId, { filterTurnsByAccount = true } = {}) {
+    let sql = 'SELECT * FROM quota_anchors';
+    const clauses = [];
+    const params = [];
+    if (hasAccCol && targetAccountId && targetAccountId !== 'all') {
+      clauses.push('account_id = ?');
+      params.push(targetAccountId);
+    }
+    if (filterPool) {
+      clauses.push('pool = ?');
+      params.push(filterPool);
+    }
+    if (filterWin) {
+      clauses.push('window_type = ?');
+      params.push(filterWin);
+    }
+    if (clauses.length > 0) sql += ' WHERE ' + clauses.join(' AND ');
+    sql += ' ORDER BY captured_at ASC, id ASC';
+
+    const rows = cacheDb.prepare(sql).all(...params);
+    const grouped = new Map();
+    for (const r of rows) {
+      const key = `${r.pool}|${r.window_type}`;
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key).push(r);
+    }
+
+    const summaries = [];
+    const formattedAnchorById = new Map();
+    const turnAccFilter = filterTurnsByAccount && withAccounts ? targetAccountId : 'all';
+
+    for (const p of pools) {
+      const preferredAnchor =
+        (filterPool === p && anchorModel) ||
+        quotaAnchorsByPool?.[`${targetAccountId}:${p}`] ||
+        quotaAnchorsByPool?.[p] ||
+        null;
+      for (const w of windows) {
+        const list = grouped.get(`${p}|${w}`) || [];
+        const summary = computeSummaryForPair(cacheDb, pricingState, p, w, list, nowMs, {
+          preferredAnchor,
+          quotaCalibMode,
+          quotaManualFactors,
+          forceSubset,
+          forceLevel,
+          accountId: turnAccFilter,
+        });
+        summaries.push(summary);
+        for (const a of summary.currentCycleAnchors || []) {
+          if (a.id != null) formattedAnchorById.set(a.id, a);
+        }
+        for (const a of summary.olderCycleAnchors || []) {
+          if (a.id != null && !formattedAnchorById.has(a.id)) formattedAnchorById.set(a.id, a);
+        }
       }
     }
+
+    const anchors = [...rows]
+      .reverse()
+      .map((r) => formattedAnchorById.get(r.id) || formatAnchor(r));
+
+    return { anchors, summaries };
   }
 
-  const anchors = [...rows]
-    .reverse()
-    .map((r) => formattedAnchorById.get(r.id) || formatAnchor(r));
+  // Single-account mode (or legacy DB without account schema): 100% backward compatible
+  if (!withAccounts || !accState?.multiAccountActive) {
+    const singleId = accFilter !== 'all' ? accFilter : DEFAULT_ACCOUNT_ID;
+    const res = computeSingleAccount(singleId, { filterTurnsByAccount: false });
+    return {
+      accountId: singleId,
+      primaryAccountId: singleId,
+      multiAccountActive: false,
+      anchors: res.anchors,
+      summaries: res.summaries,
+      byAccount: null,
+    };
+  }
+
+  // Multi-account mode with a specific account selected
+  if (accFilter !== 'all') {
+    const res = computeSingleAccount(accFilter, { filterTurnsByAccount: true });
+    return {
+      accountId: accFilter,
+      primaryAccountId: accFilter,
+      multiAccountActive: true,
+      anchors: res.anchors,
+      summaries: res.summaries,
+      byAccount: null,
+    };
+  }
+
+  // Multi-account mode with 'all' selected:
+  // Never mix anchors or turns across accounts. Compute isolated per-account views,
+  // and populate top-level `anchors` / `summaries` from the primary active account
+  // for strict backward compatibility with statusline & existing API consumers (M8).
+  const byAccount = accState.activeAccounts.map((acc) => {
+    const res = computeSingleAccount(acc.id, { filterTurnsByAccount: true });
+    return {
+      account: acc,
+      anchors: res.anchors,
+      summaries: res.summaries,
+    };
+  });
+
+  const primaryId =
+    accState.activeBySource?.cli || accState.activeBySource?.desktop || DEFAULT_ACCOUNT_ID;
+  const primaryEntry =
+    byAccount.find((e) => e.account.id === primaryId) || byAccount[0] || {
+      account: { id: DEFAULT_ACCOUNT_ID },
+      anchors: [],
+      summaries: [],
+    };
 
   return {
-    anchors,
-    summaries,
+    accountId: 'all',
+    primaryAccountId: primaryEntry.account.id,
+    multiAccountActive: true,
+    anchors: primaryEntry.anchors,
+    summaries: primaryEntry.summaries,
+    byAccount,
   };
 }

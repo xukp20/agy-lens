@@ -14,6 +14,13 @@ import {
 } from './protobuf.mjs';
 import { calculateTurnCost, inferPool, normalizeModelId } from './pricing.mjs';
 import { computeCacheObservatory } from './cache_observatory.mjs';
+import {
+  buildTurnAccountSql,
+  ensureAccountSchema,
+  hasAccountSchema,
+  normalizeAccountIdFilter,
+  resolveConversationAccount,
+} from './accounts.mjs';
 
 const MAX_GEN_METADATA_BYTES = 2097152; // 2 MB cap
 const UUID_DB_RE = /^([0-9a-f-]{8,})\.db$/i;
@@ -226,6 +233,8 @@ export function openTelemetryCacheDb(dataDir) {
       }
     }
   }
+
+  ensureAccountSchema(db);
 
   return { db, dbPath };
 }
@@ -737,27 +746,88 @@ function discoverActiveConversationEntry(sourceDirs, sources = ['desktop', 'cli'
   return best;
 }
 
-export function listRecentConversations(cacheDb, { limit = 15, sources = ['desktop', 'cli'] } = {}) {
+export function listRecentConversations(
+  cacheDb,
+  { limit = 15, sources = ['desktop', 'cli'], accountId = 'all' } = {}
+) {
   const enabledSources = Array.isArray(sources) && sources.length > 0 ? sources : ['desktop', 'cli'];
   const cap = Math.max(1, Math.min(50, Math.round(Number(limit) || 15)));
+  const accFilter = normalizeAccountIdFilter(accountId);
   runIncrementalIndex(cacheDb, { sources: enabledSources });
 
   const placeholders = enabledSources.map(() => '?').join(', ');
-  const rows = cacheDb
-    .prepare(
-      `SELECT f.conversation_id, f.source, f.title, f.workspace,
-              MAX(f.db_mtime_ms, f.wal_mtime_ms, f.last_activity_ms) AS recent_ms,
-              (SELECT t.canonical_model_id FROM turns t
-               WHERE t.conversation_id = f.conversation_id AND t.source = f.source
-               ORDER BY t.step_idx DESC LIMIT 1) AS last_model,
-              (SELECT COUNT(*) FROM turns t
-               WHERE t.conversation_id = f.conversation_id AND t.source = f.source) AS turns
-       FROM indexed_files f
-       WHERE f.source IN (${placeholders})
-       ORDER BY recent_ms DESC
-       LIMIT ?`
-    )
-    .all(...enabledSources, cap);
+  const useAcc = hasAccountSchema(cacheDb);
+  let rows;
+  if (useAcc) {
+    const accWhere = accFilter !== 'all' ? 'WHERE resolved_acc = ?' : '';
+    const params = accFilter !== 'all' ? [...enabledSources, accFilter, cap] : [...enabledSources, cap];
+    rows = cacheDb
+      .prepare(
+        `WITH base AS (
+           SELECT f.conversation_id, f.source, f.title, f.workspace,
+                  MAX(f.db_mtime_ms, f.wal_mtime_ms, f.last_activity_ms) AS recent_ms,
+                  (SELECT t.canonical_model_id FROM turns t
+                   WHERE t.conversation_id = f.conversation_id AND t.source = f.source
+                   ORDER BY t.step_idx DESC LIMIT 1) AS last_model,
+                  (SELECT COUNT(*) FROM turns t
+                   WHERE t.conversation_id = f.conversation_id AND t.source = f.source) AS turns,
+                  (SELECT MIN(COALESCE(t.completed_at_ms, t.created_at_ms)) FROM turns t
+                   WHERE t.conversation_id = f.conversation_id AND t.source = f.source
+                     AND COALESCE(t.completed_at_ms, t.created_at_ms, 0) > 0) AS first_turn_ms,
+                  (SELECT MAX(COALESCE(t.completed_at_ms, t.created_at_ms)) FROM turns t
+                   WHERE t.conversation_id = f.conversation_id AND t.source = f.source
+                     AND COALESCE(t.completed_at_ms, t.created_at_ms, 0) > 0) AS last_turn_ms
+           FROM indexed_files f
+           WHERE f.source IN (${placeholders})
+         ),
+         attributed AS (
+           SELECT b.*,
+                  CASE WHEN _cao.account_id IS NOT NULL THEN 1 ELSE 0 END AS has_override,
+                  CASE
+                    WHEN _cao.account_id IS NOT NULL THEN _cao.account_id
+                    WHEN COALESCE(b.last_turn_ms, 0) <= 0 THEN 'unattributed'
+                    ELSE COALESCE(_ai.account_id, 'default')
+                  END AS resolved_acc
+           FROM base b
+           LEFT JOIN conversation_account_overrides _cao
+             ON _cao.conversation_id = b.conversation_id
+           LEFT JOIN account_intervals _ai
+             ON _ai.source = b.source
+            AND COALESCE(b.last_turn_ms, 0) > 0
+            AND b.last_turn_ms >= _ai.from_ms
+            AND b.last_turn_ms < _ai.to_ms
+         )
+         SELECT * FROM attributed
+         ${accWhere}
+         ORDER BY recent_ms DESC
+         LIMIT ?`
+      )
+      .all(...params);
+  } else {
+    rows = cacheDb
+      .prepare(
+        `SELECT f.conversation_id, f.source, f.title, f.workspace,
+                MAX(f.db_mtime_ms, f.wal_mtime_ms, f.last_activity_ms) AS recent_ms,
+                (SELECT t.canonical_model_id FROM turns t
+                 WHERE t.conversation_id = f.conversation_id AND t.source = f.source
+                 ORDER BY t.step_idx DESC LIMIT 1) AS last_model,
+                (SELECT COUNT(*) FROM turns t
+                 WHERE t.conversation_id = f.conversation_id AND t.source = f.source) AS turns,
+                (SELECT MIN(COALESCE(t.completed_at_ms, t.created_at_ms)) FROM turns t
+                 WHERE t.conversation_id = f.conversation_id AND t.source = f.source
+                   AND COALESCE(t.completed_at_ms, t.created_at_ms, 0) > 0) AS first_turn_ms,
+                (SELECT MAX(COALESCE(t.completed_at_ms, t.created_at_ms)) FROM turns t
+                 WHERE t.conversation_id = f.conversation_id AND t.source = f.source
+                   AND COALESCE(t.completed_at_ms, t.created_at_ms, 0) > 0) AS last_turn_ms,
+                'default' AS resolved_acc,
+                0 AS has_override
+         FROM indexed_files f
+         WHERE f.source IN (${placeholders})
+         ORDER BY recent_ms DESC
+         LIMIT ?`
+      )
+      .all(...enabledSources, cap);
+  }
 
   return rows.map((r) => ({
     conversationId: r.conversation_id,
@@ -765,8 +835,11 @@ export function listRecentConversations(cacheDb, { limit = 15, sources = ['deskt
     title: r.title || '',
     workspace: r.workspace || '',
     lastActiveMs: Math.round(Number(r.recent_ms || 0)),
+    firstTurnMs: r.first_turn_ms != null ? Math.round(Number(r.first_turn_ms)) : null,
     lastModel: r.last_model || '',
     turns: Number(r.turns || 0),
+    accountId: r.resolved_acc || 'default',
+    hasAccountOverride: Boolean(r.has_override),
   }));
 }
 
@@ -973,6 +1046,16 @@ export function getSessionSnapshot(
     }
   }
 
+  const firstTurn = turns.find((t) => (t.completed_at_ms || t.created_at_ms || 0) > 0) || null;
+  const firstTurnMs = firstTurn ? Number(firstTurn.completed_at_ms || firstTurn.created_at_ms) : null;
+  const latestTurnTs = latestTurn
+    ? Number(latestTurn.completed_at_ms || latestTurn.created_at_ms || 0)
+    : Number(fileRow?.indexed_at || Date.now());
+  const resolvedAcc = resolveConversationAccount(cacheDb, entry.conversationId, {
+    source: entry.source,
+    atMs: latestTurnTs,
+  });
+
   return {
     conversationId: entry.conversationId,
     source: entry.source,
@@ -980,6 +1063,9 @@ export function getSessionSnapshot(
     workspace: fileRow?.workspace || '',
     found: true,
     indexedAt: fileRow?.indexed_at || Date.now(),
+    firstTurnMs,
+    accountId: resolvedAcc.accountId,
+    hasAccountOverride: resolvedAcc.hasOverride,
     liveContext,
     cacheDiagnostics,
     ioFlow,
@@ -1034,13 +1120,20 @@ export function resolveTimeRange(rangeKey = '7d', fromParam = null, toParam = nu
   return { key: 'custom', fromMs, toMs };
 }
 
-function queryTurnsWithWorkspace(cacheDb, { sources, fromMs, toMs, workspace = '' }) {
+function queryTurnsWithWorkspace(
+  cacheDb,
+  { sources, fromMs, toMs, workspace = '', accountId = 'all' }
+) {
   if (!sources || sources.length === 0) return [];
   const placeholders = sources.map(() => '?').join(',');
+  const accFilter = normalizeAccountIdFilter(accountId);
+  const useAcc = accFilter !== 'all' && hasAccountSchema(cacheDb);
+  const accSql = useAcc ? buildTurnAccountSql('t') : null;
   let sql = `
     SELECT t.*, COALESCE(f.workspace, '') AS workspace, COALESCE(f.title, '') AS title
     FROM turns t
     LEFT JOIN indexed_files f ON f.conversation_id = t.conversation_id AND f.source = t.source
+    ${useAcc ? accSql.joinSql : ''}
     WHERE t.source IN (${placeholders})
       AND t.completed_at_ms >= ?
       AND t.completed_at_ms <= ?
@@ -1049,6 +1142,10 @@ function queryTurnsWithWorkspace(cacheDb, { sources, fromMs, toMs, workspace = '
   if (workspace) {
     sql += ' AND f.workspace = ?';
     params.push(workspace);
+  }
+  if (useAcc) {
+    sql += ` AND (${accSql.exprSql}) = ?`;
+    params.push(accFilter);
   }
   sql += ' ORDER BY t.completed_at_ms ASC';
   return cacheDb.prepare(sql).all(...params);
@@ -1068,10 +1165,12 @@ export function getAnalytics(
     modules = null,
     workspace = '',
     gapBreakpointsSec = null,
+    accountId = 'all',
   } = {}
 ) {
   const nowMs = Date.now();
   const activeSources = sources.filter((s) => s === 'desktop' || s === 'cli');
+  const accFilter = normalizeAccountIdFilter(accountId);
   const indexStats = runIncrementalIndex(cacheDb, { sources: activeSources });
   const rangeObj = resolveTimeRange(range, from, to, nowMs);
 
@@ -1088,6 +1187,7 @@ export function getAnalytics(
           fromMs: rangeObj.fromMs,
           toMs: rangeObj.toMs,
           workspace,
+          accountId: accFilter,
         })
       : [];
 
@@ -1254,6 +1354,7 @@ export function getAnalytics(
       fromMs: Math.max(0, calFromMs),
       toMs: nowMs,
       workspace,
+      accountId: accFilter,
     });
     const dayMap = new Map();
     const hourDayMatrix = Array.from({ length: 7 }, () => Array(24).fill(0));
@@ -1331,12 +1432,14 @@ export function getAnalytics(
         toMs: rangeObj.toMs,
         workspace,
         gapBreakpointsSec,
+        accountId: accFilter,
       })
     : null;
 
   return {
     range: rangeObj,
     sources: activeSources,
+    accountId: accFilter,
     indexStats,
     ioFlow,
     modelCost,
@@ -1345,18 +1448,24 @@ export function getAnalytics(
   };
 }
 
-export function getDayDetail(cacheDb, pricingState, { date, sources = ['desktop', 'cli'] } = {}) {
+export function getDayDetail(
+  cacheDb,
+  pricingState,
+  { date, sources = ['desktop', 'cli'], accountId = 'all' } = {}
+) {
   const bounds = parseLocalDateRange(date);
   if (!bounds) {
     return { date: date || '', totals: { turns: 0, totalTokens: 0, costUsd: 0 }, conversations: [], models: [] };
   }
   const activeSources = sources.filter((s) => s === 'desktop' || s === 'cli');
+  const accFilter = normalizeAccountIdFilter(accountId);
   runIncrementalIndex(cacheDb, { sources: activeSources });
 
   const turns = queryTurnsWithWorkspace(cacheDb, {
     sources: activeSources,
     fromMs: bounds.start,
     toMs: bounds.end,
+    accountId: accFilter,
   });
 
   const convMap = new Map();

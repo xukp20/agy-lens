@@ -71,6 +71,19 @@
         </div>
       </div>
 
+      <!-- Multi-Account Filter & Quick Switch Bar (hidden in single-account mode) -->
+      <div id="account-bar" class="account-bar hidden">
+        <div class="account-bar-left">
+          <button id="btn-account-filter" type="button" class="acc-filter-trigger" aria-haspopup="listbox" aria-expanded="false" title="按账号筛选">
+            <span id="account-filter-dot" class="acc-dot" aria-hidden="true"></span>
+            <span id="account-filter-label" class="acc-filter-label truncate">全部账号</span>
+            <svg class="icon acc-filter-chevron" width="11" height="11" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg>
+          </button>
+          <span id="account-active-summary" class="account-active-summary truncate"></span>
+        </div>
+        <button id="btn-account-switch" type="button" class="source-pill acc-switch-btn" aria-haspopup="dialog" aria-expanded="false">切号</button>
+      </div>
+
       <!-- Quick Range Bar (visible when any analytics module is active) -->
       <div id="range-bar" class="range-bar hidden">
         <div id="range-pills" class="range-pills" role="group" aria-label="全局时间范围">
@@ -125,6 +138,10 @@
   <div id="obs-cell-popover" class="obs-cell-popover hidden" role="dialog" aria-label="Matrix cell details"></div>
   <!-- Self-Update Details Popover -->
   <div id="update-popover" class="update-popover hidden" role="dialog" aria-label="Update details"></div>
+  <!-- Multi-Account Quick Switch Popover -->
+  <div id="account-switch-popover" class="account-switch-popover hidden" role="dialog" aria-label="Account switch"></div>
+  <!-- Multi-Account Filter Dropdown Menu -->
+  <div id="account-filter-menu" class="acc-filter-menu hidden" role="listbox" aria-label="Account filter"></div>
 
   <script src="./app.js"></script>
 </body>

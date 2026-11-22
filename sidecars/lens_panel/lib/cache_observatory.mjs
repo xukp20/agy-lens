@@ -4,6 +4,7 @@
  * boundary cuts, bounce-backs, idle-gap decay curves, and excess API cost penalties.
  */
 import { calcMissPenaltyUsd, calculateTurnCost } from './pricing.mjs';
+import { buildTurnAccountSql, hasAccountSchema, normalizeAccountIdFilter } from './accounts.mjs';
 
 export const DEFAULT_GAP_BREAKPOINTS_SEC = [10, 60, 300, 600, 3600];
 export const ACTIVE_IDLE_THRESHOLD_MS = 300_000; // <= 5m active coding zone
@@ -431,6 +432,7 @@ function emptyObservatory(spec = DEFAULT_SPEC, toMs = Date.now()) {
     bounceBackCount: 0,
     boundaryCuts: 0,
     modelSwitchTurns: 0,
+    accountSwitchTurns: 0,
     compactedTurns: 0,
     wastedTokens: 0,
     missPenaltyUsd: 0,
@@ -447,14 +449,21 @@ function emptyObservatory(spec = DEFAULT_SPEC, toMs = Date.now()) {
   };
 }
 
-function queryConversationTurns(cacheDb, { sources, fromMs, toMs, workspace = '' }) {
+function queryConversationTurns(
+  cacheDb,
+  { sources, fromMs, toMs, workspace = '', accountId = 'all' }
+) {
   if (!sources || sources.length === 0) return [];
   const placeholders = sources.map(() => '?').join(',');
+  const accFilter = normalizeAccountIdFilter(accountId);
+  const withAcc = hasAccountSchema(cacheDb);
+  const accSql = withAcc ? buildTurnAccountSql('t') : null;
 
   let activeConvSql = `
     SELECT DISTINCT t.conversation_id
     FROM turns t
     LEFT JOIN indexed_files f ON f.conversation_id = t.conversation_id AND f.source = t.source
+    ${withAcc && accFilter !== 'all' ? accSql.joinSql : ''}
     WHERE t.source IN (${placeholders})
       AND t.completed_at_ms >= ?
       AND t.completed_at_ms <= ?
@@ -463,6 +472,10 @@ function queryConversationTurns(cacheDb, { sources, fromMs, toMs, workspace = ''
   if (workspace) {
     activeConvSql += ' AND f.workspace = ?';
     activeParams.push(workspace);
+  }
+  if (withAcc && accFilter !== 'all') {
+    activeConvSql += ` AND (${accSql.exprSql}) = ?`;
+    activeParams.push(accFilter);
   }
 
   const sql = `
@@ -473,7 +486,9 @@ function queryConversationTurns(cacheDb, { sources, fromMs, toMs, workspace = ''
       t.uncached_in, t.cache_read, t.cache_create,
       t.thinking_out, t.visible_out, t.total_out,
       t.provider_request_id
+      ${withAcc ? `, (${accSql.exprSql}) AS account_id` : ''}
     FROM turns t
+    ${withAcc ? accSql.joinSql : ''}
     WHERE t.source IN (${placeholders})
       AND t.completed_at_ms <= ?
       AND t.conversation_id IN (${activeConvSql})
@@ -489,10 +504,11 @@ function queryConversationTurns(cacheDb, { sources, fromMs, toMs, workspace = ''
 export function analyzeTurnsForObservatory(
   rows,
   pricingState,
-  { fromMs = 0, toMs = Date.now(), gapBreakpointsSec = null } = {}
+  { fromMs = 0, toMs = Date.now(), gapBreakpointsSec = null, accountId = 'all' } = {}
 ) {
   const gapSpec = buildGapBucketSpec(gapBreakpointsSec);
   const bucketKeys = gapSpec.keys;
+  const accFilter = normalizeAccountIdFilter(accountId);
   if (!rows || rows.length === 0) {
     return emptyObservatory(gapSpec, toMs);
   }
@@ -515,6 +531,7 @@ export function analyzeTurnsForObservatory(
   let bounceBackCount = 0;
   let boundaryCuts = 0;
   let modelSwitchTurns = 0;
+  let accountSwitchTurns = 0;
   let compactedTurns = 0;
   let totalWastedTokens = 0;
   let totalMissPenaltyUsd = 0;
@@ -536,6 +553,15 @@ export function analyzeTurnsForObservatory(
 
       const curCompleted = cur.completed_at_ms || cur.created_at_ms || 0;
       if (curCompleted < fromMs || curCompleted > toMs) continue;
+      if (accFilter !== 'all' && cur.account_id && cur.account_id !== accFilter) continue;
+
+      const accountSwitched = Boolean(
+        prev.account_id && cur.account_id && prev.account_id !== cur.account_id
+      );
+      if (accountSwitched) {
+        accountSwitchTurns++;
+        continue;
+      }
 
       const idleGapMs =
         cur.created_at_ms && prev.completed_at_ms
@@ -606,11 +632,18 @@ export function analyzeTurnsForObservatory(
           next.canonical_model_id &&
           cur.canonical_model_id === next.canonical_model_id
       );
+      const nextSameAccount = !(
+        next &&
+        cur.account_id &&
+        next.account_id &&
+        cur.account_id !== next.account_id
+      );
       const nextCompacted = Boolean(next && curTotalIn > 20000 && nextTotalIn < curTotalIn * 0.65);
       const bounceBack = Boolean(
         (kind === 'unexpected_full_miss' || kind === 'boundary_cut') &&
           next &&
           nextSameModel &&
+          nextSameAccount &&
           !nextCompacted &&
           nextHit !== null &&
           nextHit >= 0.7
@@ -863,6 +896,7 @@ export function analyzeTurnsForObservatory(
     bounceBackCount,
     boundaryCuts,
     modelSwitchTurns,
+    accountSwitchTurns,
     compactedTurns,
     wastedTokens: totalWastedTokens,
     missPenaltyUsd: totalMissPenaltyUsd,
@@ -885,8 +919,20 @@ export function analyzeTurnsForObservatory(
 export function computeCacheObservatory(
   cacheDb,
   pricingState,
-  { sources = ['desktop', 'cli'], fromMs = 0, toMs = Date.now(), workspace = '', gapBreakpointsSec = null } = {}
+  {
+    sources = ['desktop', 'cli'],
+    fromMs = 0,
+    toMs = Date.now(),
+    workspace = '',
+    gapBreakpointsSec = null,
+    accountId = 'all',
+  } = {}
 ) {
-  const rows = queryConversationTurns(cacheDb, { sources, fromMs, toMs, workspace });
-  return analyzeTurnsForObservatory(rows, pricingState, { fromMs, toMs, gapBreakpointsSec });
+  const rows = queryConversationTurns(cacheDb, { sources, fromMs, toMs, workspace, accountId });
+  return analyzeTurnsForObservatory(rows, pricingState, {
+    fromMs,
+    toMs,
+    gapBreakpointsSec,
+    accountId,
+  });
 }

@@ -35,6 +35,18 @@ import {
   updateQuotaAnchor,
 } from './quota.mjs';
 import {
+  addAccountSwitch,
+  createAccount,
+  deleteAccountSwitch,
+  listAccountsState,
+  mergeAccount,
+  normalizeAccountIdFilter,
+  previewSwitchImpact,
+  resolveActiveAccountAt,
+  setConversationAccountOverride,
+  updateAccount,
+} from './accounts.mjs';
+import {
   DEFAULT_GAP_BREAKPOINTS_SEC,
   sanitizeGapBreakpointsSec,
 } from './cache_observatory.mjs';
@@ -105,20 +117,23 @@ export const DEFAULT_CONFIG = {
   updateMode: 'auto',
   dismissedUpdateVersion: '',
   defaultRange: '7d',
+  defaultAccountId: 'all',
 };
+
+const POOL_ANCHOR_KEY_RE = /^(?:(?:default|acc_[0-9a-f]{4,16}):)?(?:gemini|argon|3p)$/;
 
 function sanitizeQuotaAnchorsByPool(baseMap, patchMap) {
   const out = {};
   if (baseMap && typeof baseMap === 'object') {
     for (const [k, v] of Object.entries(baseMap)) {
-      if ((k === 'gemini' || k === 'argon' || k === '3p') && typeof v === 'string' && v.trim()) {
+      if (POOL_ANCHOR_KEY_RE.test(k) && typeof v === 'string' && v.trim()) {
         out[k] = v.trim();
       }
     }
   }
   if (patchMap && typeof patchMap === 'object') {
     for (const [k, v] of Object.entries(patchMap)) {
-      if (k !== 'gemini' && k !== 'argon' && k !== '3p') continue;
+      if (!POOL_ANCHOR_KEY_RE.test(k)) continue;
       if (v === null || v === undefined || (typeof v === 'string' && !v.trim())) {
         delete out[k];
       } else if (typeof v === 'string' && v.trim()) {
@@ -259,6 +274,10 @@ export function deepMergeConfig(base, patch) {
       typeof patch.defaultRange === 'string' && patch.defaultRange
         ? patch.defaultRange
         : base.defaultRange,
+    defaultAccountId:
+      typeof patch.defaultAccountId === 'string' && patch.defaultAccountId.trim()
+        ? patch.defaultAccountId.trim().slice(0, 48)
+        : base.defaultAccountId || 'all',
   };
   for (const key of base.moduleOrder) {
     if (!out.moduleOrder.includes(key)) out.moduleOrder.push(key);
@@ -539,13 +558,101 @@ export function createLensRuntime({
       return getSessionSnapshot(cacheDb, pricingState, { conversationId: convId, modules, sources });
     });
 
+    register('GET', '/api/accounts', () => {
+      touchActivity();
+      return listAccountsState(cacheDb);
+    });
+
+    register(
+      'POST',
+      '/api/accounts',
+      guardWrite((data) => {
+        try {
+          return createAccount(cacheDb, data || {});
+        } catch (err) {
+          return jsonError(400, err.message);
+        }
+      })
+    );
+
+    register(
+      'POST',
+      '/api/accounts/update',
+      guardWrite((data) => {
+        try {
+          return updateAccount(cacheDb, data || {});
+        } catch (err) {
+          return jsonError(400, err.message);
+        }
+      })
+    );
+
+    register(
+      'POST',
+      '/api/accounts/merge',
+      guardWrite((data) => {
+        try {
+          return mergeAccount(cacheDb, data || {});
+        } catch (err) {
+          return jsonError(400, err.message);
+        }
+      })
+    );
+
+    register('POST', '/api/accounts/switch/preview', (data) => {
+      touchActivity();
+      try {
+        return previewSwitchImpact(cacheDb, data || {});
+      } catch (err) {
+        return jsonError(400, err.message);
+      }
+    });
+
+    register(
+      'POST',
+      '/api/accounts/switch',
+      guardWrite((data) => {
+        try {
+          return addAccountSwitch(cacheDb, data || {});
+        } catch (err) {
+          return jsonError(400, err.message);
+        }
+      })
+    );
+
+    register(
+      'POST',
+      '/api/accounts/switch/delete',
+      guardWrite((data) => {
+        try {
+          return deleteAccountSwitch(cacheDb, data?.id);
+        } catch (err) {
+          return jsonError(400, err.message);
+        }
+      })
+    );
+
+    register(
+      'POST',
+      '/api/accounts/conversation-override',
+      guardWrite((data) => {
+        try {
+          const res = setConversationAccountOverride(cacheDb, data || {});
+          return { ...res, state: listAccountsState(cacheDb) };
+        } catch (err) {
+          return jsonError(400, err.message);
+        }
+      })
+    );
+
     register('GET', '/api/sessions/recent', (data) => {
       touchActivity();
       const config = loadConfig();
       const sources = enabledSourcesList(config, data?.sources);
       const limit = data?.limit != null ? Number(data.limit) : 15;
+      const accountId = normalizeAccountIdFilter(data?.account);
       return {
-        sessions: listRecentConversations(cacheDb, { limit, sources }),
+        sessions: listRecentConversations(cacheDb, { limit, sources, accountId }),
       };
     });
 
@@ -558,6 +665,7 @@ export function createLensRuntime({
       const pricingState = loadPricingState(resolvedDataDir);
       const sources = enabledSourcesList(config, data?.sources);
       const modules = parseModulesSet(data?.modules);
+      const accountId = normalizeAccountIdFilter(data?.account);
       return getAnalytics(cacheDb, pricingState, {
         range: data?.range || config.defaultRange || '7d',
         from: data?.from || null,
@@ -566,6 +674,7 @@ export function createLensRuntime({
         modules,
         workspace: typeof data?.workspace === 'string' ? data.workspace : '',
         gapBreakpointsSec: config.obsGapBreakpointsSec,
+        accountId,
       });
     });
 
@@ -574,9 +683,11 @@ export function createLensRuntime({
       const config = loadConfig();
       const pricingState = loadPricingState(resolvedDataDir);
       const sources = enabledSourcesList(config, data?.sources);
+      const accountId = normalizeAccountIdFilter(data?.account);
       return getDayDetail(cacheDb, pricingState, {
         date: data?.date || '',
         sources,
+        accountId,
       });
     });
 
@@ -624,6 +735,7 @@ export function createLensRuntime({
       const sources = enabledSourcesList(config, null);
       runIncrementalIndex(cacheDb, { sources });
       const pricingState = loadPricingState(resolvedDataDir);
+      const accountId = normalizeAccountIdFilter(data?.account);
       return getQuotaStatus(cacheDb, pricingState, {
         pool: data?.pool || null,
         windowType: data?.window || data?.windowType || null,
@@ -636,6 +748,7 @@ export function createLensRuntime({
         quotaManualFactors: config.quotaManualFactors || { M: false, C: false, O: false },
         forceSubset: data?.forceSubset || null,
         forceLevel: data?.forceLevel || null,
+        accountId,
       });
     });
 
@@ -644,16 +757,29 @@ export function createLensRuntime({
       '/api/quota/anchors',
       guardWrite((data) => {
         try {
+          const capturedAt =
+            data?.capturedAt != null && data.capturedAt !== '' ? Number(data.capturedAt) : Date.now();
           addQuotaAnchor(cacheDb, data);
           const config = loadConfig();
           const pricingState = loadPricingState(resolvedDataDir);
-          return getQuotaStatus(cacheDb, pricingState, {
-            pool: null,
-            windowType: null,
-            quotaAnchorsByPool: config.quotaAnchorsByPool || {},
-            quotaCalibMode: config.quotaCalibMode || 'auto',
-            quotaManualFactors: config.quotaManualFactors || { M: false, C: false, O: false },
-          });
+          const viewAcc = normalizeAccountIdFilter(data?.viewAccountId ?? data?.accountId);
+          const nearCli = resolveActiveAccountAt(cacheDb, { source: 'cli', atMs: capturedAt }).nearSwitch;
+          const nearDesk = resolveActiveAccountAt(cacheDb, { source: 'desktop', atMs: capturedAt }).nearSwitch;
+          let nearSwitch = nearCli || nearDesk || null;
+          if (nearCli && nearDesk) {
+            nearSwitch = Math.abs(nearDesk.deltaMs) < Math.abs(nearCli.deltaMs) ? nearDesk : nearCli;
+          }
+          return {
+            ...getQuotaStatus(cacheDb, pricingState, {
+              pool: null,
+              windowType: null,
+              quotaAnchorsByPool: config.quotaAnchorsByPool || {},
+              quotaCalibMode: config.quotaCalibMode || 'auto',
+              quotaManualFactors: config.quotaManualFactors || { M: false, C: false, O: false },
+              accountId: viewAcc,
+            }),
+            nearSwitch,
+          };
         } catch (err) {
           return jsonError(400, err.message);
         }
@@ -668,12 +794,14 @@ export function createLensRuntime({
           updateQuotaAnchor(cacheDb, data);
           const config = loadConfig();
           const pricingState = loadPricingState(resolvedDataDir);
+          const viewAcc = normalizeAccountIdFilter(data?.viewAccountId);
           return getQuotaStatus(cacheDb, pricingState, {
             pool: null,
             windowType: null,
             quotaAnchorsByPool: config.quotaAnchorsByPool || {},
             quotaCalibMode: config.quotaCalibMode || 'auto',
             quotaManualFactors: config.quotaManualFactors || { M: false, C: false, O: false },
+            accountId: viewAcc,
           });
         } catch (err) {
           return jsonError(400, err.message);
@@ -689,12 +817,14 @@ export function createLensRuntime({
           deleteQuotaAnchor(cacheDb, data?.id);
           const config = loadConfig();
           const pricingState = loadPricingState(resolvedDataDir);
+          const viewAcc = normalizeAccountIdFilter(data?.viewAccountId);
           return getQuotaStatus(cacheDb, pricingState, {
             pool: null,
             windowType: null,
             quotaAnchorsByPool: config.quotaAnchorsByPool || {},
             quotaCalibMode: config.quotaCalibMode || 'auto',
             quotaManualFactors: config.quotaManualFactors || { M: false, C: false, O: false },
+            accountId: viewAcc,
           });
         } catch (err) {
           return jsonError(400, err.message);

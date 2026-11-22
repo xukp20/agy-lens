@@ -789,6 +789,85 @@
           standalone_cli: '当前为独立 Web / CLI 运行模式，请通过 git pull 或 npm 更新后手动重启服务。',
           git_error: '无法读取 Git 仓库状态。'
         }
+      },
+      accounts: {
+        allAccounts: '全部账号',
+        filterTitle: '按账号筛选统计、会话与额度',
+        filterAria: '按账号筛选',
+        switchBtn: '切号',
+        switchTitle: '记录一次切号时间点（不影响当前视图筛选）',
+        activeBoth: '当前: {name}',
+        activeSplit: 'CLI: {cli} · IDE: {desktop}',
+        defaultTag: '默认',
+        archivedTag: '已归档',
+        unattributed: '未归属',
+        unattributedNote: '另有 {n} 条缺少有效时间戳的历史 turn 归为“未归属”（仅在“全部账号”视图下可见，不会混入任一账号）。',
+        popTitle: '记录切号时间点',
+        currentActive: '当前生效账号',
+        targetAccount: '切换目标账号',
+        scopeLabel: '生效范围',
+        scopeAll: '全部 (CLI + IDE)',
+        scopeCli: '仅 CLI',
+        scopeDesktop: '仅 Desktop',
+        timeLabel: '生效时间',
+        timeNow: '现在',
+        timeCustom: '自定义补录',
+        noteLabel: '备注（可选）',
+        notePlaceholder: '例如：主号 5h 见底，切小号继续',
+        previewBtn: '预览影响',
+        previewing: '计算中…',
+        previewSummary: '将重新归属 {turns} 条已有 turn（涉及 {convs} 个会话）。',
+        previewZero: '不影响已有 turn，将从该时间点起生效于后续新对话。',
+        saveSwitchBtn: '记录切号',
+        saving: '保存中…',
+        noSwitchYet: '尚无切号记录（默认归属 Default）',
+        activeFrom: '自 {time} 起',
+        overrideBadge: '手动指定',
+        sessionAccTitle: '点击修改本会话归属或从本会话起点切号',
+        reassignLabel: '本会话归属',
+        autoByTimeline: '自动（按切号时间轴）',
+        applyOverride: '应用',
+        startSwitchLabel: '从本会话起点切号（{time} · {src}）',
+        startSwitchBtn: '设为切号起点',
+        quotaAllOverview: '全部账号独立额度总览',
+        quotaAllHint: '多账号额度严格隔离，不跨号合并计算。点击任一账号卡片进入该账号的完整校准与历史；也可直接在下方为指定账号记录快照。',
+        quotaNoAnchors: '暂无额度快照',
+        quotaDrillDown: '点击查看校准 →',
+        quotaFormAccount: '所属账号',
+        quotaNearSwitchWarn: '注意：此快照时间距切号点（{acc} · {time}）仅 {min} 分钟，请确认快照确实属于「{logged}」。',
+        collapseBtn: '收起',
+        sectionTitle: '多账号与切号标注',
+        sectionHelp: '纯本地手动标注，绝不读取 OAuth 凭据或宿主日志。通过切号时间轴将不同时间段的 CLI / Desktop 使用记录与额度严格隔离；重建索引时完整保留。',
+        singleHint: '当前为单账号静默模式，顶部不会显示多余控件。添加第 2 个账号后将自动开启账号筛选、一键切号与独立额度对齐。',
+        addTitle: '添加账号',
+        nameLabel: '账号名称',
+        namePlaceholder: '例如：Ultra 小号 / 工作号',
+        colorLabel: '标识色',
+        noteOptional: '备注（可选）',
+        noteFieldPlaceholder: '例如：个人 Ultra 订阅',
+        renameDefaultLabel: '同时将现有 Default 重命名为（可选，避免后续混淆）',
+        renameDefaultPlaceholder: '例如：Ultra 主号',
+        addToggleBtn: '+ 添加账号',
+        manageAccounts: '管理账号与切号时间轴…',
+        addBtn: '添加账号',
+        adding: '添加中…',
+        archiveBtn: '归档',
+        restoreBtn: '恢复',
+        mergeBtn: '合并',
+        mergeTitle: '合并账号「{name}」',
+        mergeTarget: '并入目标账号',
+        mergeAnchorLabel: '已有额度锚点处理',
+        mergeAnchorReassign: '全部转入目标账号',
+        mergeAnchorDelete: '仅删除该账号锚点',
+        mergeWarn: '切号记录与会话手动归属将统一改写至目标账号，确保历史区间不会意外滑回其他账号。此操作不可撤销。',
+        mergeConfirmBtn: '确认合并',
+        switchesTitle: '切号时间轴 ({n})',
+        switchesEmpty: '暂无切号记录。点“记录切号 / 补录”即可从任意时间点开始分账。',
+        backfillBtn: '记录切号 / 补录',
+        deleteSwitch: '删除',
+        errNameRequired: '请输入账号名称',
+        errInvalidTime: '请选择有效的生效时间',
+        savedMsg: '已保存'
       }
     },
     en: {
@@ -1429,6 +1508,85 @@
           standalone_cli: 'Running in Standalone Web / CLI mode. Update via git pull or npm, then restart the server.',
           git_error: 'Unable to inspect Git repository state.'
         }
+      },
+      accounts: {
+        allAccounts: 'All Accounts',
+        filterTitle: 'Filter analytics, sessions & quota by account',
+        filterAria: 'Filter by account',
+        switchBtn: 'Switch',
+        switchTitle: 'Log an account switch timestamp (does not alter current view filter)',
+        activeBoth: 'Active: {name}',
+        activeSplit: 'CLI: {cli} · IDE: {desktop}',
+        defaultTag: 'Default',
+        archivedTag: 'Archived',
+        unattributed: 'Unattributed',
+        unattributedNote: '{n} legacy turns without valid timestamps are marked "Unattributed" (visible only under All Accounts, never mixed into an account).',
+        popTitle: 'Log Account Switch',
+        currentActive: 'Currently Active',
+        targetAccount: 'Switch To Account',
+        scopeLabel: 'Applies To',
+        scopeAll: 'All (CLI + IDE)',
+        scopeCli: 'CLI Only',
+        scopeDesktop: 'Desktop Only',
+        timeLabel: 'Effective Time',
+        timeNow: 'Now',
+        timeCustom: 'Custom / Backfill',
+        noteLabel: 'Note (optional)',
+        notePlaceholder: 'e.g. Primary 5h exhausted, switching to alt',
+        previewBtn: 'Preview Impact',
+        previewing: 'Checking…',
+        previewSummary: 'Reassigns {turns} existing turns across {convs} conversations.',
+        previewZero: '0 existing turns affected — applies to upcoming turns from this time onward.',
+        saveSwitchBtn: 'Log Switch',
+        saving: 'Saving…',
+        noSwitchYet: 'No switch logged yet (defaults to Default)',
+        activeFrom: 'Since {time}',
+        overrideBadge: 'Pinned',
+        sessionAccTitle: 'Click to reassign this conversation or start a switch from its first turn',
+        reassignLabel: 'Session Account',
+        autoByTimeline: 'Auto (by switch timeline)',
+        applyOverride: 'Apply',
+        startSwitchLabel: 'Start switch from this session ({time} · {src})',
+        startSwitchBtn: 'Start Switch Here',
+        quotaAllOverview: 'Per-Account Quota Overview',
+        quotaAllHint: 'Quotas are strictly isolated per account and never blended. Click any account card to open full calibration & anchor history, or log a snapshot below.',
+        quotaNoAnchors: 'No quota snapshots yet',
+        quotaDrillDown: 'Open calibration →',
+        quotaFormAccount: 'Account',
+        quotaNearSwitchWarn: 'Heads-up: this snapshot is within {min} min of a switch ({acc} · {time}). Please confirm it belongs to "{logged}".',
+        collapseBtn: 'Hide',
+        sectionTitle: 'Accounts & Switch Timeline',
+        sectionHelp: '100% local manual tagging — never reads OAuth tokens or host logs. Isolates CLI / Desktop usage and quota cycles by switch timestamps; preserved across index rebuilds.',
+        singleHint: 'Running in single-account stealth mode with zero header clutter. Add a 2nd account to unlock account filtering, quick switch, and isolated quota calibration.',
+        addTitle: 'Add Account',
+        nameLabel: 'Account Name',
+        namePlaceholder: 'e.g. Ultra Alt / Work',
+        colorLabel: 'Color',
+        noteOptional: 'Note (optional)',
+        noteFieldPlaceholder: 'e.g. Personal Ultra plan',
+        renameDefaultLabel: 'Also rename existing Default account to (optional, avoids ghost "Default")',
+        renameDefaultPlaceholder: 'e.g. Ultra Primary',
+        addToggleBtn: '+ Add Account',
+        manageAccounts: 'Manage Accounts & Timeline…',
+        addBtn: 'Add Account',
+        adding: 'Adding…',
+        archiveBtn: 'Archive',
+        restoreBtn: 'Restore',
+        mergeBtn: 'Merge',
+        mergeTitle: 'Merge "{name}"',
+        mergeTarget: 'Merge Into',
+        mergeAnchorLabel: 'Quota Anchors',
+        mergeAnchorReassign: 'Reassign all to target',
+        mergeAnchorDelete: 'Delete source anchors',
+        mergeWarn: 'All switch records and session overrides will be rewritten to the target account so historical spans never drift. This cannot be undone.',
+        mergeConfirmBtn: 'Confirm Merge',
+        switchesTitle: 'Switch Timeline ({n})',
+        switchesEmpty: 'No switches recorded yet. Click "Log / Backfill Switch" to start attributing usage by time.',
+        backfillBtn: 'Log / Backfill Switch',
+        deleteSwitch: 'Delete',
+        errNameRequired: 'Account name is required',
+        errInvalidTime: 'Please select a valid effective time',
+        savedMsg: 'Saved'
       }
     }
   };
@@ -1577,8 +1735,24 @@
     return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${hhmm}`;
   }
 
-  function getInheritableResetAt(pool, windowType) {
-    const summaries = Array.isArray(state.quotaData?.summaries) ? state.quotaData.summaries : [];
+  function getInheritableResetAt(pool, windowType, targetAccountId = null) {
+    let summaries = Array.isArray(state.quotaData?.summaries) ? state.quotaData.summaries : [];
+    if (
+      Array.isArray(state.quotaData?.byAccount) &&
+      targetAccountId &&
+      targetAccountId !== 'all'
+    ) {
+      const entry = state.quotaData.byAccount.find((e) => e.account?.id === targetAccountId);
+      summaries = Array.isArray(entry?.summaries) ? entry.summaries : [];
+    } else if (
+      targetAccountId &&
+      targetAccountId !== 'all' &&
+      state.quotaData?.accountId &&
+      state.quotaData.accountId !== 'all' &&
+      targetAccountId !== state.quotaData.accountId
+    ) {
+      return null;
+    }
     const match = summaries.find((s) => s.pool === pool && s.windowType === windowType);
     if (!match) return null;
     const candidate = match.inheritableResetAt ?? match.latestAnchor?.resetAt ?? match.latestAnchor?.reset_at ?? null;
@@ -1586,6 +1760,77 @@
       return Number(candidate);
     }
     return null;
+  }
+
+  function toDatetimeLocalValue(ms = Date.now()) {
+    const d = new Date(Number.isFinite(Number(ms)) ? Number(ms) : Date.now());
+    const pad = (x) => String(x).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  const ACCOUNT_PALETTE = [
+    '#5b9cf6',
+    '#4eb88e',
+    '#e8a84a',
+    '#a78bfa',
+    '#ec4899',
+    '#14b8a6',
+    '#f97316',
+    '#e06363'
+  ];
+
+  function safeColor(c) {
+    return /^#[0-9a-fA-F]{6}$/.test(String(c || '').trim()) ? String(c).trim() : ACCOUNT_PALETTE[0];
+  }
+
+  function isMultiAccountActive() {
+    return Boolean(state.accountsState?.multiAccountActive);
+  }
+
+  function getAccountById(id) {
+    const list = state.accountsState?.accounts;
+    if (!Array.isArray(list)) return null;
+    return list.find((a) => a.id === id) || null;
+  }
+
+  function getAccountDisplayName(id) {
+    if (!id || id === 'all') return t('accounts.allAccounts');
+    if (id === 'unattributed') return t('accounts.unattributed');
+    const acc = getAccountById(id);
+    return acc ? acc.name : id;
+  }
+
+  function getDefaultQuotaFormAccountId() {
+    if (!isMultiAccountActive()) return 'default';
+    if (state.accountId && state.accountId !== 'all') {
+      const acc = getAccountById(state.accountId);
+      if (acc) return acc.id;
+    }
+    const active = state.accountsState?.activeAccounts || [];
+    const cliAct = state.accountsState?.activeBySource?.cli;
+    if (cliAct && active.some((a) => a.id === cliAct)) return cliAct;
+    const deskAct = state.accountsState?.activeBySource?.desktop;
+    if (deskAct && active.some((a) => a.id === deskAct)) return deskAct;
+    return active[0]?.id || 'default';
+  }
+
+  function reconcileSelectedAccount() {
+    const st = state.accountsState;
+    if (!st || !st.multiAccountActive) {
+      state.accountId = 'all';
+      return;
+    }
+    if (!state.userChangedAccount && state.config?.defaultAccountId) {
+      state.accountId = state.config.defaultAccountId;
+    }
+    if (state.accountId !== 'all') {
+      const exists = Array.isArray(st.accounts) && st.accounts.some((a) => a.id === state.accountId);
+      if (!exists) state.accountId = 'all';
+    }
+    // Keep quota form account valid
+    if (!state.quotaForm.accountId || !getAccountById(state.quotaForm.accountId)) {
+      state.quotaForm.accountId = getDefaultQuotaFormAccountId();
+    }
   }
 
   function fmtLocalDateStr(d) {
@@ -1885,6 +2130,7 @@
     pricingAutoSync: false,
     quotaDisplayMode: 'remaining',
     defaultRange: '7d',
+    defaultAccountId: 'all',
     quotaAnchorsByPool: {},
     quotaCalibMode: 'auto',
     quotaManualFactors: { M: false, C: false, O: false },
@@ -1930,6 +2176,50 @@
     customFrom: '',
     customTo: '',
 
+    // Multi-account state
+    accountsState: null,
+    accountId: 'all',
+    userChangedAccount: false,
+    accFilterOpen: false,
+    accSwitchOpen: false,
+    accSwitchForm: {
+      accountId: '',
+      source: 'all',
+      timeMode: 'now', // 'now' | 'custom'
+      customAt: '',
+      note: '',
+      submitting: false,
+      previewing: false,
+      preview: null,
+      error: ''
+    },
+    sessionAccMenuOpen: false,
+    sessionAccTargetId: '',
+    sessionAccSaving: false,
+    sessionAccError: '',
+    sessionSwitchTargetId: '',
+    sessionSwitchPreview: null,
+    quotaNearSwitchWarn: null,
+    accSettings: {
+      addOpen: false,
+      switchesOpen: false,
+      addName: '',
+      addColor: '#4eb88e',
+      addNote: '',
+      renameDefaultTo: '',
+      adding: false,
+      editingId: null,
+      editName: '',
+      editColor: '#5b9cf6',
+      editNote: '',
+      mergingId: null,
+      mergeToId: 'default',
+      mergeAnchorAction: 'reassign',
+      busy: false,
+      error: '',
+      msg: ''
+    },
+
     ioScope: 'session', // 'session' | 'analytics'
     modelSort: 'cost', // 'cost' | 'turns' | 'tokens' | 'cache'
     modelView: 'models', // 'models' | 'workspaces'
@@ -1961,6 +2251,8 @@
     obsCopyTimer: null,
 
     // Quota Calibration Lab & History UI state
+    quotaFormOpen: null, // null = auto (collapsed when anchors exist or in overviewOnly), boolean = explicit
+    quotaCurrentOpen: false,
     quotaLabOpenByKey: new Map(),
     quotaOlderOpen: false,
     quotaEditingAnchorId: null,
@@ -1977,6 +2269,7 @@
     quotaError: null,
 
     quotaForm: {
+      accountId: '',
       pool: 'gemini',
       windowType: '7d',
       remainingPct: '',
@@ -2032,6 +2325,12 @@
     refreshSelect: $('refresh-select'),
     btnRefresh: $('btn-refresh'),
     btnSettings: $('btn-settings'),
+    accountBar: $('account-bar'),
+    btnAccountFilter: $('btn-account-filter'),
+    accountFilterDot: $('account-filter-dot'),
+    accountFilterLabel: $('account-filter-label'),
+    accountActiveSummary: $('account-active-summary'),
+    btnAccountSwitch: $('btn-account-switch'),
     rangeBar: $('range-bar'),
     rangePills: $('range-pills'),
     customRangeRow: $('custom-range-row'),
@@ -2053,7 +2352,9 @@
     settingsBody: $('settings-body'),
     chartTooltip: $('chart-tooltip'),
     obsCellPopover: $('obs-cell-popover'),
-    updatePopover: $('update-popover')
+    updatePopover: $('update-popover'),
+    accountSwitchPopover: $('account-switch-popover'),
+    accountFilterMenu: $('account-filter-menu')
   };
 
   // Self-heal update DOM anchors in case an older cached index.html was loaded.
@@ -2089,6 +2390,24 @@
     div.setAttribute('aria-label', 'Update details');
     document.body.appendChild(div);
     dom.updatePopover = div;
+  }
+  if (!dom.accountSwitchPopover) {
+    const div = document.createElement('div');
+    div.id = 'account-switch-popover';
+    div.className = 'account-switch-popover hidden';
+    div.setAttribute('role', 'dialog');
+    div.setAttribute('aria-label', 'Account switch');
+    document.body.appendChild(div);
+    dom.accountSwitchPopover = div;
+  }
+  if (!dom.accountFilterMenu) {
+    const div = document.createElement('div');
+    div.id = 'account-filter-menu';
+    div.className = 'acc-filter-menu hidden';
+    div.setAttribute('role', 'listbox');
+    div.setAttribute('aria-label', 'Account filter');
+    document.body.appendChild(div);
+    dom.accountFilterMenu = div;
   }
 
   function setupLogoFallback() {
@@ -2254,7 +2573,8 @@
 
   async function refreshQuotaOnly() {
     try {
-      state.quotaData = await getJson('/api/quota/anchors');
+      const accQs = `?account=${encodeURIComponent(state.accountId || 'all')}`;
+      state.quotaData = await getJson(`/api/quota/anchors${accQs}`);
       state.quotaError = null;
     } catch (err) {
       state.quotaError = err.message;
@@ -2286,10 +2606,34 @@
         }
       }
 
+      // Refresh accounts state first when not yet loaded so subsequent requests use valid accountId.
+      let fetchedAccounts = false;
+      if (!state.accountsState) {
+        try {
+          state.accountsState = await getJson('/api/accounts');
+          reconcileSelectedAccount();
+          fetchedAccounts = true;
+        } catch {
+          // keep fallback
+        }
+      }
+
+      const accParam = encodeURIComponent(state.accountId || 'all');
       const sessionMods = getNeededSessionModules();
       const analyticsMods = getNeededAnalyticsModules();
       const needQuota = isModuleActiveForView('quota-budget');
       const tasks = [];
+
+      if (!fetchedAccounts) {
+        tasks.push(
+          getJson('/api/accounts')
+            .then((d) => {
+              state.accountsState = d;
+              reconcileSelectedAccount();
+            })
+            .catch(() => {})
+        );
+      }
 
       if (sessionMods.length > 0) {
         const cid = encodeURIComponent(resolveConversationId());
@@ -2307,7 +2651,7 @@
         if (isStandaloneMode()) {
           const srcs = encodeURIComponent(getActiveSourcesList().join(','));
           tasks.push(
-            getJson(`/api/sessions/recent?limit=15&sources=${srcs}`)
+            getJson(`/api/sessions/recent?limit=15&sources=${srcs}&account=${accParam}`)
               .then((d) => {
                 if (Array.isArray(d?.sessions)) state.recentSessions = d.sessions;
               })
@@ -2319,7 +2663,7 @@
       if (analyticsMods.length > 0) {
         const srcs = encodeURIComponent(getActiveSourcesList().join(','));
         const mods = encodeURIComponent(analyticsMods.join(','));
-        let qs = `range=${encodeURIComponent(state.rangeKey)}&sources=${srcs}&modules=${mods}`;
+        let qs = `range=${encodeURIComponent(state.rangeKey)}&sources=${srcs}&modules=${mods}&account=${accParam}`;
         if (state.rangeKey === 'custom' && state.customFrom && state.customTo) {
           qs += `&from=${encodeURIComponent(state.customFrom)}&to=${encodeURIComponent(state.customTo)}`;
         }
@@ -2337,7 +2681,7 @@
 
       if (needQuota) {
         tasks.push(
-          getJson('/api/quota/anchors')
+          getJson(`/api/quota/anchors?account=${accParam}`)
             .then((d) => {
               state.quotaData = d;
               state.quotaError = null;
@@ -2537,7 +2881,309 @@
       dom.globalBanner.classList.add('hidden');
     }
 
+    renderAccountBar();
     renderUpdateUI();
+  }
+
+  function renderAccountBar() {
+    if (!dom.accountBar) return;
+    const multi = isMultiAccountActive();
+    dom.accountBar.classList.toggle('hidden', !multi);
+    if (!multi) {
+      if (state.accSwitchOpen) {
+        state.accSwitchOpen = false;
+        renderAccountSwitchPopover();
+      }
+      if (state.accFilterOpen) {
+        state.accFilterOpen = false;
+        renderAccountFilterMenu();
+      }
+      return;
+    }
+
+    const st = state.accountsState;
+    if (dom.btnAccountFilter) {
+      dom.btnAccountFilter.title = t('accounts.filterTitle');
+      dom.btnAccountFilter.setAttribute('aria-label', t('accounts.filterAria'));
+      dom.btnAccountFilter.setAttribute('aria-expanded', state.accFilterOpen ? 'true' : 'false');
+      dom.btnAccountFilter.classList.toggle('open', state.accFilterOpen);
+    }
+    if (dom.accountFilterLabel) {
+      const curAcc = state.accountId !== 'all' ? getAccountById(state.accountId) : null;
+      dom.accountFilterLabel.textContent =
+        state.accountId === 'all'
+          ? t('accounts.allAccounts')
+          : `${getAccountDisplayName(state.accountId)}${curAcc?.archivedAt != null ? ` (${t('accounts.archivedTag')})` : ''}`;
+    }
+    if (dom.accountFilterDot) {
+      if (state.accountId === 'all') {
+        dom.accountFilterDot.className = 'acc-dot all';
+        dom.accountFilterDot.style.background = '';
+      } else {
+        const curAcc = getAccountById(state.accountId);
+        dom.accountFilterDot.className = 'acc-dot';
+        dom.accountFilterDot.style.background = safeColor(curAcc?.color);
+      }
+    }
+    if (dom.accountActiveSummary) {
+      const cliId = st.activeBySource?.cli || 'default';
+      const deskId = st.activeBySource?.desktop || 'default';
+      const cliName = getAccountDisplayName(cliId);
+      const deskName = getAccountDisplayName(deskId);
+      dom.accountActiveSummary.textContent =
+        cliId === deskId
+          ? t('accounts.activeBoth', { name: cliName })
+          : t('accounts.activeSplit', { cli: cliName, desktop: deskName });
+    }
+    if (dom.btnAccountSwitch) {
+      dom.btnAccountSwitch.textContent = t('accounts.switchBtn');
+      dom.btnAccountSwitch.title = t('accounts.switchTitle');
+      dom.btnAccountSwitch.classList.toggle('hidden', isReadOnlyMode());
+      dom.btnAccountSwitch.setAttribute('aria-expanded', state.accSwitchOpen ? 'true' : 'false');
+    }
+    if (state.accFilterOpen) renderAccountFilterMenu();
+  }
+
+  function positionAccountFilterMenu() {
+    const menu = dom.accountFilterMenu;
+    if (!menu || menu.classList.contains('hidden')) return;
+    const anchor = dom.btnAccountFilter;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const rect = menu.getBoundingClientRect();
+    let top = 56;
+    let left = 12;
+    if (anchor && !anchor.classList.contains('hidden')) {
+      const r = anchor.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) {
+        top = r.bottom + 5;
+        left = r.left;
+      }
+    }
+    if (left + rect.width > vw - 10) left = Math.max(10, vw - rect.width - 10);
+    if (left < 10) left = 10;
+    if (top + rect.height > vh - 10) top = Math.max(10, vh - rect.height - 10);
+    menu.style.top = `${Math.round(top)}px`;
+    menu.style.left = `${Math.round(left)}px`;
+  }
+
+  function renderAccountFilterMenu() {
+    const menu = dom.accountFilterMenu;
+    if (!menu) return;
+    if (!state.accFilterOpen || !isMultiAccountActive()) {
+      menu.classList.add('hidden');
+      if (dom.btnAccountFilter) {
+        dom.btnAccountFilter.classList.remove('open');
+        dom.btnAccountFilter.setAttribute('aria-expanded', 'false');
+      }
+      return;
+    }
+
+    const st = state.accountsState;
+    const activeAccounts = Array.isArray(st.activeAccounts) ? st.activeAccounts : [];
+    const archivedAccounts = (Array.isArray(st.accounts) ? st.accounts : []).filter((a) => a.archivedAt !== null);
+    const cliAct = st.activeBySource?.cli;
+    const deskAct = st.activeBySource?.desktop;
+    const curVal = state.accountId || 'all';
+
+    const checkSvg =
+      '<svg class="icon" width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-6.5"/></svg>';
+
+    const renderItem = (id, name, dotHtml, tags = [], isArchived = false) => {
+      const isSelected = curVal === id;
+      return `
+        <button type="button" class="acc-menu-item ${isSelected ? 'active' : ''}" role="option" aria-selected="${isSelected}" data-action="pick-account-filter" data-account-id="${esc(id)}">
+          <span class="acc-menu-item-left">
+            ${dotHtml}
+            <span class="truncate" ${isArchived ? 'style="opacity:0.7"' : ''}>${esc(name)}</span>
+          </span>
+          <span class="acc-menu-item-right">
+            ${tags.map((tg) => `<span class="pill outline" style="font-size:9px;height:15px;padding:0 4px">${esc(tg)}</span>`).join('')}
+            ${isArchived ? `<span class="pill warn" style="font-size:9px;height:15px;padding:0 4px">${esc(t('accounts.archivedTag'))}</span>` : ''}
+            ${isSelected ? checkSvg : ''}
+          </span>
+        </button>
+      `;
+    };
+
+    const items = [
+      renderItem('all', t('accounts.allAccounts'), '<span class="acc-dot all"></span>')
+    ];
+    for (const a of activeAccounts) {
+      const tags = [];
+      if (cliAct === a.id && deskAct === a.id) tags.push('CLI+IDE');
+      else {
+        if (cliAct === a.id) tags.push('CLI');
+        if (deskAct === a.id) tags.push('IDE');
+      }
+      items.push(
+        renderItem(a.id, a.name, `<span class="acc-dot" style="background:${safeColor(a.color)}"></span>`, tags, false)
+      );
+    }
+    if (archivedAccounts.length > 0) {
+      items.push('<div class="acc-menu-sep"></div>');
+      for (const a of archivedAccounts) {
+        items.push(
+          renderItem(a.id, a.name, `<span class="acc-dot" style="background:${safeColor(a.color)};opacity:0.55"></span>`, [], true)
+        );
+      }
+    }
+    items.push(
+      `<div class="acc-menu-sep"></div>
+       <button type="button" class="acc-menu-footer" data-action="open-settings-from-acc-menu">${esc(t('accounts.manageAccounts'))}</button>`
+    );
+
+    menu.innerHTML = items.join('');
+    menu.classList.remove('hidden');
+    if (dom.btnAccountFilter) {
+      dom.btnAccountFilter.classList.add('open');
+      dom.btnAccountFilter.setAttribute('aria-expanded', 'true');
+    }
+    positionAccountFilterMenu();
+  }
+
+  function positionAccountSwitchPopover() {
+    const pop = dom.accountSwitchPopover;
+    if (!pop || pop.classList.contains('hidden')) return;
+    const anchor = dom.btnAccountSwitch;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const popRect = pop.getBoundingClientRect();
+    let top = 56;
+    let left = Math.max(10, vw - popRect.width - 12);
+    if (anchor && !anchor.classList.contains('hidden')) {
+      const r = anchor.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) {
+        top = r.bottom + 6;
+        left = r.right - popRect.width;
+      }
+    }
+    if (left + popRect.width > vw - 10) left = vw - popRect.width - 10;
+    if (left < 10) left = 10;
+    if (top + popRect.height > vh - 10) top = Math.max(10, vh - popRect.height - 10);
+    pop.style.top = `${Math.round(top)}px`;
+    pop.style.left = `${Math.round(left)}px`;
+  }
+
+  function renderAccountSwitchPopover() {
+    const pop = dom.accountSwitchPopover;
+    if (!pop) return;
+    if (!state.accSwitchOpen || !state.accountsState || isReadOnlyMode()) {
+      pop.classList.add('hidden');
+      if (dom.btnAccountSwitch) dom.btnAccountSwitch.setAttribute('aria-expanded', 'false');
+      return;
+    }
+
+    const st = state.accountsState;
+    const activeAccounts = Array.isArray(st.activeAccounts) ? st.activeAccounts : [];
+    const f = state.accSwitchForm;
+    if (!f.accountId || !activeAccounts.some((a) => a.id === f.accountId)) {
+      const cliCur = st.activeBySource?.cli;
+      const alt = activeAccounts.find((a) => a.id !== cliCur) || activeAccounts[0];
+      f.accountId = alt ? alt.id : 'default';
+    }
+    if (f.timeMode === 'custom' && !f.customAt) {
+      f.customAt = toDatetimeLocalValue(Date.now());
+    }
+
+    const cliAcc = getAccountById(st.activeBySource?.cli || 'default');
+    const deskAcc = getAccountById(st.activeBySource?.desktop || 'default');
+    const cliSw = st.activeSwitchBySource?.cli;
+    const deskSw = st.activeSwitchBySource?.desktop;
+
+    const previewHtml = f.preview
+      ? `<div class="acc-preview-box num">${
+          f.preview.affectedTurns > 0
+            ? esc(
+                t('accounts.previewSummary', {
+                  turns: f.preview.affectedTurns,
+                  convs: f.preview.affectedConversations
+                })
+              )
+            : esc(t('accounts.previewZero'))
+        }</div>`
+      : '';
+
+    pop.innerHTML = `
+      <div class="upd-pop-head">
+        <span class="upd-pop-title">${esc(t('accounts.popTitle'))}</span>
+        <button type="button" class="icon-btn" data-action="close-acc-switch-pop" aria-label="${esc(t('common.cancel'))}">
+          <svg class="icon" width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+        </button>
+      </div>
+      <div class="acc-pop-status">
+        <div class="acc-pop-status-row">
+          <span>CLI</span>
+          <span class="acc-pop-status-val">
+            <span class="acc-dot" style="background:${safeColor(cliAcc?.color)}"></span>
+            <span class="truncate">${esc(cliAcc?.name || 'Default')}</span>
+            ${cliSw ? `<span class="muted-note num" style="font-weight:400">${esc(t('accounts.activeFrom', { time: fmtTimeShort(cliSw.effectiveFromMs) }))}</span>` : ''}
+          </span>
+        </div>
+        <div class="acc-pop-status-row">
+          <span>Desktop</span>
+          <span class="acc-pop-status-val">
+            <span class="acc-dot" style="background:${safeColor(deskAcc?.color)}"></span>
+            <span class="truncate">${esc(deskAcc?.name || 'Default')}</span>
+            ${deskSw ? `<span class="muted-note num" style="font-weight:400">${esc(t('accounts.activeFrom', { time: fmtTimeShort(deskSw.effectiveFromMs) }))}</span>` : ''}
+          </span>
+        </div>
+      </div>
+      <form id="acc-switch-form" style="display:flex;flex-direction:column;gap:7px">
+        <div class="field">
+          <label>${esc(t('accounts.targetAccount'))}</label>
+          <div class="acc-target-picker" role="radiogroup" aria-label="${esc(t('accounts.targetAccount'))}">
+            ${activeAccounts
+              .map((a) => {
+                const selected = f.accountId === a.id;
+                const checkSvg = selected
+                  ? '<svg class="icon" width="11" height="11" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-6.5"/></svg>'
+                  : '';
+                return `<button type="button" class="acc-target-chip ${selected ? 'active' : ''}" role="radio" aria-checked="${selected}" data-action="set-acc-sw-target" data-account-id="${esc(a.id)}">
+                  <span class="acc-dot" style="background:${safeColor(a.color)}"></span>
+                  <span class="truncate">${esc(a.name)}</span>
+                  ${checkSvg}
+                </button>`;
+              })
+              .join('')}
+          </div>
+        </div>
+        <div class="field">
+          <label>${esc(t('accounts.scopeLabel'))}</label>
+          <div class="seg" style="width:100%">
+            <button type="button" style="flex:1" class="${f.source === 'all' ? 'active' : ''}" data-action="set-acc-sw-scope" data-scope="all">${esc(t('accounts.scopeAll'))}</button>
+            <button type="button" style="flex:1" class="${f.source === 'cli' ? 'active' : ''}" data-action="set-acc-sw-scope" data-scope="cli">${esc(t('accounts.scopeCli'))}</button>
+            <button type="button" style="flex:1" class="${f.source === 'desktop' ? 'active' : ''}" data-action="set-acc-sw-scope" data-scope="desktop">${esc(t('accounts.scopeDesktop'))}</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>${esc(t('accounts.timeLabel'))}</label>
+          <div class="quick-chips">
+            <button type="button" class="quick-chip ${f.timeMode === 'now' ? 'active' : ''}" data-action="set-acc-sw-time" data-mode="now">${esc(t('accounts.timeNow'))}</button>
+            <button type="button" class="quick-chip ${f.timeMode === 'custom' ? 'active' : ''}" data-action="set-acc-sw-time" data-mode="custom">${esc(t('accounts.timeCustom'))}</button>
+          </div>
+          ${
+            f.timeMode === 'custom'
+              ? `<input id="acc-sw-custom-time" type="datetime-local" value="${esc(f.customAt)}" style="margin-top:4px">`
+              : ''
+          }
+        </div>
+        <div class="field">
+          <label for="acc-sw-note">${esc(t('accounts.noteLabel'))}</label>
+          <input id="acc-sw-note" type="text" placeholder="${esc(t('accounts.notePlaceholder'))}" value="${esc(f.note)}">
+        </div>
+        ${previewHtml}
+        ${f.error ? `<div class="banner error" style="margin:0;padding:5px 7px">${esc(f.error)}</div>` : ''}
+        <div class="upd-pop-actions" style="justify-content:space-between">
+          <button type="button" class="btn-sm" data-action="preview-acc-switch" ${f.previewing || f.submitting ? 'disabled' : ''}>${esc(f.previewing ? t('accounts.previewing') : t('accounts.previewBtn'))}</button>
+          <button type="submit" class="btn-sm primary" ${f.submitting ? 'disabled' : ''}>${esc(f.submitting ? t('accounts.saving') : t('accounts.saveSwitchBtn'))}</button>
+        </div>
+      </form>
+    `;
+
+    pop.classList.remove('hidden');
+    if (dom.btnAccountSwitch) dom.btnAccountSwitch.setAttribute('aria-expanded', 'true');
+    positionAccountSwitchPopover();
   }
 
   function getUpdateInstallLabel(kind) {
@@ -2840,12 +3486,90 @@
     `;
 
     const titleText = s.title || baseName(s.workspace) || (s.conversationId ? s.conversationId.slice(0, 8) : '');
+    let sessionAccPillHtml = '';
+    let sessionAccEditorHtml = '';
+    if (isMultiAccountActive()) {
+      const sAccId = s.accountId || 'default';
+      const sAcc = getAccountById(sAccId);
+      const sAccName = getAccountDisplayName(sAccId);
+      const sAccColor = sAcc ? safeColor(sAcc.color) : '#9aa0a6';
+      const ro = isReadOnlyMode();
+      sessionAccPillHtml = ro
+        ? `<span class="session-acc-pill readonly" title="${esc(sAccName)}"><span class="acc-dot" style="background:${sAccColor}"></span><span class="truncate" style="max-width:90px">${esc(sAccName)}</span>${s.hasAccountOverride ? `<span class="muted-note">· ${esc(t('accounts.overrideBadge'))}</span>` : ''}</span>`
+        : `<button type="button" class="session-acc-pill" data-action="toggle-session-acc-menu" data-stop-card title="${esc(t('accounts.sessionAccTitle'))}"><span class="acc-dot" style="background:${sAccColor}"></span><span class="truncate" style="max-width:90px">${esc(sAccName)}</span>${s.hasAccountOverride ? `<span class="muted-note">· ${esc(t('accounts.overrideBadge'))}</span>` : ''}</button>`;
+
+      if (state.sessionAccMenuOpen && !ro) {
+        const allAccounts = state.accountsState?.accounts || [];
+        const activeAccounts = state.accountsState?.activeAccounts || [];
+        const curOvVal = state.sessionAccTargetId !== '' ? state.sessionAccTargetId : (s.hasAccountOverride ? sAccId : '__auto__');
+        const curSwTarget =
+          state.sessionSwitchTargetId && activeAccounts.some((a) => a.id === state.sessionSwitchTargetId)
+            ? state.sessionSwitchTargetId
+            : (activeAccounts.find((a) => a.id !== sAccId) || activeAccounts[0])?.id || 'default';
+        const firstMs = num(s.firstTurnMs, 0);
+        const swPreviewHtml = state.sessionSwitchPreview
+          ? `<div class="acc-preview-box num">${
+              state.sessionSwitchPreview.affectedTurns > 0
+                ? esc(
+                    t('accounts.previewSummary', {
+                      turns: state.sessionSwitchPreview.affectedTurns,
+                      convs: state.sessionSwitchPreview.affectedConversations
+                    })
+                  )
+                : esc(t('accounts.previewZero'))
+            }</div>`
+          : '';
+        sessionAccEditorHtml = `
+          <div class="session-acc-editor" data-stop-card>
+            <div class="session-acc-row">
+              <span class="muted-note" style="flex:none">${esc(t('accounts.reassignLabel'))}</span>
+              <select data-action="change-session-acc-target">
+                <option value="__auto__" ${curOvVal === '__auto__' ? 'selected' : ''}>${esc(t('accounts.autoByTimeline'))}</option>
+                ${allAccounts
+                  .map(
+                    (a) =>
+                      `<option value="${esc(a.id)}" ${curOvVal === a.id ? 'selected' : ''}>${esc(a.name)}${a.archivedAt != null ? ` (${esc(t('accounts.archivedTag'))})` : ''}</option>`
+                  )
+                  .join('')}
+              </select>
+              <button type="button" class="btn-sm primary" data-action="apply-session-acc-override" data-conv-id="${esc(s.conversationId)}" ${state.sessionAccSaving ? 'disabled' : ''}>${esc(t('accounts.applyOverride'))}</button>
+            </div>
+            ${
+              firstMs > 0
+                ? `
+                  <div style="border-top:1px solid var(--line);padding-top:6px;display:flex;flex-direction:column;gap:5px">
+                    <span class="muted-note num">${esc(t('accounts.startSwitchLabel', { time: fmtTimeShort(firstMs), src: sourceLabel(s.source) }))}</span>
+                    <div class="session-acc-row">
+                      <select data-action="change-session-sw-target">
+                        ${activeAccounts
+                          .map(
+                            (a) =>
+                              `<option value="${esc(a.id)}" ${curSwTarget === a.id ? 'selected' : ''}>${esc(a.name)}</option>`
+                          )
+                          .join('')}
+                      </select>
+                      <button type="button" class="btn-sm" data-action="preview-session-switch" data-first-ms="${firstMs}" data-source="${esc(s.source || 'cli')}" ${state.sessionAccSaving ? 'disabled' : ''}>${esc(t('accounts.previewBtn'))}</button>
+                      <button type="button" class="btn-sm primary" data-action="apply-session-switch" data-first-ms="${firstMs}" data-source="${esc(s.source || 'cli')}" ${state.sessionAccSaving ? 'disabled' : ''}>${esc(t('accounts.startSwitchBtn'))}</button>
+                    </div>
+                    ${swPreviewHtml}
+                  </div>
+                `
+                : ''
+            }
+            ${state.sessionAccError ? `<div class="banner error" style="margin:0;padding:4px 6px">${esc(state.sessionAccError)}</div>` : ''}
+          </div>
+        `;
+      }
+    }
+
     let html = `
       ${sessionPickerHtml}
       <div class="session-meta-row">
         <span class="pill outline">${esc(sourceLabel(s.source))}</span>
+        ${sessionAccPillHtml}
         <span class="truncate" title="${esc(s.title || s.workspace || s.conversationId)}">${esc(titleText)}</span>
       </div>
+      ${sessionAccEditorHtml}
       <div class="ctx-progress-wrap">
         <div class="ctx-numbers">
           <span class="ctx-used num mono">${fmtTokens(used)} <span class="muted-note">/ ${limit ? fmtTokens(limit) : '—'}</span></span>
@@ -5181,6 +5905,73 @@
     const summaries = Array.isArray(qd.summaries) ? qd.summaries : [];
     const anchors = Array.isArray(qd.anchors) ? qd.anchors : [];
     const activeSummaries = summaries.filter((s) => s.latestAnchor != null);
+    const isAllMulti =
+      isMultiAccountActive() && state.accountId === 'all' && Array.isArray(qd.byAccount);
+
+    let headerBadges = modeToggle;
+    if (isMultiAccountActive() && state.accountId !== 'all') {
+      const curAcc = getAccountById(state.accountId);
+      headerBadges = `<span class="pill outline" style="display:inline-flex;align-items:center;gap:4px"><span class="acc-dot" style="background:${safeColor(curAcc?.color)}"></span><span class="truncate" style="max-width:96px">${esc(getAccountDisplayName(state.accountId))}</span></span>${modeToggle}`;
+    }
+
+    if (isAllMulti) {
+      const cliAct = state.accountsState?.activeBySource?.cli;
+      const deskAct = state.accountsState?.activeBySource?.desktop;
+      const accCardsHtml = qd.byAccount
+        .map((entry) => {
+          const acc = entry.account || {};
+          const accSums = (Array.isArray(entry.summaries) ? entry.summaries : []).filter(
+            (s) => s.latestAnchor != null
+          );
+          const actTags = [];
+          if (cliAct === acc.id && deskAct === acc.id) actTags.push('CLI+IDE');
+          else {
+            if (cliAct === acc.id) actTags.push('CLI');
+            if (deskAct === acc.id) actTags.push('IDE');
+          }
+          const chipsHtml = accSums.length
+            ? `<div class="quota-acc-chips">${accSums
+                .map((s) => {
+                  if (s.cycleExpired) {
+                    return `<div class="quota-acc-chip num">
+                      <span>${esc(poolLabel(s.pool))} · ${esc(s.windowType)}</span>
+                      <span class="pill warn" style="font-size:10px">${esc(t('quota.statusNewCycle'))}</span>
+                    </div>`;
+                  }
+                  const latest = s.latestAnchor;
+                  const remPct = num(latest.remainingPct ?? latest.remaining_pct, 0);
+                  const step = num(latest.precisionStep ?? latest.precision_step, 1);
+                  const shownPct = mode === 'used' ? 100 - remPct : remPct;
+                  const estUsd = s.estimation?.estimatedPoolUsd;
+                  return `<div class="quota-acc-chip num mono">
+                    <span>${esc(poolLabel(s.pool))} · ${esc(s.windowType)}</span>
+                    <span><strong>${fmtPctDirect(shownPct, step)}</strong>${estUsd != null ? ` · ~${fmtUsd(estUsd)}` : ''}</span>
+                  </div>`;
+                })
+                .join('')}</div>`
+            : `<div class="muted-note" style="font-size:11px">${esc(t('accounts.quotaNoAnchors'))}</div>`;
+
+          return `
+            <button type="button" class="quota-acc-card" data-action="select-account" data-account-id="${esc(acc.id)}" data-stop-card>
+              <div class="quota-acc-card-head">
+                <span class="quota-acc-card-name">
+                  <span class="acc-dot" style="background:${safeColor(acc.color)}"></span>
+                  <span class="truncate">${esc(acc.name || acc.id)}</span>
+                </span>
+                ${actTags.length ? `<span class="pill accent" style="font-size:9.5px">${esc(actTags.join(' '))}</span>` : `<span class="muted-note" style="font-size:10px">${esc(t('accounts.quotaDrillDown'))}</span>`}
+              </div>
+              ${chipsHtml}
+            </button>
+          `;
+        })
+        .join('');
+
+      let html = `<div class="quota-acc-overview">${accCardsHtml}</div>`;
+      if (expanded) {
+        html += renderQuotaExpanded([], [], mode, { overviewOnly: true });
+      }
+      return { badges: headerBadges, body: html };
+    }
 
     let compactHtml = '';
     if (activeSummaries.length > 0) {
@@ -5287,80 +6078,139 @@
 
     let html = compactHtml;
     if (expanded) {
-      html += renderQuotaExpanded(summaries, anchors, mode);
+      html += renderQuotaExpanded(summaries, anchors, mode, { overviewOnly: false });
     }
 
-    return { badges: modeToggle, body: html };
+    return { badges: headerBadges, body: html };
   }
 
-  function renderQuotaExpanded(summaries, anchors, mode) {
+  function renderQuotaExpanded(summaries, anchors, mode, { overviewOnly = false } = {}) {
     const f = state.quotaForm;
+    const multi = isMultiAccountActive();
+    const formAccountId = multi ? (f.accountId || getDefaultQuotaFormAccountId()) : 'default';
+    if (multi && !f.accountId) f.accountId = formAccountId;
     const baseCapturedAt = getFormCapturedAtMs(f);
     const parsedReset = parseResetInput(f.resetInput, baseCapturedAt, f.windowType);
-    const inheritableResetAt = getInheritableResetAt(f.pool, f.windowType);
+    const inheritableResetAt = getInheritableResetAt(f.pool, f.windowType, formAccountId);
     const resetEmptyHint = inheritableResetAt
       ? t('quota.resetInheritHint', { time: fmtResetClock(inheritableResetAt) })
       : t('quota.resetHint');
 
+    const formAccountFieldHtml = multi
+      ? `<div class="field full">
+           <label>${esc(t('accounts.quotaFormAccount'))}</label>
+           <div class="acc-target-picker" role="radiogroup" aria-label="${esc(t('accounts.quotaFormAccount'))}">
+             ${(state.accountsState?.accounts || [])
+               .map((a) => {
+                 const selected = formAccountId === a.id;
+                 const checkSvg = selected
+                   ? '<svg class="icon" width="11" height="11" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-6.5"/></svg>'
+                   : '';
+                 return `<button type="button" class="acc-target-chip ${selected ? 'active' : ''}" role="radio" aria-checked="${selected}" data-action="set-qa-account" data-account-id="${esc(a.id)}">
+                   <span class="acc-dot" style="background:${safeColor(a.color)}${a.archivedAt != null ? ';opacity:0.55' : ''}"></span>
+                   <span class="truncate">${esc(a.name)}${a.archivedAt != null ? ` (${esc(t('accounts.archivedTag'))})` : ''}</span>
+                   ${checkSvg}
+                 </button>`;
+               })
+               .join('')}
+           </div>
+         </div>`
+      : '';
+
+    const nearWarn = state.quotaNearSwitchWarn;
+    const nearWarnHtml = nearWarn
+      ? `<div class="banner warn" style="margin:0;display:flex;align-items:center;justify-content:space-between;gap:8px">
+           <span>${esc(
+             t('accounts.quotaNearSwitchWarn', {
+               acc: getAccountDisplayName(nearWarn.switchAccountId),
+               time: fmtTimeShort(nearWarn.effectiveFromMs),
+               min: Math.max(0, Math.round(Math.abs(num(nearWarn.deltaMs, 0)) / 60000)),
+               logged: getAccountDisplayName(nearWarn.loggedAccountId)
+             })
+           )}</span>
+           <button type="button" class="btn-sm" data-action="dismiss-quota-near-warn">${esc(t('update.ackBtn'))}</button>
+         </div>`
+      : '';
+
+    const isFormOpen =
+      state.quotaFormOpen !== null
+        ? Boolean(state.quotaFormOpen)
+        : !overviewOnly && anchors.length === 0;
+
+    const formSectionHtml = isFormOpen
+      ? `<form id="quota-anchor-form" class="quota-form">
+           <div class="quota-form-head">
+             <h3 class="form-title">${esc(t('quota.formTitle'))}</h3>
+             <button type="button" class="btn-sm" data-action="toggle-quota-form" data-open="0">${esc(t('accounts.collapseBtn'))}</button>
+           </div>
+           <div class="form-grid">
+             ${formAccountFieldHtml}
+             <div class="field">
+               <label>${esc(t('quota.poolLabel'))}</label>
+               <div class="seg" style="width:100%">
+                 <button type="button" style="flex:1" class="${f.pool === 'gemini' ? 'active' : ''}" data-action="set-qa-pool" data-pool="gemini">Gemini</button>
+                 <button type="button" style="flex:1" class="${f.pool === 'argon' ? 'active' : ''}" data-action="set-qa-pool" data-pool="argon">Argon</button>
+                 <button type="button" style="flex:1" class="${f.pool === '3p' ? 'active' : ''}" data-action="set-qa-pool" data-pool="3p">${esc(t('quota.pool3p'))}</button>
+               </div>
+             </div>
+             <div class="field">
+               <label>${esc(t('quota.windowLabel'))}</label>
+               <div class="seg" style="width:100%">
+                 <button type="button" style="flex:1" class="${f.windowType === '7d' ? 'active' : ''}" data-action="set-qa-window" data-window="7d">${esc(t('quota.win7d'))}</button>
+                 <button type="button" style="flex:1" class="${f.windowType === '5h' ? 'active' : ''}" data-action="set-qa-window" data-window="5h">${esc(t('quota.win5h'))}</button>
+               </div>
+             </div>
+             <div class="field full">
+               <label for="qa-pct">${esc(t('quota.pctLabel'))}</label>
+               <input id="qa-pct" name="remainingPct" type="number" step="0.01" min="0" max="100" placeholder="${esc(t('quota.pctPlaceholder'))}" value="${esc(f.remainingPct)}" required>
+               <span class="field-hint">${esc(t('quota.pctHint'))}</span>
+             </div>
+             <div class="field">
+               <label for="qa-reset">${esc(t('quota.resetLabel'))}</label>
+               <input id="qa-reset" name="resetInput" type="text" placeholder="${esc(t('quota.resetPlaceholder'))}" value="${esc(f.resetInput)}">
+               ${
+                 f.resetInput
+                   ? `<span class="field-hint" style="color:${parsedReset.ok ? 'var(--ok)' : 'var(--bad)'}">${esc(parsedReset.preview)}</span>`
+                   : `<span class="field-hint">${esc(resetEmptyHint)}</span>`
+               }
+             </div>
+             <div class="field">
+               <label>${esc(t('quota.captureTimeLabel'))}</label>
+               <div class="quick-chips">
+                 <button type="button" class="quick-chip ${f.captureOffsetMin === 0 ? 'active' : ''}" data-action="set-qa-offset" data-offset="0">${esc(t('quota.now'))}</button>
+                 <button type="button" class="quick-chip ${f.captureOffsetMin === -5 ? 'active' : ''}" data-action="set-qa-offset" data-offset="-5">-5m</button>
+                 <button type="button" class="quick-chip ${f.captureOffsetMin === -15 ? 'active' : ''}" data-action="set-qa-offset" data-offset="-15">-15m</button>
+                 <button type="button" class="quick-chip ${f.captureOffsetMin === 'custom' ? 'active' : ''}" data-action="set-qa-offset" data-offset="custom">${esc(t('quota.custom'))}</button>
+               </div>
+               ${
+                 f.captureOffsetMin === 'custom'
+                   ? `<input id="qa-custom-time" type="datetime-local" value="${esc(f.customCaptureAt)}" style="margin-top:4px">`
+                   : ''
+               }
+             </div>
+             <div class="field full">
+               <label for="qa-note">${esc(t('quota.noteLabel'))}</label>
+               <input id="qa-note" name="note" type="text" placeholder="${esc(t('quota.notePlaceholder'))}" value="${esc(f.note)}">
+             </div>
+           </div>
+           ${f.error ? `<div class="banner error" style="margin:0">${esc(f.error)}</div>` : ''}
+           <div style="display:flex;justify-content:flex-end;gap:8px">
+             <button type="submit" class="btn-sm primary" ${f.submitting || isReadOnlyMode() ? 'disabled' : ''}>${esc(f.submitting ? t('quota.submitting') : t('quota.submitBtn'))}</button>
+           </div>
+         </form>`
+      : `<button type="button" class="acc-add-toggle" data-action="toggle-quota-form" data-open="1" ${isReadOnlyMode() ? 'disabled' : ''}>+ ${esc(t('quota.formTitle'))}</button>`;
+
     let expHtml = `
       <div class="card-expanded">
-        <form id="quota-anchor-form" class="quota-form">
-          <h3 class="form-title">${esc(t('quota.formTitle'))}</h3>
-          <div class="form-grid">
-            <div class="field">
-              <label for="qa-pool">${esc(t('quota.poolLabel'))}</label>
-              <select id="qa-pool" name="pool">
-                <option value="gemini" ${f.pool === 'gemini' ? 'selected' : ''}>Gemini</option>
-                <option value="argon" ${f.pool === 'argon' ? 'selected' : ''}>Argon</option>
-                <option value="3p" ${f.pool === '3p' ? 'selected' : ''}>${esc(t('quota.pool3p'))}</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="qa-window">${esc(t('quota.windowLabel'))}</label>
-              <select id="qa-window" name="windowType">
-                <option value="7d" ${f.windowType === '7d' ? 'selected' : ''}>${esc(t('quota.win7d'))}</option>
-                <option value="5h" ${f.windowType === '5h' ? 'selected' : ''}>${esc(t('quota.win5h'))}</option>
-              </select>
-            </div>
-            <div class="field full">
-              <label for="qa-pct">${esc(t('quota.pctLabel'))}</label>
-              <input id="qa-pct" name="remainingPct" type="number" step="0.01" min="0" max="100" placeholder="${esc(t('quota.pctPlaceholder'))}" value="${esc(f.remainingPct)}" required>
-              <span class="field-hint">${esc(t('quota.pctHint'))}</span>
-            </div>
-            <div class="field">
-              <label for="qa-reset">${esc(t('quota.resetLabel'))}</label>
-              <input id="qa-reset" name="resetInput" type="text" placeholder="${esc(t('quota.resetPlaceholder'))}" value="${esc(f.resetInput)}">
-              ${
-                f.resetInput
-                  ? `<span class="field-hint" style="color:${parsedReset.ok ? 'var(--ok)' : 'var(--bad)'}">${esc(parsedReset.preview)}</span>`
-                  : `<span class="field-hint">${esc(resetEmptyHint)}</span>`
-              }
-            </div>
-            <div class="field">
-              <label>${esc(t('quota.captureTimeLabel'))}</label>
-              <div class="quick-chips">
-                <button type="button" class="quick-chip ${f.captureOffsetMin === 0 ? 'active' : ''}" data-action="set-qa-offset" data-offset="0">${esc(t('quota.now'))}</button>
-                <button type="button" class="quick-chip ${f.captureOffsetMin === -5 ? 'active' : ''}" data-action="set-qa-offset" data-offset="-5">-5m</button>
-                <button type="button" class="quick-chip ${f.captureOffsetMin === -15 ? 'active' : ''}" data-action="set-qa-offset" data-offset="-15">-15m</button>
-                <button type="button" class="quick-chip ${f.captureOffsetMin === 'custom' ? 'active' : ''}" data-action="set-qa-offset" data-offset="custom">${esc(t('quota.custom'))}</button>
-              </div>
-              ${
-                f.captureOffsetMin === 'custom'
-                  ? `<input id="qa-custom-time" type="datetime-local" value="${esc(f.customCaptureAt)}" style="margin-top:4px">`
-                  : ''
-              }
-            </div>
-            <div class="field full">
-              <label for="qa-note">${esc(t('quota.noteLabel'))}</label>
-              <input id="qa-note" name="note" type="text" placeholder="${esc(t('quota.notePlaceholder'))}" value="${esc(f.note)}">
-            </div>
-          </div>
-          ${f.error ? `<div class="banner error" style="margin:0">${esc(f.error)}</div>` : ''}
-          <div style="display:flex;justify-content:flex-end;gap:8px">
-            <button type="submit" class="btn-sm primary" ${f.submitting || isReadOnlyMode() ? 'disabled' : ''}>${esc(f.submitting ? t('quota.submitting') : t('quota.submitBtn'))}</button>
-          </div>
-        </form>
+        ${overviewOnly ? `<div class="muted-note" style="font-size:11px;line-height:1.45">${esc(t('accounts.quotaAllHint'))}</div>` : ''}
+        ${formSectionHtml}
+        ${nearWarnHtml}
     `;
+
+    if (overviewOnly) {
+      expHtml += '</div>';
+      return expHtml;
+    }
 
     const estList = summaries.filter(
       (s) =>
@@ -5662,12 +6512,17 @@
       }
 
       expHtml += `
-        <div style="display:flex;flex-direction:column;gap:7px">
-          <span class="form-title">${esc(t('quota.currentHistoryTitle', { n: totalCurrentAnchors }))}</span>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <button type="button" class="acc-switches-toggle quota-current-toggle ${state.quotaCurrentOpen ? 'open' : ''}" data-action="toggle-current-anchors" aria-expanded="${state.quotaCurrentOpen}">
+            <svg class="icon chevron" width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4l4 4-4 4"/></svg>
+            <span>${esc(t('quota.currentHistoryTitle', { n: totalCurrentAnchors }))}</span>
+          </button>
           ${
-            currentGroups.length > 0
-              ? currentHtml
-              : `<div class="muted-note" style="font-size:11px">${esc(t('quota.noCurrentAnchors'))}</div>`
+            state.quotaCurrentOpen
+              ? currentGroups.length > 0
+                ? currentHtml
+                : `<div class="muted-note" style="font-size:11px">${esc(t('quota.noCurrentAnchors'))}</div>`
+              : ''
           }
           ${
             totalOlderAnchors > 0
@@ -5752,21 +6607,19 @@
             })()
           : '';
 
+        const timeParts = [fmtTimeShort(cap)];
+        if (resetStr) timeParts.push(resetStr);
+
         return `
           <div class="anchor-row-wrap">
             <div class="anchor-row">
               <div class="anchor-info">
                 <div class="anchor-top num">
-                  <span class="pill accent">${esc(poolLabel(pool))} ${esc(wt)}</span>
                   <strong class="mono">${esc(mode === 'used' ? t('quota.used') : t('quota.remaining'))} ${fmtPctDirect(shown, step)}</strong>
-                  <span class="pill outline">${esc(t('quota.precision', { step }))}</span>
-                  <span class="muted-note">${fmtTimeShort(cap)}</span>
+                  <span class="muted-note mono" style="font-size:10px" title="${esc(t('quota.precision', { step }))}">±${step}%</span>
+                  <span class="muted-note mono anchor-times">${esc(timeParts.join(' · '))}</span>
                 </div>
-                ${
-                  resetStr || a.note
-                    ? `<div class="muted-note truncate">${resetStr ? esc(resetStr) : ''}${resetStr && a.note ? ' · ' : ''}${a.note ? esc(a.note) : ''}</div>`
-                    : ''
-                }
+                ${a.note ? `<div class="muted-note truncate" style="font-size:10.5px">${esc(a.note)}</div>` : ''}
               </div>
               <div class="anchor-actions">
                 <button type="button" class="btn-sm" data-action="edit-anchor-reset" data-id="${esc(a.id)}" ${isReadOnlyMode() ? 'disabled' : ''}>${esc(t('quota.editResetBtn'))}</button>
@@ -6639,6 +7492,8 @@
         </div>
       </section>
 
+      ${renderSettingsAccountsSection()}
+
       <section class="set-section">
         <div class="set-title-row">
           <h3 class="set-title">${esc(t('settings.pricingSection'))}</h3>
@@ -6687,6 +7542,207 @@
       const nextPricingScrollEl = dom.settingsBody.querySelector('[data-pricing-scroll]');
       if (nextPricingScrollEl) nextPricingScrollEl.scrollTop = prevPricingScrollTop;
     }
+  }
+
+  function renderSettingsAccountsSection() {
+    const ro = isReadOnlyMode();
+    const st = state.accountsState || {
+      accounts: [{ id: 'default', name: 'Default', color: ACCOUNT_PALETTE[0], note: '', archivedAt: null, isDefault: true }],
+      activeAccounts: [{ id: 'default', name: 'Default', color: ACCOUNT_PALETTE[0], note: '', archivedAt: null, isDefault: true }],
+      switches: [],
+      multiAccountActive: false,
+      unattributedTurns: 0
+    };
+    const as = state.accSettings;
+    const accounts = Array.isArray(st.accounts) ? st.accounts : [];
+    const switches = Array.isArray(st.switches) ? st.switches : [];
+    const showRenameDefaultHint =
+      accounts.length === 1 && accounts[0].id === 'default' && accounts[0].name === 'Default';
+
+    const renderSwatches = (selectedColor, actionName) =>
+      `<div class="acc-swatch-row">${ACCOUNT_PALETTE.map(
+        (hex) =>
+          `<button type="button" class="acc-swatch ${safeColor(selectedColor).toLowerCase() === hex ? 'active' : ''}" style="background:${hex}" data-action="${esc(actionName)}" data-color="${hex}" aria-label="${hex}" ${ro ? 'disabled' : ''}></button>`
+      ).join('')}</div>`;
+
+    const accountRowsHtml = accounts
+      .map((a) => {
+        const isArchived = a.archivedAt !== null;
+        const isEditing = !ro && as.editingId === a.id;
+        const isMerging = !ro && as.mergingId === a.id;
+        const mergeTargets = accounts.filter((x) => x.id !== a.id);
+
+        const editBoxHtml = isEditing
+          ? `<form class="acc-inline-box" data-action="save-acc-edit" data-id="${esc(a.id)}">
+               <div class="field">
+                 <label>${esc(t('accounts.nameLabel'))}</label>
+                 <input type="text" name="name" maxlength="48" value="${esc(as.editName)}" required>
+               </div>
+               <div class="field">
+                 <label>${esc(t('accounts.colorLabel'))}</label>
+                 ${renderSwatches(as.editColor, 'pick-acc-edit-color')}
+               </div>
+               <div class="field">
+                 <label>${esc(t('accounts.noteOptional'))}</label>
+                 <input type="text" name="note" maxlength="160" value="${esc(as.editNote)}">
+               </div>
+               <div style="display:flex;justify-content:flex-end;gap:6px">
+                 <button type="button" class="btn-sm" data-action="cancel-acc-edit">${esc(t('common.cancel'))}</button>
+                 <button type="submit" class="btn-sm primary" ${as.busy ? 'disabled' : ''}>${esc(t('quota.editResetSave'))}</button>
+               </div>
+             </form>`
+          : '';
+
+        const mergeBoxHtml = isMerging
+          ? `<form class="acc-inline-box" data-action="confirm-acc-merge" data-from-id="${esc(a.id)}">
+               <strong style="font-size:11.5px">${esc(t('accounts.mergeTitle', { name: a.name }))}</strong>
+               <div class="field">
+                 <label>${esc(t('accounts.mergeTarget'))}</label>
+                 <select name="toId" data-action="change-acc-merge-to">
+                   ${mergeTargets
+                     .map(
+                       (x) =>
+                         `<option value="${esc(x.id)}" ${as.mergeToId === x.id ? 'selected' : ''}>${esc(x.name)}${x.archivedAt != null ? ` (${esc(t('accounts.archivedTag'))})` : ''}</option>`
+                     )
+                     .join('')}
+                 </select>
+               </div>
+               <div class="field">
+                 <label>${esc(t('accounts.mergeAnchorLabel'))}</label>
+                 <select name="anchorAction" data-action="change-acc-merge-anchor">
+                   <option value="reassign" ${as.mergeAnchorAction !== 'delete' ? 'selected' : ''}>${esc(t('accounts.mergeAnchorReassign'))}</option>
+                   <option value="delete" ${as.mergeAnchorAction === 'delete' ? 'selected' : ''}>${esc(t('accounts.mergeAnchorDelete'))}</option>
+                 </select>
+               </div>
+               <div class="muted-note" style="font-size:10.5px;color:var(--warn)">${esc(t('accounts.mergeWarn'))}</div>
+               <div style="display:flex;justify-content:flex-end;gap:6px">
+                 <button type="button" class="btn-sm" data-action="cancel-acc-merge">${esc(t('common.cancel'))}</button>
+                 <button type="submit" class="btn-sm danger" ${as.busy ? 'disabled' : ''}>${esc(t('accounts.mergeConfirmBtn'))}</button>
+               </div>
+             </form>`
+          : '';
+
+        return `
+          <div class="acc-list-row">
+            <div class="acc-list-top">
+              <div class="acc-list-name">
+                <span class="acc-dot" style="background:${safeColor(a.color)}"></span>
+                <span class="truncate">${esc(a.name)}</span>
+                ${a.isDefault ? `<span class="pill outline" style="font-size:9.5px">${esc(t('accounts.defaultTag'))}</span>` : ''}
+                ${isArchived ? `<span class="pill warn" style="font-size:9.5px">${esc(t('accounts.archivedTag'))}</span>` : ''}
+              </div>
+              <div style="display:flex;gap:4px;flex:none">
+                <button type="button" class="btn-sm" data-action="toggle-acc-edit" data-id="${esc(a.id)}" ${ro || as.busy ? 'disabled' : ''}>${esc(isEditing ? t('common.cancel') : t('common.edit'))}</button>
+                ${
+                  !a.isDefault
+                    ? `<button type="button" class="btn-sm" data-action="toggle-acc-archive" data-id="${esc(a.id)}" data-archived="${isArchived ? '0' : '1'}" ${ro || as.busy ? 'disabled' : ''}>${esc(isArchived ? t('accounts.restoreBtn') : t('accounts.archiveBtn'))}</button>
+                       <button type="button" class="btn-sm danger" data-action="toggle-acc-merge" data-id="${esc(a.id)}" ${ro || as.busy ? 'disabled' : ''}>${esc(t('accounts.mergeBtn'))}</button>`
+                    : ''
+                }
+              </div>
+            </div>
+            ${a.note ? `<div class="muted-note truncate" style="font-size:10.5px;padding-left:13px">${esc(a.note)}</div>` : ''}
+            ${editBoxHtml}
+            ${mergeBoxHtml}
+          </div>
+        `;
+      })
+      .join('');
+
+    const switchesSectionHtml =
+      st.multiAccountActive || switches.length > 0
+        ? `
+          <div style="border-top:1px solid var(--line);padding-top:8px;display:flex;flex-direction:column;gap:6px">
+            <div class="acc-switches-head">
+              <button type="button" class="acc-switches-toggle ${as.switchesOpen ? 'open' : ''}" data-action="toggle-acc-switches" aria-expanded="${as.switchesOpen}">
+                <svg class="icon chevron" width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4l4 4-4 4"/></svg>
+                <span>${esc(t('accounts.switchesTitle', { n: switches.length }))}</span>
+              </button>
+              <button type="button" class="btn-sm" data-action="open-acc-switch-from-settings" ${ro ? 'disabled' : ''}>${esc(t('accounts.backfillBtn'))}</button>
+            </div>
+            ${
+              as.switchesOpen
+                ? switches.length > 0
+                  ? `<div class="acc-switch-list">${switches
+                      .map((sw) => {
+                        const acc = getAccountById(sw.accountId);
+                        const srcLbl =
+                          sw.source === 'all' ? 'ALL' : sw.source === 'cli' ? 'CLI' : 'IDE';
+                        return `
+                          <div class="acc-switch-row">
+                            <div class="acc-switch-info">
+                              <div class="acc-switch-top num">
+                                <span class="acc-dot" style="background:${safeColor(acc?.color)}"></span>
+                                <strong>${esc(getAccountDisplayName(sw.accountId))}</strong>
+                                <span class="pill outline" style="font-size:9.5px">${srcLbl}</span>
+                                <span class="muted-note mono">${esc(fmtTimeShort(sw.effectiveFromMs))}</span>
+                              </div>
+                              ${sw.note ? `<div class="muted-note truncate" style="font-size:10.5px">${esc(sw.note)}</div>` : ''}
+                            </div>
+                            <button type="button" class="btn-sm danger" data-action="delete-acc-switch" data-id="${esc(sw.id)}" ${ro || as.busy ? 'disabled' : ''}>${esc(t('accounts.deleteSwitch'))}</button>
+                          </div>
+                        `;
+                      })
+                      .join('')}</div>`
+                  : `<div class="muted-note" style="font-size:11px">${esc(t('accounts.switchesEmpty'))}</div>`
+                : ''
+            }
+          </div>
+        `
+        : '';
+
+    return `
+      <section class="set-section">
+        <div class="set-title-row">
+          <h3 class="set-title">
+            <span>${esc(t('accounts.sectionTitle'))}</span>
+            ${helpTip(t('accounts.sectionHelp'))}
+          </h3>
+          <span class="pill outline num">${accounts.length}</span>
+        </div>
+        <div class="set-card">
+          ${!st.multiAccountActive ? `<div class="muted-note" style="font-size:11px;line-height:1.45">${esc(t('accounts.singleHint'))}</div>` : ''}
+          <div>${accountRowsHtml}</div>
+          ${
+            !ro
+              ? as.addOpen
+                ? `<form class="acc-inline-box" data-action="create-account">
+                     <strong style="font-size:11.5px">${esc(t('accounts.addTitle'))}</strong>
+                     <div class="field">
+                       <label for="set-acc-add-name">${esc(t('accounts.nameLabel'))}</label>
+                       <input id="set-acc-add-name" type="text" name="name" maxlength="48" placeholder="${esc(t('accounts.namePlaceholder'))}" value="${esc(as.addName)}" required>
+                     </div>
+                     <div class="field">
+                       <label>${esc(t('accounts.colorLabel'))}</label>
+                       ${renderSwatches(as.addColor, 'pick-acc-add-color')}
+                     </div>
+                     <div class="field">
+                       <label for="set-acc-add-note">${esc(t('accounts.noteOptional'))}</label>
+                       <input id="set-acc-add-note" type="text" name="note" maxlength="160" placeholder="${esc(t('accounts.noteFieldPlaceholder'))}" value="${esc(as.addNote)}">
+                     </div>
+                     ${
+                       showRenameDefaultHint
+                         ? `<div class="field">
+                              <label for="set-acc-rename-default">${esc(t('accounts.renameDefaultLabel'))}</label>
+                              <input id="set-acc-rename-default" type="text" name="renameDefaultTo" maxlength="48" placeholder="${esc(t('accounts.renameDefaultPlaceholder'))}" value="${esc(as.renameDefaultTo)}">
+                            </div>`
+                         : ''
+                     }
+                     <div style="display:flex;justify-content:flex-end;gap:6px">
+                       <button type="button" class="btn-sm" data-action="cancel-acc-add">${esc(t('common.cancel'))}</button>
+                       <button type="submit" class="btn-sm primary" ${as.adding ? 'disabled' : ''}>${esc(as.adding ? t('accounts.adding') : t('accounts.addBtn'))}</button>
+                     </div>
+                   </form>`
+                : `<button type="button" class="acc-add-toggle" data-action="toggle-acc-add">${esc(t('accounts.addToggleBtn'))}</button>`
+              : ''
+          }
+          ${as.error ? `<div class="banner error" style="margin:0;padding:5px 7px">${esc(as.error)}</div>` : ''}
+          ${as.msg ? `<div class="muted-note" style="color:var(--ok);font-size:11px">${esc(as.msg)}</div>` : ''}
+          ${switchesSectionHtml}
+          ${num(st.unattributedTurns, 0) > 0 ? `<div class="muted-note" style="font-size:10.5px;border-top:1px solid var(--line);padding-top:6px">${esc(t('accounts.unattributedNote', { n: num(st.unattributedTurns, 0) }))}</div>` : ''}
+        </div>
+      </section>
+    `;
   }
 
   function renderSettingsUpdateSection() {
@@ -6774,13 +7830,18 @@
         (active.closest('#quota-anchor-form') ||
           active.closest('.anchor-edit-inline') ||
           active.closest('.calib-anchor-select') ||
+          active.closest('.session-acc-editor') ||
           active.closest('[data-obs-gap-input="1"]'))
     );
     const editingSettingsInput = Boolean(
       isBackground && active && active.closest && active.closest('#settings-body input, #settings-body select')
     );
+    const editingSwitchPop = Boolean(
+      isBackground && active && active.closest && active.closest('#account-switch-popover')
+    );
     if (!editingQuotaForm) renderGrid();
     if (!editingSettingsInput) renderSettings();
+    if (!editingSwitchPop) renderAccountSwitchPopover();
   }
 
   // =========================================================================
@@ -6788,6 +7849,16 @@
   // =========================================================================
   function openSettings() {
     dismissHelpPin();
+    if (state.accSwitchOpen) {
+      state.accSwitchOpen = false;
+      renderAccountSwitchPopover();
+    }
+    if (state.accFilterOpen) {
+      state.accFilterOpen = false;
+      renderAccountFilterMenu();
+    }
+    state.accSettings.error = '';
+    state.accSettings.msg = '';
     state.settingsOpen = true;
     dom.btnSettings.setAttribute('aria-expanded', 'true');
     dom.settingsBackdrop.classList.remove('hidden');
@@ -6879,6 +7950,229 @@
   dom.settingsBackdrop.addEventListener('click', closeSettings);
   dom.sourcesBadge.addEventListener('click', openSettings);
 
+  if (dom.btnAccountFilter) {
+    dom.btnAccountFilter.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dismissObsCellPopover();
+      state.update.popoverOpen = false;
+      renderUpdateUI();
+      if (state.accSwitchOpen) {
+        state.accSwitchOpen = false;
+        renderAccountSwitchPopover();
+      }
+      state.accFilterOpen = !state.accFilterOpen;
+      renderAccountFilterMenu();
+    });
+  }
+
+  if (dom.accountFilterMenu) {
+    dom.accountFilterMenu.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const actionEl = e.target.closest?.('[data-action]');
+      if (!actionEl) return;
+      const action = actionEl.dataset.action;
+
+      if (action === 'open-settings-from-acc-menu') {
+        state.accFilterOpen = false;
+        renderAccountFilterMenu();
+        openSettings();
+        return;
+      }
+
+      if (action === 'pick-account-filter') {
+        const nextAcc = actionEl.dataset.accountId || 'all';
+        state.accFilterOpen = false;
+        renderAccountFilterMenu();
+        if (nextAcc === state.accountId) return;
+        state.userChangedAccount = true;
+        state.accountId = nextAcc;
+        if (nextAcc !== 'all') {
+          state.quotaForm.accountId = nextAcc;
+        }
+        if (isStandaloneMode()) {
+          state.selectedConversationId = '';
+        }
+        state.sessionAccMenuOpen = false;
+        state.sessionSwitchPreview = null;
+        state.sessionAccError = '';
+        state.selectedDay = null;
+        state.quotaFormOpen = null;
+        state.quotaNearSwitchWarn = null;
+        renderHeader();
+        await saveConfigPatch({ defaultAccountId: nextAcc });
+        await refreshAll(true);
+      }
+    });
+  }
+
+  if (dom.btnAccountSwitch) {
+    dom.btnAccountSwitch.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (isReadOnlyMode()) return;
+      dismissObsCellPopover();
+      state.update.popoverOpen = false;
+      renderUpdateUI();
+      if (state.accFilterOpen) {
+        state.accFilterOpen = false;
+        renderAccountFilterMenu();
+      }
+      state.accSwitchOpen = !state.accSwitchOpen;
+      if (state.accSwitchOpen) {
+        state.accSwitchForm.preview = null;
+        state.accSwitchForm.error = '';
+      }
+      renderAccountSwitchPopover();
+    });
+  }
+
+  function resolveSwitchFormEffectiveMs() {
+    const f = state.accSwitchForm;
+    if (f.timeMode !== 'custom') return { ok: true, ms: null };
+    const ts = Date.parse(f.customAt);
+    if (!Number.isFinite(ts) || ts <= 0) return { ok: false, ms: null };
+    return { ok: true, ms: ts };
+  }
+
+  if (dom.accountSwitchPopover) {
+    dom.accountSwitchPopover.addEventListener('click', async (e) => {
+      // Prevent detached button clicks after innerHTML re-render from bubbling to document outside-click dismissal.
+      e.stopPropagation();
+      const actionEl = e.target.closest?.('[data-action]');
+      if (!actionEl) return;
+      const action = actionEl.dataset.action;
+      const f = state.accSwitchForm;
+
+      if (action === 'close-acc-switch-pop') {
+        state.accSwitchOpen = false;
+        renderAccountSwitchPopover();
+        return;
+      }
+
+      if (action === 'set-acc-sw-target') {
+        const accId = actionEl.dataset.accountId || '';
+        if (accId) {
+          f.accountId = accId;
+          f.preview = null;
+          f.error = '';
+          renderAccountSwitchPopover();
+        }
+        return;
+      }
+
+      if (action === 'set-acc-sw-scope') {
+        const sc = actionEl.dataset.scope;
+        if (sc === 'all' || sc === 'cli' || sc === 'desktop') {
+          f.source = sc;
+          f.preview = null;
+          f.error = '';
+          renderAccountSwitchPopover();
+        }
+        return;
+      }
+
+      if (action === 'set-acc-sw-time') {
+        const mode = actionEl.dataset.mode === 'custom' ? 'custom' : 'now';
+        f.timeMode = mode;
+        if (mode === 'custom' && !f.customAt) {
+          f.customAt = toDatetimeLocalValue(Date.now());
+        }
+        f.preview = null;
+        f.error = '';
+        renderAccountSwitchPopover();
+        return;
+      }
+
+      if (action === 'preview-acc-switch') {
+        const resolved = resolveSwitchFormEffectiveMs();
+        if (!resolved.ok) {
+          f.error = t('accounts.errInvalidTime');
+          renderAccountSwitchPopover();
+          return;
+        }
+        f.previewing = true;
+        f.error = '';
+        renderAccountSwitchPopover();
+        try {
+          f.preview = await postJson('/api/accounts/switch/preview', {
+            accountId: f.accountId,
+            source: f.source,
+            effectiveFromMs: resolved.ms
+          });
+        } catch (err) {
+          f.error = err.message;
+        } finally {
+          f.previewing = false;
+          renderAccountSwitchPopover();
+        }
+        return;
+      }
+    });
+
+    dom.accountSwitchPopover.addEventListener('input', (e) => {
+      const tgt = e.target;
+      const f = state.accSwitchForm;
+      if (tgt.id === 'acc-sw-note') f.note = tgt.value;
+      else if (tgt.id === 'acc-sw-custom-time') {
+        f.customAt = tgt.value;
+        f.preview = null;
+      }
+    });
+
+    dom.accountSwitchPopover.addEventListener('change', (e) => {
+      const tgt = e.target;
+      const f = state.accSwitchForm;
+      if (tgt.id === 'acc-sw-target') {
+        f.accountId = tgt.value;
+        f.preview = null;
+        f.error = '';
+      } else if (tgt.id === 'acc-sw-custom-time') {
+        f.customAt = tgt.value;
+        f.preview = null;
+      }
+    });
+
+    dom.accountSwitchPopover.addEventListener('submit', async (e) => {
+      if (e.target.id !== 'acc-switch-form') return;
+      e.preventDefault();
+      if (isReadOnlyMode()) return;
+      const f = state.accSwitchForm;
+      const resolved = resolveSwitchFormEffectiveMs();
+      if (!resolved.ok) {
+        f.error = t('accounts.errInvalidTime');
+        renderAccountSwitchPopover();
+        return;
+      }
+      f.submitting = true;
+      f.error = '';
+      renderAccountSwitchPopover();
+      try {
+        const res = await postJson('/api/accounts/switch', {
+          accountId: f.accountId,
+          source: f.source,
+          effectiveFromMs: resolved.ms,
+          note: f.note.trim()
+        });
+        if (res.state) {
+          state.accountsState = res.state;
+          reconcileSelectedAccount();
+        }
+        f.note = '';
+        f.preview = null;
+        f.timeMode = 'now';
+        state.accSwitchOpen = false;
+        renderAll();
+        await refreshAll(true);
+      } catch (err) {
+        f.error = err.message;
+        renderAccountSwitchPopover();
+      } finally {
+        f.submitting = false;
+      }
+    });
+  }
+
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       if (state.pinnedHelpEl || !dom.chartTooltip.classList.contains('hidden')) {
@@ -6952,6 +8246,136 @@
         return;
       }
 
+      if (action === 'toggle-session-acc-menu') {
+        e.stopPropagation();
+        if (isReadOnlyMode()) return;
+        state.sessionAccMenuOpen = !state.sessionAccMenuOpen;
+        state.sessionAccError = '';
+        state.sessionSwitchPreview = null;
+        if (state.sessionAccMenuOpen && state.session?.found) {
+          state.sessionAccTargetId = state.session.hasAccountOverride
+            ? state.session.accountId || '__auto__'
+            : '__auto__';
+          const activeAccounts = state.accountsState?.activeAccounts || [];
+          const alt = activeAccounts.find((a) => a.id !== state.session.accountId) || activeAccounts[0];
+          state.sessionSwitchTargetId = alt ? alt.id : 'default';
+        }
+        renderGrid();
+        return;
+      }
+
+      if (action === 'apply-session-acc-override') {
+        e.stopPropagation();
+        if (isReadOnlyMode()) return;
+        const convId = actionEl.dataset.convId || '';
+        if (!convId) return;
+        const target = state.sessionAccTargetId;
+        state.sessionAccSaving = true;
+        state.sessionAccError = '';
+        renderGrid();
+        try {
+          const res = await postJson('/api/accounts/conversation-override', {
+            conversationId: convId,
+            accountId: !target || target === '__auto__' ? null : target
+          });
+          if (res.state) {
+            state.accountsState = res.state;
+            reconcileSelectedAccount();
+          }
+          state.sessionAccMenuOpen = false;
+          state.sessionSwitchPreview = null;
+          await refreshAll(true);
+        } catch (err) {
+          state.sessionAccError = err.message;
+        } finally {
+          state.sessionAccSaving = false;
+          renderGrid();
+        }
+        return;
+      }
+
+      if (action === 'preview-session-switch') {
+        e.stopPropagation();
+        const firstMs = Number(actionEl.dataset.firstMs);
+        const src = actionEl.dataset.source === 'desktop' ? 'desktop' : 'cli';
+        const targetAcc = state.sessionSwitchTargetId || getDefaultQuotaFormAccountId();
+        if (!Number.isFinite(firstMs) || firstMs <= 0) return;
+        state.sessionAccSaving = true;
+        state.sessionAccError = '';
+        renderGrid();
+        try {
+          state.sessionSwitchPreview = await postJson('/api/accounts/switch/preview', {
+            accountId: targetAcc,
+            source: src,
+            effectiveFromMs: firstMs
+          });
+        } catch (err) {
+          state.sessionAccError = err.message;
+        } finally {
+          state.sessionAccSaving = false;
+          renderGrid();
+        }
+        return;
+      }
+
+      if (action === 'apply-session-switch') {
+        e.stopPropagation();
+        if (isReadOnlyMode()) return;
+        const firstMs = Number(actionEl.dataset.firstMs);
+        const src = actionEl.dataset.source === 'desktop' ? 'desktop' : 'cli';
+        const targetAcc = state.sessionSwitchTargetId || getDefaultQuotaFormAccountId();
+        if (!Number.isFinite(firstMs) || firstMs <= 0) return;
+        state.sessionAccSaving = true;
+        state.sessionAccError = '';
+        renderGrid();
+        try {
+          const res = await postJson('/api/accounts/switch', {
+            accountId: targetAcc,
+            source: src,
+            effectiveFromMs: firstMs
+          });
+          if (res.state) {
+            state.accountsState = res.state;
+            reconcileSelectedAccount();
+          }
+          state.sessionAccMenuOpen = false;
+          state.sessionSwitchPreview = null;
+          await refreshAll(true);
+        } catch (err) {
+          state.sessionAccError = err.message;
+        } finally {
+          state.sessionAccSaving = false;
+          renderGrid();
+        }
+        return;
+      }
+
+      if (action === 'select-account') {
+        e.stopPropagation();
+        const accId = actionEl.dataset.accountId || 'all';
+        state.userChangedAccount = true;
+        state.accountId = accId;
+        if (accId !== 'all') state.quotaForm.accountId = accId;
+        if (isStandaloneMode()) state.selectedConversationId = '';
+        state.sessionAccMenuOpen = false;
+        state.sessionSwitchPreview = null;
+        state.sessionAccError = '';
+        state.selectedDay = null;
+        state.quotaFormOpen = null;
+        state.quotaNearSwitchWarn = null;
+        renderHeader();
+        await saveConfigPatch({ defaultAccountId: accId });
+        await refreshAll(true);
+        return;
+      }
+
+      if (action === 'dismiss-quota-near-warn') {
+        e.stopPropagation();
+        state.quotaNearSwitchWarn = null;
+        renderGrid();
+        return;
+      }
+
       if (action === 'set-io-scope') {
         e.stopPropagation();
         const sc = actionEl.dataset.scope;
@@ -6989,7 +8413,8 @@
         renderGrid();
         try {
           const srcs = encodeURIComponent(getActiveSourcesList().join(','));
-          const data = await getJson(`/api/day?date=${encodeURIComponent(date)}&sources=${srcs}`);
+          const accParam = encodeURIComponent(state.accountId || 'all');
+          const data = await getJson(`/api/day?date=${encodeURIComponent(date)}&sources=${srcs}&account=${accParam}`);
           if (state.selectedDay && state.selectedDay.date === date) {
             state.selectedDay = { date, loading: false, error: '', data };
             renderGrid();
@@ -7375,6 +8800,53 @@
         return;
       }
 
+      if (action === 'toggle-quota-form') {
+        e.stopPropagation();
+        const open = actionEl.dataset.open === '1';
+        state.quotaFormOpen = open;
+        state.quotaForm.error = '';
+        renderGrid();
+        if (open) {
+          const pctInp = dom.modulesGrid.querySelector('#qa-pct');
+          if (pctInp) pctInp.focus();
+        }
+        return;
+      }
+
+      if (action === 'set-qa-account') {
+        e.stopPropagation();
+        const accId = actionEl.dataset.accountId;
+        if (accId) {
+          state.quotaForm.accountId = accId;
+          renderGrid();
+        }
+        return;
+      }
+
+      if (action === 'set-qa-pool') {
+        e.stopPropagation();
+        const p = actionEl.dataset.pool;
+        if (p === 'gemini' || p === 'argon' || p === '3p') {
+          state.quotaForm.pool = p;
+          renderGrid();
+        }
+        return;
+      }
+
+      if (action === 'set-qa-window') {
+        e.stopPropagation();
+        const wt = actionEl.dataset.window;
+        if (wt === '7d' || wt === '5h') {
+          state.quotaForm.windowType = wt;
+          if (wt === '5h') {
+            const has5h = (state.quotaData?.anchors || []).some((a) => (a.windowType ?? a.window_type) === '5h');
+            if (has5h) state.quotaOlderOpen = true;
+          }
+          renderGrid();
+        }
+        return;
+      }
+
       if (action === 'toggle-calib-lab') {
         const key = actionEl.dataset.key;
         if (!key) return;
@@ -7411,6 +8883,12 @@
         renderGrid();
         await saveConfigPatch({ quotaCalibMode: 'manual', quotaManualFactors: nextFactors });
         await refreshQuotaOnly();
+        return;
+      }
+
+      if (action === 'toggle-current-anchors') {
+        state.quotaCurrentOpen = !state.quotaCurrentOpen;
+        renderGrid();
         return;
       }
 
@@ -7454,7 +8932,11 @@
         state.quotaEditingError = '';
         renderGrid();
         try {
-          state.quotaData = await postJson('/api/quota/anchors/update', { id, resetAt: null });
+          state.quotaData = await postJson('/api/quota/anchors/update', {
+            id,
+            resetAt: null,
+            viewAccountId: state.accountId || 'all'
+          });
           state.quotaEditingAnchorId = null;
           state.quotaEditingResetInput = '';
           state.quotaEditingOriginalText = '';
@@ -7492,6 +8974,7 @@
             id,
             resetAt: parsed.ts,
             resetPrecisionMs: parsed.precisionMs,
+            viewAccountId: state.accountId || 'all'
           });
           state.quotaEditingAnchorId = null;
           state.quotaEditingResetInput = '';
@@ -7510,7 +8993,10 @@
         const id = Number(actionEl.dataset.id);
         if (!Number.isFinite(id)) return;
         try {
-          state.quotaData = await postJson('/api/quota/anchors/delete', { id });
+          state.quotaData = await postJson('/api/quota/anchors/delete', {
+            id,
+            viewAccountId: state.accountId || 'all'
+          });
           if (state.quotaEditingAnchorId === id) {
             state.quotaEditingAnchorId = null;
             state.quotaEditingResetInput = '';
@@ -7566,7 +9052,8 @@
       }
       return;
     }
-    if (tgt.id === 'qa-pool') state.quotaForm.pool = tgt.value;
+    if (tgt.id === 'qa-account') state.quotaForm.accountId = tgt.value;
+    else if (tgt.id === 'qa-pool') state.quotaForm.pool = tgt.value;
     else if (tgt.id === 'qa-window') state.quotaForm.windowType = tgt.value;
     else if (tgt.id === 'qa-pct') state.quotaForm.remainingPct = tgt.value;
     else if (tgt.id === 'qa-reset') {
@@ -7574,7 +9061,8 @@
       const hint = tgt.parentElement?.querySelector('.field-hint');
       if (hint) {
         const p = parseResetInput(tgt.value, getFormCapturedAtMs(), state.quotaForm.windowType);
-        const inheritable = getInheritableResetAt(state.quotaForm.pool, state.quotaForm.windowType);
+        const targetAcc = isMultiAccountActive() ? (state.quotaForm.accountId || getDefaultQuotaFormAccountId()) : 'default';
+        const inheritable = getInheritableResetAt(state.quotaForm.pool, state.quotaForm.windowType, targetAcc);
         const emptyHint = inheritable
           ? t('quota.resetInheritHint', { time: fmtResetClock(inheritable) })
           : t('quota.resetHint');
@@ -7597,7 +9085,10 @@
 
   dom.modulesGrid.addEventListener('change', async (e) => {
     const tgt = e.target;
-    if (tgt.id === 'qa-pool') {
+    if (tgt.id === 'qa-account') {
+      state.quotaForm.accountId = tgt.value;
+      renderGrid();
+    } else if (tgt.id === 'qa-pool') {
       state.quotaForm.pool = tgt.value;
       renderGrid();
     } else if (tgt.id === 'qa-window') {
@@ -7607,6 +9098,11 @@
         if (has5h) state.quotaOlderOpen = true;
       }
       renderGrid();
+    } else if (tgt.dataset?.action === 'change-session-acc-target') {
+      state.sessionAccTargetId = tgt.value;
+    } else if (tgt.dataset?.action === 'change-session-sw-target') {
+      state.sessionSwitchTargetId = tgt.value;
+      state.sessionSwitchPreview = null;
     } else if (tgt.dataset?.action === 'select-obs-model') {
       state.obsModelFilter = tgt.value || 'all';
       state.obsSelectedSliceKey = '';
@@ -7614,12 +9110,19 @@
       renderGrid();
     } else if (tgt.dataset?.action === 'select-session') {
       state.selectedConversationId = tgt.value || '';
+      state.sessionAccMenuOpen = false;
+      state.sessionSwitchPreview = null;
+      state.sessionAccError = '';
       await refreshAll(true);
     } else if (tgt.dataset?.action === 'set-pool-anchor') {
       const pool = tgt.dataset.pool;
       const modelId = tgt.value;
       if (!pool || !modelId) return;
-      const nextAnchors = { ...(state.config.quotaAnchorsByPool || {}), [pool]: modelId };
+      const key =
+        isMultiAccountActive() && state.accountId && state.accountId !== 'all'
+          ? `${state.accountId}:${pool}`
+          : pool;
+      const nextAnchors = { ...(state.config.quotaAnchorsByPool || {}), [key]: modelId };
       state.config.quotaAnchorsByPool = nextAnchors;
       await saveConfigPatch({ quotaAnchorsByPool: nextAnchors });
       await refreshQuotaOnly();
@@ -7652,7 +9155,12 @@
     renderGrid();
 
     try {
+      const loggedAccountId = isMultiAccountActive()
+        ? (f.accountId || getDefaultQuotaFormAccountId())
+        : 'default';
       const res = await postJson('/api/quota/anchors', {
+        accountId: loggedAccountId,
+        viewAccountId: state.accountId || 'all',
         pool: f.pool,
         windowType: f.windowType,
         remainingPct: Math.round(pctVal * 100) / 100,
@@ -7663,10 +9171,21 @@
         note: f.note.trim() || null
       });
       state.quotaData = res;
+      if (res.nearSwitch && isMultiAccountActive()) {
+        state.quotaNearSwitchWarn = {
+          switchAccountId: res.nearSwitch.accountId,
+          effectiveFromMs: res.nearSwitch.effectiveFromMs,
+          deltaMs: res.nearSwitch.deltaMs,
+          loggedAccountId
+        };
+      } else {
+        state.quotaNearSwitchWarn = null;
+      }
       f.remainingPct = '';
       f.note = '';
       f.resetInput = '';
       f.captureOffsetMin = 0;
+      state.quotaFormOpen = false;
     } catch (err) {
       f.error = t('quota.recordFailed', { msg: err.message });
     } finally {
@@ -7828,6 +9347,183 @@
       }
       return;
     }
+
+    if (action === 'toggle-acc-add') {
+      if (isReadOnlyMode()) return;
+      state.accSettings.addOpen = true;
+      state.accSettings.error = '';
+      state.accSettings.msg = '';
+      renderSettings();
+      const inp = dom.settingsBody.querySelector('#set-acc-add-name');
+      if (inp) inp.focus();
+      return;
+    }
+
+    if (action === 'cancel-acc-add') {
+      state.accSettings.addOpen = false;
+      state.accSettings.error = '';
+      renderSettings();
+      return;
+    }
+
+    if (action === 'pick-acc-add-color') {
+      if (isReadOnlyMode()) return;
+      state.accSettings.addColor = safeColor(actionEl.dataset.color);
+      renderSettings();
+      return;
+    }
+
+    if (action === 'pick-acc-edit-color') {
+      if (isReadOnlyMode()) return;
+      state.accSettings.editColor = safeColor(actionEl.dataset.color);
+      renderSettings();
+      return;
+    }
+
+    if (action === 'toggle-acc-edit') {
+      if (isReadOnlyMode()) return;
+      const id = actionEl.dataset.id;
+      const as = state.accSettings;
+      as.error = '';
+      as.msg = '';
+      as.mergingId = null;
+      if (as.editingId === id) {
+        as.editingId = null;
+      } else {
+        const acc = getAccountById(id);
+        if (!acc) return;
+        as.editingId = id;
+        as.editName = acc.name || '';
+        as.editColor = safeColor(acc.color);
+        as.editNote = acc.note || '';
+      }
+      renderSettings();
+      return;
+    }
+
+    if (action === 'cancel-acc-edit') {
+      state.accSettings.editingId = null;
+      state.accSettings.error = '';
+      renderSettings();
+      return;
+    }
+
+    if (action === 'toggle-acc-archive') {
+      if (isReadOnlyMode()) return;
+      const id = actionEl.dataset.id;
+      const archived = actionEl.dataset.archived === '1';
+      const as = state.accSettings;
+      as.busy = true;
+      as.error = '';
+      as.msg = '';
+      renderSettings();
+      try {
+        const res = await postJson('/api/accounts/update', { id, archived });
+        if (res.state) {
+          state.accountsState = res.state;
+          reconcileSelectedAccount();
+        }
+        as.editingId = null;
+        as.mergingId = null;
+        renderAll();
+        await refreshAll(true);
+      } catch (err) {
+        as.error = err.message;
+      } finally {
+        as.busy = false;
+        renderSettings();
+      }
+      return;
+    }
+
+    if (action === 'toggle-acc-merge') {
+      if (isReadOnlyMode()) return;
+      const id = actionEl.dataset.id;
+      const as = state.accSettings;
+      as.error = '';
+      as.msg = '';
+      as.editingId = null;
+      if (as.mergingId === id) {
+        as.mergingId = null;
+      } else {
+        const others = (state.accountsState?.accounts || []).filter((x) => x.id !== id);
+        if (!others.length) return;
+        as.mergingId = id;
+        as.mergeToId = others.some((x) => x.id === 'default') ? 'default' : others[0].id;
+        as.mergeAnchorAction = 'reassign';
+      }
+      renderSettings();
+      return;
+    }
+
+    if (action === 'cancel-acc-merge') {
+      state.accSettings.mergingId = null;
+      state.accSettings.error = '';
+      renderSettings();
+      return;
+    }
+
+    if (action === 'toggle-acc-switches') {
+      state.accSettings.switchesOpen = !state.accSettings.switchesOpen;
+      renderSettings();
+      return;
+    }
+
+    if (action === 'open-acc-switch-from-settings') {
+      e.stopPropagation();
+      if (isReadOnlyMode()) return;
+      closeSettings();
+      state.accSwitchOpen = true;
+      state.accSwitchForm.timeMode = 'custom';
+      state.accSwitchForm.customAt = toDatetimeLocalValue(Date.now());
+      state.accSwitchForm.preview = null;
+      state.accSwitchForm.error = '';
+      renderAccountSwitchPopover();
+      return;
+    }
+
+    if (action === 'delete-acc-switch') {
+      if (isReadOnlyMode()) return;
+      const id = Number(actionEl.dataset.id);
+      if (!Number.isFinite(id)) return;
+      const as = state.accSettings;
+      as.busy = true;
+      as.error = '';
+      as.msg = '';
+      renderSettings();
+      try {
+        const res = await postJson('/api/accounts/switch/delete', { id });
+        if (res.state) {
+          state.accountsState = res.state;
+          reconcileSelectedAccount();
+        }
+        renderAll();
+        await refreshAll(true);
+      } catch (err) {
+        as.error = err.message;
+      } finally {
+        as.busy = false;
+        renderSettings();
+      }
+      return;
+    }
+  });
+
+  dom.settingsBody.addEventListener('input', (e) => {
+    const tgt = e.target;
+    const as = state.accSettings;
+    const createForm = tgt.closest?.('form[data-action="create-account"]');
+    if (createForm) {
+      if (tgt.name === 'name') as.addName = tgt.value;
+      else if (tgt.name === 'note') as.addNote = tgt.value;
+      else if (tgt.name === 'renameDefaultTo') as.renameDefaultTo = tgt.value;
+      return;
+    }
+    const editForm = tgt.closest?.('form[data-action="save-acc-edit"]');
+    if (editForm) {
+      if (tgt.name === 'name') as.editName = tgt.value;
+      else if (tgt.name === 'note') as.editNote = tgt.value;
+    }
   });
 
   dom.settingsBody.addEventListener('change', async (e) => {
@@ -7868,11 +9564,143 @@
       await saveConfigPatch({ pricingAutoSync: tgt.checked });
       return;
     }
+
+    if (action === 'change-acc-merge-to') {
+      state.accSettings.mergeToId = tgt.value;
+      return;
+    }
+
+    if (action === 'change-acc-merge-anchor') {
+      state.accSettings.mergeAnchorAction = tgt.value === 'delete' ? 'delete' : 'reassign';
+      return;
+    }
   });
 
   dom.settingsBody.addEventListener('submit', async (e) => {
-    const form = e.target.closest('form[data-action="save-price-override"]');
+    const form = e.target.closest('form[data-action]');
     if (!form) return;
+    const formAction = form.dataset.action;
+
+    if (formAction === 'create-account') {
+      e.preventDefault();
+      if (isReadOnlyMode()) return;
+      const as = state.accSettings;
+      const fd = new FormData(form);
+      const name = String(fd.get('name') || '').trim();
+      if (!name) {
+        as.error = t('accounts.errNameRequired');
+        renderSettings();
+        return;
+      }
+      const note = String(fd.get('note') || '').trim();
+      const renameDefaultTo = String(fd.get('renameDefaultTo') || '').trim();
+      as.adding = true;
+      as.error = '';
+      as.msg = '';
+      renderSettings();
+      try {
+        const res = await postJson('/api/accounts', {
+          name,
+          color: as.addColor,
+          note,
+          renameDefaultTo: renameDefaultTo || undefined
+        });
+        if (res.state) {
+          state.accountsState = res.state;
+          reconcileSelectedAccount();
+        }
+        as.addOpen = false;
+        as.addName = '';
+        as.addNote = '';
+        as.renameDefaultTo = '';
+        const nextIdx = (state.accountsState?.accounts?.length || 1) % ACCOUNT_PALETTE.length;
+        as.addColor = ACCOUNT_PALETTE[nextIdx];
+        as.msg = t('accounts.savedMsg');
+        renderAll();
+        await refreshAll(true);
+      } catch (err) {
+        as.error = err.message;
+      } finally {
+        as.adding = false;
+        renderSettings();
+      }
+      return;
+    }
+
+    if (formAction === 'save-acc-edit') {
+      e.preventDefault();
+      if (isReadOnlyMode()) return;
+      const id = form.dataset.id;
+      const as = state.accSettings;
+      const fd = new FormData(form);
+      const name = String(fd.get('name') || '').trim();
+      if (!name) {
+        as.error = t('accounts.errNameRequired');
+        renderSettings();
+        return;
+      }
+      const note = String(fd.get('note') || '').trim();
+      as.busy = true;
+      as.error = '';
+      as.msg = '';
+      renderSettings();
+      try {
+        const res = await postJson('/api/accounts/update', {
+          id,
+          name,
+          color: as.editColor,
+          note
+        });
+        if (res.state) {
+          state.accountsState = res.state;
+          reconcileSelectedAccount();
+        }
+        as.editingId = null;
+        as.msg = t('accounts.savedMsg');
+        renderAll();
+        await refreshAll(true);
+      } catch (err) {
+        as.error = err.message;
+      } finally {
+        as.busy = false;
+        renderSettings();
+      }
+      return;
+    }
+
+    if (formAction === 'confirm-acc-merge') {
+      e.preventDefault();
+      if (isReadOnlyMode()) return;
+      const fromId = form.dataset.fromId;
+      const as = state.accSettings;
+      const fd = new FormData(form);
+      const toId = String(fd.get('toId') || as.mergeToId || '').trim();
+      const anchorAction = String(fd.get('anchorAction') || as.mergeAnchorAction) === 'delete' ? 'delete' : 'reassign';
+      if (!fromId || !toId) return;
+      as.busy = true;
+      as.error = '';
+      as.msg = '';
+      renderSettings();
+      try {
+        const res = await postJson('/api/accounts/merge', { fromId, toId, anchorAction });
+        if (res.state) {
+          state.accountsState = res.state;
+          reconcileSelectedAccount();
+        }
+        as.mergingId = null;
+        as.msg = t('accounts.savedMsg');
+        renderAll();
+        await refreshAll(true);
+      } catch (err) {
+        as.error = err.message;
+      } finally {
+        as.busy = false;
+        renderSettings();
+      }
+      return;
+    }
+
+    if (formAction !== 'save-price-override') return;
     e.preventDefault();
     if (isReadOnlyMode()) return;
     const id = form.dataset.id;
@@ -8264,6 +10092,25 @@
       renderUpdateUI();
     }
 
+    if (
+      state.accSwitchOpen &&
+      !e.target.closest?.('#account-switch-popover') &&
+      !e.target.closest?.('#btn-account-switch') &&
+      !e.target.closest?.('[data-action="open-acc-switch-from-settings"]')
+    ) {
+      state.accSwitchOpen = false;
+      renderAccountSwitchPopover();
+    }
+
+    if (
+      state.accFilterOpen &&
+      !e.target.closest?.('#account-filter-menu') &&
+      !e.target.closest?.('#btn-account-filter')
+    ) {
+      state.accFilterOpen = false;
+      renderAccountFilterMenu();
+    }
+
     const helpBtn = e.target.closest?.('.help-tip[data-tip]');
     if (helpBtn) {
       e.preventDefault();
@@ -8362,6 +10209,14 @@
         state.update.popoverOpen = false;
         renderUpdateUI();
       }
+      if (state.accSwitchOpen) {
+        state.accSwitchOpen = false;
+        renderAccountSwitchPopover();
+      }
+      if (state.accFilterOpen) {
+        state.accFilterOpen = false;
+        renderAccountFilterMenu();
+      }
       return;
     }
     if (e.key === 'Enter' && e.target?.matches?.('[data-obs-gap-input="1"]')) {
@@ -8382,6 +10237,8 @@
   window.addEventListener('resize', () => {
     if (state.obsPinnedCell) syncPinnedObsPopover();
     if (state.update.popoverOpen) positionUpdatePopover();
+    if (state.accSwitchOpen) positionAccountSwitchPopover();
+    if (state.accFilterOpen) positionAccountFilterMenu();
   });
   window.addEventListener('scroll', () => {
     if (state.obsPinnedCell) syncPinnedObsPopover();

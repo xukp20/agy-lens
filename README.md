@@ -84,6 +84,7 @@ Because Antigravity exposes no official Sidecar Quota API, AGY Lens keeps quota 
 - **Independent Per-Pool `7d` Cycles & Precision-Aware Reset Boundaries**: `Gemini`, `Argon`, and `Third-Party` each track their own independent `7d` cycle `[start → reset]` derived from explicit reset timestamps; two-pass cycle segmentation with precision-interval intersection prevents hour/day countdown jitter (`e.g. 6d 23h`) from falsely splitting cycles, keeps boundary-band trailing anchors from polluting new-cycle Δu, and scopes both calibration and the default anchor history strictly to each pool's active `7d` cycle (older `7d` cycles and `5h` records stay cleanly grouped and collapsed).
 - **Dynamic Reset Inheritance, Inline Editing & Single-Anchor Bootstrap**: Persists only explicit reset timestamps and derives cycle inheritance dynamically at read time (with inline reset editing/clearing and zero stale copies); when a cycle expires, archived anchors fold automatically while first-turn-triggered rollover tracks new-cycle spend alongside the previous cycle's reference budget, and a single new-cycle snapshot can immediately produce a conservative `100%` cycle-start bootstrap estimate (open upper CI bound) before smoothly switching to pure differential calibration.
 - **Orthogonal 3-Factor Weight Calibration Lab (`M / C / O` All-Subsets Selection)**: Shares default Base anchors with `pricing_defaults.json` (`defaultAnchors`) and lets you switch the `1.00×` Base model right in the UI; decouples **Model Multipliers (`M`)**, **Cache-Read Multiplier (`C`)**, and **Output Multiplier (`O`)** into 3 independent switches (so single-model cycles can still calibrate `C` or `O`), evaluates all 8 subsets with profile-grid Huber-WLS + LOOCV + `VIF < 10`, conservatively coalesces settlement lag / short gaps (`<10m` for `7d`, `<5m` for `5h`) & micro-rebounds, and transparently shows trial estimates alongside an Observed vs. Predicted (`pp`) residual chart.
+- **Strictly Local Manual Multi-Account & Switch Timeline (Zero-Clutter Stealth Mode)**: Never reads OAuth credentials or host logs. Single-account users see zero extra UI; adding a 2nd account in **Settings → Accounts & Switch Timeline** unlocks a custom header account filter menu and Quick Switch popover (`All` / `CLI` / `Desktop` scope, retroactive backfill with **Preview Impact**, plus one-click per-session override or "Start switch here" on Live Context). Analytics, 5h/7d quota cycles, anchor calibrations, and Cache Observatory cross-account guards are strictly isolated per account and preserved across index rebuilds.
 
 ### 5. Settings Drawer, In-Panel Auto-Update, `?` Help & Bilingual UI
 
@@ -146,8 +147,12 @@ node bin/agy-lens.mjs serve --port 4319
 # Or directly from an installed plugin directory:
 node ~/.gemini/config/plugins/agy-lens/sidecars/lens_panel/standalone.mjs --port 4319
 
-# Print a compact Today / 7d API-eq. cost & 7d quota summary right in the terminal:
+# Print a compact Today / 7d API-eq. cost & 7d quota summary (supports --account and --json):
 node bin/agy-lens.mjs status
+node bin/agy-lens.mjs status --account "Ultra Alt"
+
+# Log an account switch (supports --scope all|cli|desktop, --at -30m|<ISO>, and --dry-run preview):
+node bin/agy-lens.mjs switch "Ultra Alt" --scope cli --at -15m --dry-run
 
 # Reverse proxy under a subpath with token authentication (env var avoids ps aux exposure):
 AGY_LENS_TOKEN=your-secret node bin/agy-lens.mjs serve \
