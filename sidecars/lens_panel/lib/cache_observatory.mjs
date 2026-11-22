@@ -6,10 +6,21 @@
 import { calcMissPenaltyUsd, calculateTurnCost } from './pricing.mjs';
 
 export const DEFAULT_GAP_BREAKPOINTS_SEC = [10, 60, 300, 600, 3600];
+export const ACTIVE_IDLE_THRESHOLD_MS = 300_000; // <= 5m active coding zone
+export const OBS_TIME_GRANULARITIES = ['1h', '5h', '1d', '7d'];
 const MAX_GAP_BREAKPOINTS = 12;
 const MAX_BREAKPOINT_SEC = 24 * 3600;
 const MAX_SCATTER_POINTS = 450;
 const MAX_TOP_ANOMALIES = 20;
+const MAX_TIME_SLICES = {
+  '1h': 24,
+  '5h': 36,
+  '1d': 90,
+  '7d': 26,
+};
+const HOUR_MS = 3600 * 1000;
+const FIVE_HOURS_MS = 5 * HOUR_MS;
+const SEVEN_DAYS_MS = 7 * 24 * HOUR_MS;
 
 export function sanitizeGapBreakpointsSec(raw) {
   if (!Array.isArray(raw)) return [...DEFAULT_GAP_BREAKPOINTS_SEC];
@@ -172,7 +183,247 @@ export function buildIssueMarkdown({ summary, matrix, topAnomalies, gapBuckets =
   return lines.join('\n');
 }
 
-function emptyObservatory(spec = DEFAULT_SPEC) {
+function pad2(n) {
+  return String(n).padStart(2, '0');
+}
+
+function getSliceBounds(ts, granularity, anchorToMs) {
+  if (granularity === '1h') {
+    const d = new Date(ts);
+    // Align strictly to the UTC instant of the start of ts's local hour so DST
+    // fall-back repeated local hours never collide into the same bucket.
+    const offsetInHourMs = d.getMinutes() * 60000 + d.getSeconds() * 1000 + d.getMilliseconds();
+    const startMs = ts - offsetInHourMs;
+    const endMs = startMs + HOUR_MS;
+    return { key: `1h:${startMs}`, startMs, endMs };
+  }
+  if (granularity === '1d') {
+    const d = new Date(ts);
+    const startMs = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0).getTime();
+    const nextDay = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 0, 0, 0, 0).getTime();
+    const key = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+    return { key, startMs, endMs: nextDay };
+  }
+  const spanMs = granularity === '7d' ? SEVEN_DAYS_MS : FIVE_HOURS_MS;
+  const diff = anchorToMs - ts;
+  const slot = diff >= 0 ? Math.floor(diff / spanMs) : -Math.ceil(-diff / spanMs);
+  const endMs = anchorToMs - slot * spanMs;
+  const startMs = endMs - spanMs;
+  return { key: `${granularity}:${startMs}`, startMs, endMs };
+}
+
+function createSliceStatsAcc() {
+  return {
+    turns: 0,
+    hits: 0,
+    cacheReadSum: 0,
+    totalInSum: 0,
+    unexpMisses: 0,
+    boundaryCuts: 0,
+    bounceBacks: 0,
+    wastedTokens: 0,
+    missPenaltyUsd: 0,
+    activeTurns: 0,
+    activeHits: 0,
+    activeCacheReadSum: 0,
+    activeTotalInSum: 0,
+    activeUnexpMisses: 0,
+    activeBoundaryCuts: 0,
+    buckets: new Map(),
+  };
+}
+
+function recordEventIntoSliceAcc(acc, ev) {
+  acc.turns++;
+  if (ev.kind === 'hit') acc.hits++;
+  acc.cacheReadSum += ev.cacheRead;
+  acc.totalInSum += ev.totalIn;
+  if (ev.kind === 'unexpected_full_miss') acc.unexpMisses++;
+  if (ev.kind === 'boundary_cut') acc.boundaryCuts++;
+  if (ev.bounceBack) acc.bounceBacks++;
+  acc.wastedTokens += ev.wastedTokens;
+  acc.missPenaltyUsd += ev.penaltyUsd;
+
+  if (ev.idleGapMs !== null && ev.idleGapMs <= ACTIVE_IDLE_THRESHOLD_MS) {
+    acc.activeTurns++;
+    if (ev.kind === 'hit') acc.activeHits++;
+    acc.activeCacheReadSum += ev.cacheRead;
+    acc.activeTotalInSum += ev.totalIn;
+    if (ev.kind === 'unexpected_full_miss') acc.activeUnexpMisses++;
+    if (ev.kind === 'boundary_cut') acc.activeBoundaryCuts++;
+  }
+
+  if (ev.bucketKey) {
+    let b = acc.buckets.get(ev.bucketKey);
+    if (!b) {
+      b = {
+        total: 0,
+        hits: 0,
+        cacheReadSum: 0,
+        totalInSum: 0,
+        unexpMisses: 0,
+        boundaryCuts: 0,
+        missPenaltyUsd: 0,
+      };
+      acc.buckets.set(ev.bucketKey, b);
+    }
+    b.total++;
+    if (ev.kind === 'hit') b.hits++;
+    b.cacheReadSum += ev.cacheRead;
+    b.totalInSum += ev.totalIn;
+    if (ev.kind === 'unexpected_full_miss') b.unexpMisses++;
+    if (ev.kind === 'boundary_cut') b.boundaryCuts++;
+    b.missPenaltyUsd += ev.penaltyUsd;
+  }
+}
+
+function round4(n) {
+  return Math.round((Number(n) || 0) * 10000) / 10000;
+}
+
+function finalizeSliceStats(acc, bucketKeys) {
+  const buckets = {};
+  for (const k of bucketKeys) {
+    const b = acc.buckets.get(k);
+    if (!b || b.total === 0) continue;
+    buckets[k] = {
+      total: b.total,
+      hits: b.hits,
+      hitRate: round4(b.hits / b.total),
+      weightedHitRatio: b.totalInSum > 0 ? round4(b.cacheReadSum / b.totalInSum) : null,
+      cacheReadSum: b.cacheReadSum,
+      totalInSum: b.totalInSum,
+      unexpMisses: b.unexpMisses,
+      boundaryCuts: b.boundaryCuts,
+      missPenaltyUsd: round4(b.missPenaltyUsd),
+    };
+  }
+  return {
+    turns: acc.turns,
+    hits: acc.hits,
+    hitRate: acc.turns > 0 ? round4(acc.hits / acc.turns) : null,
+    weightedHitRatio: acc.totalInSum > 0 ? round4(acc.cacheReadSum / acc.totalInSum) : null,
+    cacheReadSum: acc.cacheReadSum,
+    totalInSum: acc.totalInSum,
+    unexpMisses: acc.unexpMisses,
+    boundaryCuts: acc.boundaryCuts,
+    bounceBacks: acc.bounceBacks,
+    wastedTokens: acc.wastedTokens,
+    missPenaltyUsd: round4(acc.missPenaltyUsd),
+    activeTurns: acc.activeTurns,
+    activeHits: acc.activeHits,
+    activeHitRate: acc.activeTurns > 0 ? round4(acc.activeHits / acc.activeTurns) : null,
+    activeWeightedHitRatio:
+      acc.activeTotalInSum > 0 ? round4(acc.activeCacheReadSum / acc.activeTotalInSum) : null,
+    activeCacheReadSum: acc.activeCacheReadSum,
+    activeTotalInSum: acc.activeTotalInSum,
+    activeUnexpMisses: acc.activeUnexpMisses,
+    activeBoundaryCuts: acc.activeBoundaryCuts,
+    buckets,
+  };
+}
+
+export function buildObservatoryTimeSeries(events, { toMs = Date.now(), bucketKeys = GAP_BUCKETS } = {}) {
+  const anchorToMs = Number.isFinite(Number(toMs)) && Number(toMs) > 0 ? Number(toMs) : Date.now();
+  const granularities = {};
+  const modelNames = {};
+
+  for (const ev of events || []) {
+    if (ev.modelId && !modelNames[ev.modelId]) {
+      modelNames[ev.modelId] = ev.displayName || ev.modelId;
+    }
+  }
+
+  for (const gran of OBS_TIME_GRANULARITIES) {
+    const sliceMap = new Map();
+    for (const ev of events || []) {
+      if (!Number.isFinite(ev.ts) || ev.ts <= 0) continue;
+      const bounds = getSliceBounds(ev.ts, gran, anchorToMs);
+      let slice = sliceMap.get(bounds.key);
+      if (!slice) {
+        slice = {
+          key: bounds.key,
+          startMs: bounds.startMs,
+          endMs: bounds.endMs,
+          allAcc: createSliceStatsAcc(),
+          modelAccs: new Map(),
+        };
+        sliceMap.set(bounds.key, slice);
+      }
+      recordEventIntoSliceAcc(slice.allAcc, ev);
+      let mAcc = slice.modelAccs.get(ev.modelId);
+      if (!mAcc) {
+        mAcc = createSliceStatsAcc();
+        slice.modelAccs.set(ev.modelId, mAcc);
+      }
+      recordEventIntoSliceAcc(mAcc, ev);
+    }
+
+    const cap = MAX_TIME_SLICES[gran] || 36;
+    const sorted = [...sliceMap.values()].sort((a, b) => a.startMs - b.startMs);
+    const trimmed = sorted.length > cap ? sorted.slice(sorted.length - cap) : sorted;
+
+    granularities[gran] = trimmed.map((sl) => {
+      const byModel = {};
+      for (const [mId, mAcc] of sl.modelAccs.entries()) {
+        byModel[mId] = finalizeSliceStats(mAcc, bucketKeys);
+      }
+      return {
+        key: sl.key,
+        startMs: sl.startMs,
+        endMs: sl.endMs,
+        all: finalizeSliceStats(sl.allAcc, bucketKeys),
+        byModel,
+      };
+    });
+  }
+
+  return {
+    activeThresholdSec: Math.round(ACTIVE_IDLE_THRESHOLD_MS / 1000),
+    anchorToMs,
+    modelNames,
+    granularities,
+  };
+}
+
+function escMdCell(v) {
+  return String(v ?? '').replace(/[\r\n]+/g, ' ').replace(/\|/g, '\\|');
+}
+
+export function buildCompareMarkdown({ periods = [], gapBuckets = GAP_BUCKETS, modelLabel = 'All Models', metric = 'hitRate' } = {}) {
+  const metricTitle = metric === 'weightedHitRatio' ? 'Token Hit %' : 'Keep Rate %';
+  const lines = [];
+  lines.push(`### Prompt Cache Period Comparison (AGY Lens · ${escMdCell(modelLabel)})`);
+  lines.push('');
+  lines.push(`- **Bucket metric**: ${metricTitle} (excluding Turn-0 cold starts, model switches & compactions)`);
+  lines.push('');
+  if (periods.length === 0) return lines.join('\n');
+
+  lines.push(`| Period | Turns | <=5m Hit % | <=5m 0%-Miss | ${gapBuckets.map(escMdCell).join(' | ')} |`);
+  lines.push(`| --- | ---: | ---: | ---: | ${gapBuckets.map(() => '---:').join(' | ')} |`);
+
+  for (const p of periods) {
+    const st = p.stats || {};
+    const turns = st.turns || 0;
+    const actTurns = st.activeTurns || 0;
+    const actHit = actTurns > 0 && st.activeWeightedHitRatio !== null ? formatPct(st.activeWeightedHitRatio) : '—';
+    const actMiss = actTurns > 0
+      ? `${((100 * (st.activeUnexpMisses || 0)) / actTurns).toFixed(2)}% (${st.activeUnexpMisses || 0}/${actTurns})`
+      : '—';
+    const cells = gapBuckets.map((bk) => {
+      const b = st.buckets?.[bk];
+      if (!b || !b.total) return '—';
+      const ratio = metric === 'weightedHitRatio' ? b.weightedHitRatio : b.hitRate;
+      if (ratio === null || ratio === undefined) return '—';
+      return `${Math.round(ratio * 100)}% (${b.hits}/${b.total})`;
+    });
+    lines.push(`| ${escMdCell(p.label)} | ${turns} | ${actHit} | ${actMiss} | ${cells.join(' | ')} |`);
+  }
+  lines.push('');
+  return lines.join('\n');
+}
+
+function emptyObservatory(spec = DEFAULT_SPEC, toMs = Date.now()) {
   const summary = {
     followUpTurns: 0,
     weightedFollowUpHitRatio: 0,
@@ -191,6 +442,7 @@ function emptyObservatory(spec = DEFAULT_SPEC) {
     matrix: [],
     scatterPoints: [],
     topAnomalies: [],
+    timeSeries: buildObservatoryTimeSeries([], { toMs, bucketKeys: spec.keys }),
     issueMarkdown: buildIssueMarkdown({ summary, matrix: [], topAnomalies: [], gapBuckets: spec.keys }),
   };
 }
@@ -242,7 +494,7 @@ export function analyzeTurnsForObservatory(
   const gapSpec = buildGapBucketSpec(gapBreakpointsSec);
   const bucketKeys = gapSpec.keys;
   if (!rows || rows.length === 0) {
-    return emptyObservatory(gapSpec);
+    return emptyObservatory(gapSpec, toMs);
   }
 
   // Group turns by conversation_id (preserving step_idx ASC order).
@@ -271,6 +523,7 @@ export function analyzeTurnsForObservatory(
   const anomalyScatter = [];
   const normalScatter = [];
   const allAnomalies = [];
+  const timeEvents = [];
 
   for (const convTurns of convMap.values()) {
     convTurns.sort((a, b) => a.step_idx - b.step_idx);
@@ -466,6 +719,21 @@ export function analyzeTurnsForObservatory(
         m.unbucketedTurns++;
       }
 
+      timeEvents.push({
+        ts: curCompleted,
+        modelId,
+        displayName,
+        idleGapMs,
+        bucketKey,
+        kind,
+        bounceBack,
+        cacheRead: curCacheRead,
+        totalIn: curTotalIn,
+        costUsd,
+        wastedTokens,
+        penaltyUsd,
+      });
+
       if (idleGapMs !== null) {
         const pt = {
           modelId,
@@ -600,6 +868,8 @@ export function analyzeTurnsForObservatory(
     missPenaltyUsd: totalMissPenaltyUsd,
   };
 
+  const timeSeries = buildObservatoryTimeSeries(timeEvents, { toMs, bucketKeys });
+
   return {
     summary,
     gapBreakpointsSec: [...gapSpec.breakpointsSec],
@@ -607,6 +877,7 @@ export function analyzeTurnsForObservatory(
     matrix,
     scatterPoints,
     topAnomalies,
+    timeSeries,
     issueMarkdown: buildIssueMarkdown({ summary, matrix, topAnomalies, gapBuckets: bucketKeys }),
   };
 }

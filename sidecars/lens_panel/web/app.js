@@ -459,7 +459,56 @@
         tipSeq: '前→本→后',
         tipBounce: '瞬态回弹',
         tipPenalty: '浪费 / 代价',
-        scatterAria: 'Idle-Gap 与命中率对数散点图'
+        scatterAria: 'Idle-Gap 与命中率对数散点图',
+        viewMatrix: '矩阵',
+        viewTimeline: '时段趋势',
+        viewCompare: '区间对比',
+        gran1h: '1h',
+        gran5h: '5h',
+        gran1d: '1d',
+        gran7d: '7d',
+        zoneActive: '≤5m 活跃',
+        zoneAll: '全部间隔',
+        timeModeChart: '趋势图',
+        timeModeHeatmap: '热力表',
+        timelineLegend: '绿线：加权命中率（空心/虚线为 n<10 低样本）· 底柱：样本量 · 下条：意外 0% 断崖率',
+        timelineHitBand: '命中率 & 样本量',
+        timelineMissBand: '意外 0% 断崖率',
+        timelineFewSlices: '当前粒度仅有 {n} 个非空时段，可切换更细粒度或扩大全局时间范围。',
+        jumpRange7d: '临时切到 7d 看历史',
+        jumpRange30d: '切到 30d',
+        sliceDetailTitle: '时段明细',
+        sliceModelsLabel: '模型构成',
+        colPeriod: '时段',
+        colTurns: '轮次',
+        colActiveHit: '≤5m 命中',
+        colActiveMiss: '≤5m 0%断崖',
+        colOverallHit: '总命中',
+        colPenalty: 'Miss罚金',
+        comparePresetLatest: '近 {g} vs 上一档',
+        comparePresetPrior3: '近 {g} vs 前 3 档汇总',
+        comparePresetRecent3: '最近 3 档',
+        comparePresetCustom: '自选 (2–4)',
+        compareMetricKeep: '保活率 %',
+        compareMetricHit: 'Token 命中 %',
+        comparePickHint: '点击下方时段标签挑选 2–4 个区间叠加对比（已选 {n}/4）：',
+        compareActiveZone: '活跃区 ≤5m',
+        compareDeltaTitle: '最新 vs 基准变化',
+        compareCopyMd: '复制对比 Markdown',
+        compareNeedTwo: '至少需要 2 个非空时段才能进行区间对比。',
+        compareLatestSlice: '最新 {g}',
+        comparePriorSlices: '前 {n} 档',
+        ctrlSliceLen: '区段长度',
+        ctrlGapScope: '空闲范围',
+        ctrlMetric: '对比指标',
+        ctrlModel: '模型',
+        ctrlDisplay: '展示',
+        ctrlCurves: '对比曲线',
+        allModelsOption: '全部模型 ({n})',
+        timelineAria: '分时段缓存命中率与断崖趋势图',
+        compareAria: '多时段空闲间隔缓存保留率对比曲线',
+        lowSampleTag: '低样本',
+        noTimelineData: '当前筛选条件下暂无分时段缓存数据。'
       },
       quota: {
         remaining: '剩余',
@@ -1050,7 +1099,56 @@
         tipSeq: 'Prev → Cur → Next',
         tipBounce: 'Bounce-Back',
         tipPenalty: 'Wasted / Penalty',
-        scatterAria: 'Idle-Gap vs Hit-Rate log scatter plot'
+        scatterAria: 'Idle-Gap vs Hit-Rate log scatter plot',
+        viewMatrix: 'Matrix',
+        viewTimeline: 'Timeline',
+        viewCompare: 'Compare',
+        gran1h: '1h',
+        gran5h: '5h',
+        gran1d: '1d',
+        gran7d: '7d',
+        zoneActive: '≤5m Active',
+        zoneAll: 'All Gaps',
+        timeModeChart: 'Trend',
+        timeModeHeatmap: 'Heatmap',
+        timelineLegend: 'Green: weighted hit % (hollow/dashed if n<10) · BG bars: turns · Bottom: 0%-miss %',
+        timelineHitBand: 'Hit % & Volume',
+        timelineMissBand: '0% Miss Rate',
+        timelineFewSlices: 'Only {n} non-empty period at this granularity. Pick a finer slice or wider global range.',
+        jumpRange7d: 'View 7d History',
+        jumpRange30d: 'View 30d',
+        sliceDetailTitle: 'Period Detail',
+        sliceModelsLabel: 'Model Mix',
+        colPeriod: 'Period',
+        colTurns: 'Turns',
+        colActiveHit: '≤5m Hit',
+        colActiveMiss: '≤5m 0%-Miss',
+        colOverallHit: 'All Hit',
+        colPenalty: 'Penalty',
+        comparePresetLatest: 'Latest {g} vs Prev',
+        comparePresetPrior3: 'Latest {g} vs Prior 3',
+        comparePresetRecent3: 'Last 3 Slices',
+        comparePresetCustom: 'Pick 2–4',
+        compareMetricKeep: 'Keep %',
+        compareMetricHit: 'Token Hit %',
+        comparePickHint: 'Click periods below to overlay 2–4 curves (selected {n}/4):',
+        compareActiveZone: 'Active ≤5m',
+        compareDeltaTitle: 'Latest vs Baseline',
+        compareCopyMd: 'Copy Compare Markdown',
+        compareNeedTwo: 'At least 2 non-empty periods are required to compare.',
+        compareLatestSlice: 'Latest {g}',
+        comparePriorSlices: 'Prior {n}',
+        ctrlSliceLen: 'Slice',
+        ctrlGapScope: 'Gaps',
+        ctrlMetric: 'Metric',
+        ctrlModel: 'Model',
+        ctrlDisplay: 'View',
+        ctrlCurves: 'Curves',
+        allModelsOption: 'All Models ({n})',
+        timelineAria: 'Time-sliced prompt cache hit and miss trend chart',
+        compareAria: 'Multi-period idle-gap cache retention comparison curves',
+        lowSampleTag: 'low n',
+        noTimelineData: 'No time-sliced cache data matches the current model filter.'
       },
       quota: {
         remaining: 'Left',
@@ -1842,7 +1940,17 @@
     selectedDay: null, // { date, loading, error, data }
 
     // Cache Observatory UI state
+    obsView: 'matrix', // 'matrix' (default) | 'timeline' | 'compare'
     obsModelFilter: 'all',
+    obsTimeGran: 'auto', // 'auto' | '1h' | '5h' | '1d' | '7d'
+    obsTimeZone: 'active', // 'active' (<=5m) | 'all'
+    obsTimeMode: 'chart', // 'chart' | 'heatmap'
+    obsSelectedSliceKey: '',
+    obsComparePreset: 'auto', // 'auto' | 'latest_prev' | 'last24_prev3d' | 'recent3' | 'custom'
+    obsCompareMetric: 'hitRate', // 'hitRate' (Keep %) | 'weightedHitRatio' (Token Hit %)
+    obsCompareKeys: [],
+    obsCompareCopyStatus: '', // '' | 'copied' | 'failed'
+    obsCompareCopyTimer: null,
     obsAnomaliesOpen: false,
     obsMetricMenuOpen: false,
     obsGapMenuOpen: false,
@@ -3668,16 +3776,54 @@
     return { badges: badge, body: html };
   }
 
+  function getActiveObsModelFilter(co) {
+    const matrix = Array.isArray(co?.matrix) ? co.matrix : [];
+    return state.obsModelFilter === 'all' || matrix.some((m) => m.canonicalId === state.obsModelFilter)
+      ? state.obsModelFilter
+      : 'all';
+  }
+
   function renderCacheObservatoryExpanded(co) {
     const activeBps = sanitizeObsGapBreakpoints(
-      Array.isArray(state.config.obsGapBreakpointsSec) && state.config.obsGapBreakpointsSec.length
-        ? state.config.obsGapBreakpointsSec
-        : co.gapBreakpointsSec
+      Array.isArray(co.gapBreakpointsSec) && co.gapBreakpointsSec.length
+        ? co.gapBreakpointsSec
+        : state.config.obsGapBreakpointsSec
     );
     const buckets = Array.isArray(co.gapBuckets) && co.gapBuckets.length
       ? co.gapBuckets
       : buildGapPreviewLabels(activeBps);
     const matrix = Array.isArray(co.matrix) ? co.matrix : [];
+    const activeView =
+      state.obsView === 'timeline' || state.obsView === 'compare' ? state.obsView : 'matrix';
+
+    const viewSwitchHtml = `
+      <div class="obs-view-bar" data-stop-card>
+        <div class="seg" role="tablist" aria-label="Observatory View">
+          <button type="button" role="tab" aria-selected="${activeView === 'matrix' ? 'true' : 'false'}" class="${activeView === 'matrix' ? 'active' : ''}" data-action="set-obs-view" data-view="matrix">${esc(t('obs.viewMatrix'))}</button>
+          <button type="button" role="tab" aria-selected="${activeView === 'timeline' ? 'true' : 'false'}" class="${activeView === 'timeline' ? 'active' : ''}" data-action="set-obs-view" data-view="timeline">${esc(t('obs.viewTimeline'))}</button>
+          <button type="button" role="tab" aria-selected="${activeView === 'compare' ? 'true' : 'false'}" class="${activeView === 'compare' ? 'active' : ''}" data-action="set-obs-view" data-view="compare">${esc(t('obs.viewCompare'))}</button>
+        </div>
+      </div>
+    `;
+
+    if (activeView === 'timeline') {
+      return `
+        <div class="card-expanded">
+          ${viewSwitchHtml}
+          ${renderCacheObservatoryTimeline(co, buckets)}
+        </div>
+      `;
+    }
+
+    if (activeView === 'compare') {
+      return `
+        <div class="card-expanded">
+          ${viewSwitchHtml}
+          ${renderCacheObservatoryCompare(co, buckets, activeBps)}
+        </div>
+      `;
+    }
+
     const scatterAll = Array.isArray(co.scatterPoints) ? co.scatterPoints : [];
     const anomalies = Array.isArray(co.topAnomalies) ? co.topAnomalies : [];
     const { primary, subs } = getObsMatrixPrefs();
@@ -3869,11 +4015,7 @@
     }
 
     // Viz 2: Idle-Gap vs Hit-Rate Log Scatter Plot
-    const filterModels = matrix.slice(0, 6);
-    const activeFilter =
-      state.obsModelFilter === 'all' || filterModels.some((m) => m.canonicalId === state.obsModelFilter)
-        ? state.obsModelFilter
-        : 'all';
+    const activeFilter = getActiveObsModelFilter(co);
 
     const filteredPts = scatterAll.filter(
       (pt) =>
@@ -4011,19 +4153,7 @@
           </div>
         </div>
         <div class="obs-scatter-box">
-          ${
-            filterModels.length > 1
-              ? `<div class="obs-filter-pills">
-                  <button type="button" class="sort-btn ${activeFilter === 'all' ? 'active' : ''}" data-action="set-obs-filter" data-model="all">${esc(t('obs.filterAll'))}</button>
-                  ${filterModels
-                    .map(
-                      (m) =>
-                        `<button type="button" class="sort-btn ${activeFilter === m.canonicalId ? 'active' : ''}" data-action="set-obs-filter" data-model="${esc(m.canonicalId)}">${esc(m.displayName || m.canonicalId)}</button>`
-                    )
-                    .join('')}
-                </div>`
-              : ''
-          }
+          ${renderObsModelSelect(matrix, activeFilter)}
           ${
             sortedPts.length > 0
               ? `<svg class="obs-scatter-svg" viewBox="0 0 ${W} ${H}" aria-label="${esc(t('obs.scatterAria'))}">
@@ -4100,9 +4230,933 @@
 
     return `
       <div class="card-expanded">
+        ${viewSwitchHtml}
         ${matrixHtml}
         ${scatterHtml}
         ${actionsHtml}
+      </div>
+    `;
+  }
+
+  function resolveObsGranularity(co, allowed = ['1h', '5h', '1d', '7d']) {
+    const grans = co?.timeSeries?.granularities || {};
+    if (state.obsTimeGran !== 'auto' && allowed.includes(state.obsTimeGran)) {
+      return state.obsTimeGran;
+    }
+    const rk = state.rangeKey;
+    const countOf = (g) => (Array.isArray(grans[g]) ? grans[g].length : 0);
+    if (rk === '5h' || rk === 'today') {
+      if (allowed.includes('1h') && countOf('1h') >= 2) return '1h';
+      if (allowed.includes('5h') && countOf('5h') >= 2) return '5h';
+      return allowed[0];
+    }
+    if (rk === '7d') {
+      if (allowed.includes('1d') && countOf('1d') >= 2) return '1d';
+      if (allowed.includes('5h') && countOf('5h') >= 2) return '5h';
+      return allowed.includes('1h') ? '1h' : allowed[0];
+    }
+    if (allowed.includes('1d') && countOf('1d') >= 2) return '1d';
+    if (allowed.includes('5h') && countOf('5h') >= 2) return '5h';
+    return allowed.includes('1d') ? '1d' : allowed[0];
+  }
+
+  function fmtObsSliceLabel(slice, gran, short = false) {
+    if (!slice) return '—';
+    const d1 = new Date(slice.startMs);
+    const d2 = new Date(slice.endMs);
+    const p2 = (n) => String(n).padStart(2, '0');
+    const md1 = `${p2(d1.getMonth() + 1)}-${p2(d1.getDate())}`;
+    const md2 = `${p2(d2.getMonth() + 1)}-${p2(d2.getDate())}`;
+    const hm1 = `${p2(d1.getHours())}:${p2(d1.getMinutes())}`;
+    const hm2 = `${p2(d2.getHours())}:${p2(d2.getMinutes())}`;
+    if (gran === '1d') {
+      return short ? md1 : `${d1.getFullYear()}-${md1}`;
+    }
+    if (gran === '1h') {
+      return short ? `${p2(d1.getHours())}:00` : `${md1} ${p2(d1.getHours())}:00`;
+    }
+    if (gran === '5h') {
+      if (short) return `${md2} ${hm2}`;
+      return md1 === md2 ? `${md1} ${hm1}–${hm2}` : `${md1} ${hm1}–${md2} ${hm2}`;
+    }
+    // 7d
+    return `${md1}–${md2}`;
+  }
+
+  function getObsSliceStats(slice, modelFilter) {
+    if (!slice) return null;
+    if (!modelFilter || modelFilter === 'all') return slice.all || null;
+    return slice.byModel?.[modelFilter] || null;
+  }
+
+  function mergeObsSliceStats(slices, modelFilter, gapBuckets) {
+    const acc = {
+      turns: 0,
+      hits: 0,
+      cacheReadSum: 0,
+      totalInSum: 0,
+      unexpMisses: 0,
+      boundaryCuts: 0,
+      bounceBacks: 0,
+      wastedTokens: 0,
+      missPenaltyUsd: 0,
+      activeTurns: 0,
+      activeHits: 0,
+      activeCacheReadSum: 0,
+      activeTotalInSum: 0,
+      activeUnexpMisses: 0,
+      activeBoundaryCuts: 0,
+      buckets: {},
+    };
+    const bMap = new Map();
+    for (const sl of slices) {
+      const st = getObsSliceStats(sl, modelFilter);
+      if (!st || !st.turns) continue;
+      acc.turns += num(st.turns);
+      acc.hits += num(st.hits);
+      acc.cacheReadSum += num(st.cacheReadSum);
+      acc.totalInSum += num(st.totalInSum);
+      acc.unexpMisses += num(st.unexpMisses);
+      acc.boundaryCuts += num(st.boundaryCuts);
+      acc.bounceBacks += num(st.bounceBacks);
+      acc.wastedTokens += num(st.wastedTokens);
+      acc.missPenaltyUsd += num(st.missPenaltyUsd);
+      acc.activeTurns += num(st.activeTurns);
+      acc.activeHits += num(st.activeHits);
+      acc.activeCacheReadSum += num(st.activeCacheReadSum);
+      acc.activeTotalInSum += num(st.activeTotalInSum);
+      acc.activeUnexpMisses += num(st.activeUnexpMisses);
+      acc.activeBoundaryCuts += num(st.activeBoundaryCuts);
+      const srcBuckets = st.buckets || {};
+      for (const bk of gapBuckets) {
+        const sb = srcBuckets[bk];
+        if (!sb || !sb.total) continue;
+        let tb = bMap.get(bk);
+        if (!tb) {
+          tb = { total: 0, hits: 0, cacheReadSum: 0, totalInSum: 0, unexpMisses: 0, boundaryCuts: 0, missPenaltyUsd: 0 };
+          bMap.set(bk, tb);
+        }
+        tb.total += num(sb.total);
+        tb.hits += num(sb.hits);
+        tb.cacheReadSum += num(sb.cacheReadSum);
+        tb.totalInSum += num(sb.totalInSum);
+        tb.unexpMisses += num(sb.unexpMisses);
+        tb.boundaryCuts += num(sb.boundaryCuts);
+        tb.missPenaltyUsd += num(sb.missPenaltyUsd);
+      }
+    }
+    for (const [bk, tb] of bMap.entries()) {
+      acc.buckets[bk] = {
+        ...tb,
+        hitRate: tb.total > 0 ? tb.hits / tb.total : null,
+        weightedHitRatio: tb.totalInSum > 0 ? tb.cacheReadSum / tb.totalInSum : null,
+      };
+    }
+    return {
+      ...acc,
+      hitRate: acc.turns > 0 ? acc.hits / acc.turns : null,
+      weightedHitRatio: acc.totalInSum > 0 ? acc.cacheReadSum / acc.totalInSum : null,
+      activeHitRate: acc.activeTurns > 0 ? acc.activeHits / acc.activeTurns : null,
+      activeWeightedHitRatio: acc.activeTotalInSum > 0 ? acc.activeCacheReadSum / acc.activeTotalInSum : null,
+    };
+  }
+
+  function renderObsModelSelect(matrix, activeFilter, inline = false) {
+    if (!Array.isArray(matrix) || matrix.length <= 1) return '';
+    const selectEl = `
+      <select class="obs-model-select" data-action="select-obs-model" aria-label="${esc(t('obs.ctrlModel'))}">
+        <option value="all" ${activeFilter === 'all' ? 'selected' : ''}>${esc(t('obs.allModelsOption', { n: matrix.length }))}</option>
+        ${matrix
+          .map(
+            (m) =>
+              `<option value="${esc(m.canonicalId)}" ${activeFilter === m.canonicalId ? 'selected' : ''}>${esc(m.displayName || m.canonicalId)} (${num(m.followUpTurns)}t)</option>`
+          )
+          .join('')}
+      </select>
+    `;
+    if (inline) {
+      return `<label class="obs-ctrl-item" data-stop-card><span class="obs-ctrl-lbl">${esc(t('obs.ctrlModel'))}</span>${selectEl}</label>`;
+    }
+    return `<div class="obs-ctrl-row" data-stop-card><label class="obs-ctrl-item obs-ctrl-grow"><span class="obs-ctrl-lbl">${esc(t('obs.ctrlModel'))}</span>${selectEl}</label></div>`;
+  }
+
+  function renderObsJumpRangeCta(sliceCount) {
+    const canJump7d = state.rangeKey === '5h' || state.rangeKey === 'today';
+    const canJump30d = state.rangeKey === '7d';
+    const btnHtml = canJump7d
+      ? `<button type="button" class="btn-sm" data-action="obs-jump-range" data-range="7d">${esc(t('obs.jumpRange7d'))}</button>`
+      : canJump30d
+        ? `<button type="button" class="btn-sm" data-action="obs-jump-range" data-range="30d">${esc(t('obs.jumpRange30d'))}</button>`
+        : '';
+    return `
+      <div class="obs-notice-row">
+        <span class="muted-note">${esc(t('obs.timelineFewSlices', { n: sliceCount }))}</span>
+        ${btnHtml}
+      </div>
+    `;
+  }
+
+  function renderObsSliceBreakdownCard(slice, gran, modelNames, activeFilter) {
+    if (!slice) return '';
+    const st = getObsSliceStats(slice, activeFilter);
+    if (!st || !st.turns) return '';
+    const actTurns = num(st.activeTurns, 0);
+    const actMissPct = actTurns > 0 ? `${((100 * num(st.activeUnexpMisses)) / actTurns).toFixed(2)}%` : '—';
+    const actHitStr = actTurns > 0 && st.activeWeightedHitRatio != null ? fmtPct(st.activeWeightedHitRatio, 1) : '—';
+    const allHitStr = st.weightedHitRatio != null ? fmtPct(st.weightedHitRatio, 1) : '—';
+
+    const byModel = slice.byModel || {};
+    const modelEntries = Object.entries(byModel)
+      .map(([id, mst]) => ({
+        id,
+        name: modelNames[id] || id,
+        turns: num(mst.turns),
+        hit: mst.weightedHitRatio,
+        actTurns: num(mst.activeTurns),
+        actHit: mst.activeWeightedHitRatio,
+        actMiss: num(mst.activeUnexpMisses),
+      }))
+      .sort((a, b) => b.turns - a.turns);
+
+    const totalAllTurns = Math.max(1, num(slice.all?.turns, 1));
+    const mixHtml = modelEntries
+      .slice(0, 5)
+      .map((me) => {
+        const sharePct = Math.round((100 * me.turns) / totalAllTurns);
+        const hVal =
+          state.obsTimeZone === 'active'
+            ? me.actTurns > 0
+              ? me.actHit
+              : null
+            : me.hit;
+        const hCls =
+          hVal == null ? 'muted-note' : num(hVal) >= 0.85 ? 'ok' : num(hVal) >= 0.65 ? 'warn' : 'bad';
+        const isFocused = activeFilter === me.id;
+        return `
+          <div class="obs-slice-model-row${isFocused ? ' is-focused' : ''}">
+            <span class="truncate" title="${esc(me.id)}">${esc(me.name)}</span>
+            <span class="mono num muted-note">${me.turns}t (${sharePct}%)</span>
+            <span class="mono num ${hCls}">${hVal != null ? fmtPct(hVal, 1) : '—'}</span>
+            ${me.actMiss > 0 ? `<span class="pill bad num">${me.actMiss}m</span>` : ''}
+          </div>
+        `;
+      })
+      .join('');
+
+    const actHitCls =
+      actTurns === 0 || st.activeWeightedHitRatio == null
+        ? 'muted-note'
+        : num(st.activeWeightedHitRatio) >= 0.85
+          ? 'ok'
+          : num(st.activeWeightedHitRatio) >= 0.65
+            ? 'warn'
+            : 'bad';
+    const actMissCls = actTurns === 0 ? 'muted-note' : num(st.activeUnexpMisses) > 0 ? 'bad' : 'ok';
+
+    return `
+      <div class="obs-slice-detail">
+        <div class="obs-slice-detail-head">
+          <span class="obs-slice-detail-title">${esc(t('obs.sliceDetailTitle'))} · <span class="mono">${esc(fmtObsSliceLabel(slice, gran, false))}</span></span>
+          <span class="mono num muted-note">${num(st.turns)}t · ${esc(t('obs.colActiveHit'))} <strong class="${actHitCls}">${actHitStr}</strong> · ${esc(t('obs.colActiveMiss'))} <strong class="${actMissCls}">${actMissPct}</strong> · ${esc(t('obs.colOverallHit'))} ${allHitStr}${num(st.missPenaltyUsd) > 0 ? ` · -${fmtUsd(st.missPenaltyUsd)}` : ''}</span>
+        </div>
+        ${
+          modelEntries.length > 0
+            ? `<div class="obs-slice-models">
+                <span class="obs-slice-models-lbl">${esc(t('obs.sliceModelsLabel'))}</span>
+                <div class="obs-slice-model-list">${mixHtml}</div>
+              </div>`
+            : ''
+        }
+      </div>
+    `;
+  }
+
+  function renderCacheObservatoryTimeline(co, buckets) {
+    const matrix = Array.isArray(co.matrix) ? co.matrix : [];
+    const activeFilter = getActiveObsModelFilter(co);
+    const gran = resolveObsGranularity(co, ['1h', '5h', '1d', '7d']);
+    const zone = state.obsTimeZone === 'all' ? 'all' : 'active';
+    const mode = state.obsTimeMode === 'heatmap' ? 'heatmap' : 'chart';
+    const modelNames = co?.timeSeries?.modelNames || {};
+
+    const rawSlices = Array.isArray(co?.timeSeries?.granularities?.[gran])
+      ? co.timeSeries.granularities[gran]
+      : [];
+    const slices = rawSlices
+      .map((sl) => ({ slice: sl, stats: getObsSliceStats(sl, activeFilter) }))
+      .filter((x) => x.stats && num(x.stats.turns) > 0);
+
+    const ctrlsHtml = `
+      <div class="obs-ctrl-panel" data-stop-card>
+        <div class="obs-ctrl-row">
+          <div class="obs-ctrl-item">
+            <span class="obs-ctrl-lbl">${esc(t('obs.ctrlSliceLen'))}</span>
+            <div class="seg seg-xs">
+              ${['1h', '5h', '1d', '7d']
+                .map(
+                  (g) =>
+                    `<button type="button" class="${gran === g ? 'active' : ''}" data-action="set-obs-time-gran" data-gran="${g}">${esc(t(`obs.gran${g}`))}</button>`
+                )
+                .join('')}
+            </div>
+          </div>
+          <div class="obs-ctrl-item">
+            <span class="obs-ctrl-lbl">${esc(t('obs.ctrlGapScope'))}</span>
+            <div class="seg seg-xs">
+              <button type="button" class="${zone === 'active' ? 'active' : ''}" data-action="set-obs-time-zone" data-zone="active">${esc(t('obs.zoneActive'))}</button>
+              <button type="button" class="${zone === 'all' ? 'active' : ''}" data-action="set-obs-time-zone" data-zone="all">${esc(t('obs.zoneAll'))}</button>
+            </div>
+          </div>
+        </div>
+        <div class="obs-ctrl-row">
+          ${renderObsModelSelect(matrix, activeFilter, true)}
+          <div class="obs-ctrl-item">
+            <span class="obs-ctrl-lbl">${esc(t('obs.ctrlDisplay'))}</span>
+            <div class="seg seg-xs">
+              <button type="button" class="${mode === 'chart' ? 'active' : ''}" data-action="set-obs-time-mode" data-mode="chart">${esc(t('obs.timeModeChart'))}</button>
+              <button type="button" class="${mode === 'heatmap' ? 'active' : ''}" data-action="set-obs-time-mode" data-mode="heatmap">${esc(t('obs.timeModeHeatmap'))}</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    if (slices.length === 0) {
+      return `
+        <div class="obs-section">
+          ${ctrlsHtml}
+          <div class="muted-note">${esc(t('obs.noTimelineData'))}</div>
+          ${renderObsJumpRangeCta(0)}
+        </div>
+      `;
+    }
+
+    const selectedItem =
+      slices.find((x) => x.slice.key === state.obsSelectedSliceKey) || slices[slices.length - 1];
+    const selectedKey = selectedItem ? selectedItem.slice.key : '';
+
+    let mainVizHtml = '';
+
+    if (mode === 'chart') {
+      const W = 480;
+      const H = 216;
+      const padL = 34;
+      const padR = 22;
+      const topY1 = 16;
+      const topY2 = 128;
+      const botY1 = 148;
+      const botY2 = 194;
+      const plotW = W - padL - padR;
+      const topH = topY2 - topY1;
+      const botH = botY2 - botY1;
+      const nSlices = slices.length;
+      const slotW = plotW / Math.max(1, nSlices);
+      const barW = Math.max(4, Math.min(24, slotW * 0.62));
+
+      const pts = slices.map((item, idx) => {
+        const st = item.stats;
+        const turns = zone === 'active' ? num(st.activeTurns) : num(st.turns);
+        const totalTurns = num(st.turns);
+        const hitRatio =
+          zone === 'active'
+            ? turns > 0 && st.activeWeightedHitRatio != null
+              ? num(st.activeWeightedHitRatio)
+              : null
+            : st.weightedHitRatio != null
+              ? num(st.weightedHitRatio)
+              : null;
+        const missCnt = zone === 'active' ? num(st.activeUnexpMisses) : num(st.unexpMisses);
+        const missRate = turns > 0 ? missCnt / turns : 0;
+        const cx = padL + (idx + 0.5) * slotW;
+        return { item, idx, cx, turns, totalTurns, hitRatio, missCnt, missRate };
+      });
+
+      const maxTurns = Math.max(1, ...pts.map((p) => p.totalTurns));
+      const maxMissRate = Math.max(0.05, ...pts.map((p) => p.missRate));
+      const yHit = (r) => topY1 + (1 - clamp(r, 0, 1)) * topH;
+      const yMiss = (r) => botY2 - (clamp(r, 0, maxMissRate) / maxMissRate) * botH;
+
+      // Grid lines
+      const topGrid = [1, 0.5, 0]
+        .map((r) => {
+          const y = yHit(r);
+          return `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W - padR}" y2="${y.toFixed(1)}" stroke="var(--line)" stroke-width="1"/>
+            <text class="obs-axis-label mono" x="${padL - 5}" y="${(y + 3).toFixed(1)}" text-anchor="end">${Math.round(r * 100)}%</text>`;
+        })
+        .join('');
+
+      const botGrid = `
+        <line x1="${padL}" y1="${botY1}" x2="${W - padR}" y2="${botY1}" stroke="var(--line)" stroke-width="1" stroke-dasharray="2,2"/>
+        <line x1="${padL}" y1="${botY2}" x2="${W - padR}" y2="${botY2}" stroke="var(--line)" stroke-width="1"/>
+        <text class="obs-axis-label mono" x="${padL - 5}" y="${(botY1 + 3).toFixed(1)}" text-anchor="end">${(maxMissRate * 100).toFixed(0)}%</text>
+        <text class="obs-axis-label mono" x="${padL - 5}" y="${(botY2 + 3).toFixed(1)}" text-anchor="end">0%</text>
+        <text class="obs-band-label" x="${padL + 2}" y="${topY1 - 4}">${esc(t('obs.timelineHitBand'))}</text>
+        <text class="obs-band-label" x="${padL + 2}" y="${botY1 - 4}">${esc(t('obs.timelineMissBand'))}</text>
+      `;
+
+      // Volume background bars (top band) + miss rate bars (bottom band)
+      const barsSvg = pts
+        .map((p) => {
+          const vh = Math.max(2, (p.totalTurns / maxTurns) * topH * 0.72);
+          const vy = topY2 - vh;
+          const bx = p.cx - barW / 2;
+          const isSel = p.item.slice.key === selectedKey;
+          const mh = p.missRate > 0 ? Math.max(2.5, botY2 - yMiss(p.missRate)) : 0;
+          const my = botY2 - mh;
+          return `
+            ${isSel ? `<rect x="${(padL + p.idx * slotW).toFixed(1)}" y="${topY1}" width="${slotW.toFixed(1)}" height="${(botY2 - topY1).toFixed(1)}" fill="var(--accent)" fill-opacity="0.09"/>` : ''}
+            <rect x="${bx.toFixed(1)}" y="${vy.toFixed(1)}" width="${barW.toFixed(1)}" height="${vh.toFixed(1)}" rx="1.5" fill="var(--ch-uncached)" fill-opacity="${isSel ? '0.32' : '0.16'}"/>
+            ${mh > 0 ? `<rect x="${bx.toFixed(1)}" y="${my.toFixed(1)}" width="${barW.toFixed(1)}" height="${mh.toFixed(1)}" rx="1.5" fill="var(--bad)" fill-opacity="${p.turns < 10 ? '0.55' : '0.88'}"/>` : ''}
+          `;
+        })
+        .join('');
+
+      // Hit ratio line segments (solid when both endpoints n>=10, dashed if either n<10, break across null)
+      const segsSvg = [];
+      for (let i = 1; i < pts.length; i++) {
+        const a = pts[i - 1];
+        const b = pts[i];
+        if (a.hitRatio === null || b.hitRatio === null) continue;
+        const lowN = a.turns < 10 || b.turns < 10;
+        segsSvg.push(
+          `<line x1="${a.cx.toFixed(1)}" y1="${yHit(a.hitRatio).toFixed(1)}" x2="${b.cx.toFixed(1)}" y2="${yHit(b.hitRatio).toFixed(1)}" stroke="var(--ok)" stroke-width="${lowN ? '1.5' : '2'}" ${lowN ? 'stroke-dasharray="3,2.5" stroke-opacity="0.75"' : ''}/>`
+        );
+      }
+
+      // Points + interactive hit columns + collision-free X ticks
+      const minLabelPx = gran === '5h' || gran === '7d' ? 68 : 46;
+      const labelStep = Math.max(1, Math.ceil((nSlices * minLabelPx) / plotW));
+      const lastCx = pts[nSlices - 1]?.cx ?? 0;
+      const dotsAndCols = pts
+        .map((p) => {
+          const isSel = p.item.slice.key === selectedKey;
+          const lowN = p.turns < 10;
+          const fullLbl = fmtObsSliceLabel(p.item.slice, gran, false);
+          const shortLbl = fmtObsSliceLabel(p.item.slice, gran, true);
+          const st = p.item.stats;
+          const primaryHitLbl = zone === 'active' ? t('obs.colActiveHit') : t('obs.colOverallHit');
+          const primaryMissLbl = zone === 'active' ? t('obs.colActiveMiss') : t('obs.kpiFullMiss');
+          const secondaryHitStr =
+            zone === 'active'
+              ? `${t('obs.colOverallHit')}: ${st.weightedHitRatio != null ? fmtPct(st.weightedHitRatio, 1) : '—'}`
+              : `${t('obs.colActiveHit')}: ${num(st.activeTurns) > 0 && st.activeWeightedHitRatio != null ? fmtPct(st.activeWeightedHitRatio, 1) : '—'}`;
+          const tipLines = [
+            `${fullLbl} (${p.totalTurns}t${zone === 'active' ? ` · ≤5m: ${p.turns}t` : ''})`,
+            `${primaryHitLbl}: ${p.hitRatio != null ? fmtPct(p.hitRatio, 1) : '—'}${lowN && p.hitRatio != null ? ` (${t('obs.lowSampleTag')})` : ''}`,
+            `${primaryMissLbl}: ${p.turns > 0 ? `${(p.missRate * 100).toFixed(2)}% (${p.missCnt}/${p.turns})` : '—'}`,
+            `${secondaryHitStr} · ${t('obs.colPenalty')}: ${fmtUsd(st.missPenaltyUsd)}`,
+          ];
+          const dotSvg =
+            p.hitRatio !== null
+              ? `<circle cx="${p.cx.toFixed(1)}" cy="${yHit(p.hitRatio).toFixed(1)}" r="${isSel ? '4.5' : lowN ? '3.2' : '3.5'}" fill="${lowN ? 'var(--surface)' : 'var(--ok)'}" stroke="${isSel ? 'var(--accent)' : 'var(--ok)'}" stroke-width="${isSel ? '2' : lowN ? '1.6' : '1'}"/>`
+              : '';
+          const isLast = p.idx === nSlices - 1;
+          const isFirst = p.idx === 0;
+          const tooCloseToLast = !isLast && nSlices > 1 && lastCx - p.cx < minLabelPx * 0.78;
+          const showLabel = isLast || (isFirst && !tooCloseToLast) || (!tooCloseToLast && p.idx % labelStep === 0);
+          const xAnchor = isLast && nSlices > 1 ? 'end' : isFirst && nSlices > 1 ? 'start' : 'middle';
+          const xPos = isLast && nSlices > 1 ? Math.min(W - 4, p.cx + barW / 2) : isFirst && nSlices > 1 ? Math.max(padL, p.cx - barW / 2) : p.cx;
+          const xLbl = showLabel
+            ? `<text class="obs-axis-label mono" x="${xPos.toFixed(1)}" y="${H - 5}" text-anchor="${xAnchor}">${esc(shortLbl)}</text>`
+            : '';
+          const hitCol = `<rect class="obs-tl-col" x="${(padL + p.idx * slotW).toFixed(1)}" y="${topY1}" width="${slotW.toFixed(1)}" height="${(botY2 - topY1).toFixed(1)}" fill="transparent" tabindex="0" data-action="select-obs-slice" data-slice-key="${esc(p.item.slice.key)}" data-tip="${esc(tipLines.join('\n'))}"/>`;
+          return `${dotSvg}${xLbl}${hitCol}`;
+        })
+        .join('');
+
+      mainVizHtml = `
+        <div class="obs-matrix-legend">${esc(t('obs.timelineLegend'))}</div>
+        <div class="obs-scatter-box">
+          <svg class="obs-timeline-svg" viewBox="0 0 ${W} ${H}" aria-label="${esc(t('obs.timelineAria'))}">
+            ${topGrid}
+            ${botGrid}
+            ${barsSvg}
+            ${segsSvg.join('')}
+            ${dotsAndCols}
+          </svg>
+        </div>
+      `;
+    } else {
+      // Heatmap mode: Time (rows, newest first) x Idle-Gap (columns)
+      const revSlices = [...slices].reverse();
+      const maxTurns = Math.max(1, ...revSlices.map((x) => num(x.stats.turns)));
+      const rowsHtml = revSlices
+        .map(({ slice, stats }) => {
+          const isSel = slice.key === selectedKey;
+          const tCnt = num(stats.turns);
+          const actCnt = num(stats.activeTurns);
+          const volPct = Math.max(6, Math.round((100 * tCnt) / maxTurns));
+          const zoneTurns = zone === 'active' ? actCnt : tCnt;
+          const allHit =
+            zone === 'active'
+              ? actCnt > 0
+                ? stats.activeWeightedHitRatio
+                : null
+              : stats.weightedHitRatio;
+          const zoneMisses = zone === 'active' ? num(stats.activeUnexpMisses) : num(stats.unexpMisses);
+          const allCls = allHit != null ? obsHeatCellClass('weightedHit', allHit, 1, zoneTurns) : 'heat-empty';
+          const allTip = `${fmtObsSliceLabel(slice, gran, false)}\n${t('obs.colTurns')}: ${tCnt} (≤5m: ${actCnt})\n${t('obs.colOverallHit')}: ${stats.weightedHitRatio != null ? fmtPct(stats.weightedHitRatio, 1) : '—'}\n${t('obs.colActiveMiss')}: ${num(stats.activeUnexpMisses)}/${actCnt}`;
+          const bTds = buckets
+            .map((bk) => {
+              const b = stats.buckets?.[bk];
+              const cnt = b ? num(b.total) : 0;
+              if (!b || cnt === 0) return `<td class="heat-cell heat-empty">—</td>`;
+              const val = b.weightedHitRatio != null ? num(b.weightedHitRatio) : num(b.hitRate);
+              const cls = obsHeatCellClass('weightedHit', val, 1, cnt);
+              const lowCls = cnt < 5 ? ' heat-low-n' : '';
+              const tip = `${fmtObsSliceLabel(slice, gran, false)} · ${bk}\n${t('obs.metricFull.weightedHit')}: ${b.weightedHitRatio != null ? fmtPct(b.weightedHitRatio, 1) : '—'}\n${t('obs.metricFull.keepRate')}: ${b.hitRate != null ? fmtPct(b.hitRate, 0) : '—'} (${num(b.hits)}/${cnt})\n${t('obs.kpiFullMiss')}: ${num(b.unexpMisses)} · ${fmtUsd(b.missPenaltyUsd)}`;
+              return `<td class="heat-cell ${cls}${lowCls}" data-tip="${esc(tip)}"><div class="heat-main">${Math.round(val * 100)}%</div><div class="heat-sub">${cnt}t</div></td>`;
+            })
+            .join('');
+          return `
+            <tr class="${isSel ? 'obs-row-selected' : ''}" data-action="select-obs-slice" data-slice-key="${esc(slice.key)}" style="cursor:pointer">
+              <td>
+                <div class="obs-period-cell">
+                  <span class="obs-model-name mono truncate" title="${esc(fmtObsSliceLabel(slice, gran, false))}">${esc(fmtObsSliceLabel(slice, gran, true))}</span>
+                  <div class="obs-vol-mini"><span class="obs-vol-bar" style="width:${volPct}%"></span><span class="obs-model-meta num">${tCnt}t</span></div>
+                </div>
+              </td>
+              <td class="heat-cell heat-total-col ${allCls}${zoneTurns > 0 && zoneTurns < 5 ? ' heat-low-n' : ''}" data-tip="${esc(allTip)}"><div class="heat-main">${allHit != null ? `${Math.round(allHit * 100)}%` : '—'}</div><div class="heat-sub">${zoneTurns > 0 ? `${zoneMisses}m` : '0t'}</div></td>
+              ${bTds}
+            </tr>
+          `;
+        })
+        .join('');
+
+      mainVizHtml = `
+        <div class="obs-matrix-wrap">
+          <table class="obs-matrix-table has-sub">
+            <thead>
+              <tr>
+                <th>${esc(t('obs.colPeriod'))}</th>
+                <th class="obs-th-total">${esc(zone === 'active' ? '≤5m' : t('obs.colTotal'))}</th>
+                ${buckets.map((bk) => `<th class="mono">${esc(bk)}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="obs-section">
+        ${ctrlsHtml}
+        ${slices.length < 2 ? renderObsJumpRangeCta(slices.length) : ''}
+        ${mainVizHtml}
+        ${renderObsSliceBreakdownCard(selectedItem?.slice, gran, modelNames, activeFilter)}
+      </div>
+    `;
+  }
+
+  function resolveObsComparePeriods(co, gran, activeFilter, buckets) {
+    const grans = co?.timeSeries?.granularities || {};
+    const granSlices = (Array.isArray(grans[gran]) ? grans[gran] : [])
+      .map((sl) => ({ slice: sl, stats: getObsSliceStats(sl, activeFilter) }))
+      .filter((x) => x.stats && num(x.stats.turns) > 0);
+
+    const canPrior3 = granSlices.length >= 3;
+    const granLabel = t(`obs.gran${gran}`);
+    let preset = state.obsComparePreset || 'auto';
+    if (preset === 'last24_prev3d') preset = 'latest_prior3';
+    if (preset === 'auto') {
+      preset = canPrior3 ? 'latest_prior3' : 'latest_prev';
+    }
+
+    if (preset === 'latest_prior3' && canPrior3) {
+      const latestItem = granSlices[granSlices.length - 1];
+      const priorItems = granSlices.slice(Math.max(0, granSlices.length - 4), granSlices.length - 1);
+      const firstLbl = fmtObsSliceLabel(priorItems[0].slice, gran, true);
+      const lastPriorLbl = fmtObsSliceLabel(priorItems[priorItems.length - 1].slice, gran, true);
+      const priorRange = priorItems.length === 1 ? firstLbl : `${firstLbl}–${lastPriorLbl}`;
+      const latestLbl = fmtObsSliceLabel(latestItem.slice, gran, true);
+      return {
+        effectivePreset: 'latest_prior3',
+        canPrior3,
+        availableSlices: granSlices,
+        periods: [
+          {
+            key: `prior:${gran}:${priorRange}`,
+            label: `${t('obs.comparePriorSlices', { n: priorItems.length })} (${priorRange})`,
+            shortLabel: priorRange,
+            stats: mergeObsSliceStats(priorItems.map((x) => x.slice), activeFilter, buckets),
+          },
+          {
+            key: latestItem.slice.key,
+            label: `${t('obs.compareLatestSlice', { g: granLabel })} (${latestLbl})`,
+            shortLabel: latestLbl,
+            stats: latestItem.stats,
+          },
+        ],
+      };
+    }
+
+    if (preset === 'recent3' && granSlices.length >= 3) {
+      const picked = granSlices.slice(-3);
+      return {
+        effectivePreset: 'recent3',
+        canPrior3,
+        availableSlices: granSlices,
+        periods: picked.map((x) => ({
+          key: x.slice.key,
+          label: fmtObsSliceLabel(x.slice, gran, false),
+          shortLabel: fmtObsSliceLabel(x.slice, gran, true),
+          stats: x.stats,
+        })),
+      };
+    }
+
+    if (preset === 'custom') {
+      const keySet = new Set(state.obsCompareKeys || []);
+      let picked = granSlices.filter((x) => keySet.has(x.slice.key)).slice(-4);
+      if (picked.length < 2 && granSlices.length >= 2) {
+        picked = granSlices.slice(-2);
+      }
+      return {
+        effectivePreset: 'custom',
+        canPrior3,
+        availableSlices: granSlices,
+        periods: picked.map((x) => ({
+          key: x.slice.key,
+          label: fmtObsSliceLabel(x.slice, gran, false),
+          shortLabel: fmtObsSliceLabel(x.slice, gran, true),
+          stats: x.stats,
+        })),
+      };
+    }
+
+    // Default / fallback: latest vs prev
+    const picked = granSlices.slice(-2);
+    return {
+      effectivePreset: 'latest_prev',
+      canPrior3,
+      availableSlices: granSlices,
+      periods: picked.map((x) => ({
+        key: x.slice.key,
+        label: fmtObsSliceLabel(x.slice, gran, false),
+        shortLabel: fmtObsSliceLabel(x.slice, gran, true),
+        stats: x.stats,
+      })),
+    };
+  }
+
+  function escMdCellClient(v) {
+    return String(v ?? '').replace(/[\r\n]+/g, ' ').replace(/\|/g, '\\|');
+  }
+
+  function buildObsCompareMarkdown(periods, gapBuckets, modelLabel, metric) {
+    const metricTitle = metric === 'weightedHitRatio' ? 'Token Hit %' : 'Keep Rate %';
+    const lines = [];
+    lines.push(`### Prompt Cache Period Comparison (AGY Lens · ${escMdCellClient(modelLabel)})`);
+    lines.push('');
+    lines.push(`- **Bucket metric**: ${metricTitle} (excluding Turn-0 cold starts, model switches & compactions)`);
+    lines.push('');
+    lines.push(`| Period | Turns | <=5m Hit % | <=5m 0%-Miss | ${gapBuckets.map(escMdCellClient).join(' | ')} |`);
+    lines.push(`| --- | ---: | ---: | ---: | ${gapBuckets.map(() => '---:').join(' | ')} |`);
+    for (const p of periods) {
+      const st = p.stats || {};
+      const actTurns = num(st.activeTurns);
+      const actHit = actTurns > 0 && st.activeWeightedHitRatio != null ? fmtPct(st.activeWeightedHitRatio, 1) : '—';
+      const actMiss =
+        actTurns > 0
+          ? `${((100 * num(st.activeUnexpMisses)) / actTurns).toFixed(2)}% (${num(st.activeUnexpMisses)}/${actTurns})`
+          : '—';
+      const cells = gapBuckets.map((bk) => {
+        const b = st.buckets?.[bk];
+        if (!b || !b.total) return '—';
+        const r = metric === 'weightedHitRatio' ? b.weightedHitRatio : b.hitRate;
+        return r != null ? `${Math.round(r * 100)}% (${num(b.hits)}/${num(b.total)})` : '—';
+      });
+      lines.push(`| ${escMdCellClient(p.label)} | ${num(st.turns)} | ${actHit} | ${actMiss} | ${cells.join(' | ')} |`);
+    }
+    lines.push('');
+    return lines.join('\n');
+  }
+
+  function renderCacheObservatoryCompare(co, buckets, activeBps) {
+    const matrix = Array.isArray(co.matrix) ? co.matrix : [];
+    const activeFilter = getActiveObsModelFilter(co);
+    const gran = resolveObsGranularity(co, ['5h', '1d', '7d']);
+    const granLabel = t(`obs.gran${gran}`);
+    const metric = state.obsCompareMetric === 'weightedHitRatio' ? 'weightedHitRatio' : 'hitRate';
+    const { effectivePreset, canPrior3, availableSlices, periods } = resolveObsComparePeriods(
+      co,
+      gran,
+      activeFilter,
+      buckets
+    );
+
+    const ctrlsHtml = `
+      <div class="obs-ctrl-panel" data-stop-card>
+        <div class="obs-ctrl-row">
+          <div class="obs-ctrl-item">
+            <span class="obs-ctrl-lbl">${esc(t('obs.ctrlSliceLen'))}</span>
+            <div class="seg seg-xs">
+              ${['5h', '1d', '7d']
+                .map(
+                  (g) =>
+                    `<button type="button" class="${gran === g ? 'active' : ''}" data-action="set-obs-time-gran" data-gran="${g}">${esc(t(`obs.gran${g}`))}</button>`
+                )
+                .join('')}
+            </div>
+          </div>
+          <div class="obs-ctrl-item">
+            <span class="obs-ctrl-lbl">${esc(t('obs.ctrlMetric'))}</span>
+            <div class="seg seg-xs">
+              <button type="button" class="${metric === 'hitRate' ? 'active' : ''}" data-action="set-obs-compare-metric" data-metric="hitRate">${esc(t('obs.compareMetricKeep'))}</button>
+              <button type="button" class="${metric === 'weightedHitRatio' ? 'active' : ''}" data-action="set-obs-compare-metric" data-metric="weightedHitRatio">${esc(t('obs.compareMetricHit'))}</button>
+            </div>
+          </div>
+        </div>
+        ${renderObsModelSelect(matrix, activeFilter)}
+        <div class="obs-ctrl-row">
+          <div class="obs-ctrl-item obs-ctrl-wrap">
+            <span class="obs-ctrl-lbl">${esc(t('obs.ctrlCurves'))}</span>
+            <div class="obs-filter-pills">
+              <button type="button" class="sort-btn ${effectivePreset === 'latest_prev' ? 'active' : ''}" data-action="set-obs-compare-preset" data-preset="latest_prev">${esc(t('obs.comparePresetLatest', { g: granLabel }))}</button>
+              <button type="button" class="sort-btn ${effectivePreset === 'latest_prior3' ? 'active' : ''}" data-action="set-obs-compare-preset" data-preset="latest_prior3" ${!canPrior3 ? 'disabled' : ''}>${esc(t('obs.comparePresetPrior3', { g: granLabel }))}</button>
+              <button type="button" class="sort-btn ${effectivePreset === 'recent3' ? 'active' : ''}" data-action="set-obs-compare-preset" data-preset="recent3" ${availableSlices.length < 3 ? 'disabled' : ''}>${esc(t('obs.comparePresetRecent3'))}</button>
+              <button type="button" class="sort-btn ${effectivePreset === 'custom' ? 'active' : ''}" data-action="set-obs-compare-preset" data-preset="custom" ${availableSlices.length < 2 ? 'disabled' : ''}>${esc(t('obs.comparePresetCustom'))}</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const selectedKeysSet = new Set(periods.map((p) => p.key));
+    const customPickerHtml =
+      effectivePreset === 'custom' && availableSlices.length > 0
+        ? `
+          <div class="obs-compare-picker" data-stop-card>
+            <div class="muted-note" style="font-size:10px;margin-bottom:4px">${esc(t('obs.comparePickHint', { n: selectedKeysSet.size }))}</div>
+            <div class="obs-filter-pills">
+              ${availableSlices
+                .slice(-14)
+                .map(({ slice, stats }) => {
+                  const on = selectedKeysSet.has(slice.key);
+                  return `<button type="button" class="obs-gap-chip mono ${on ? 'active' : ''}" data-action="toggle-obs-compare-key" data-slice-key="${esc(slice.key)}">${esc(fmtObsSliceLabel(slice, gran, true))} (${num(stats.turns)}t)</button>`;
+                })
+                .join('')}
+            </div>
+          </div>
+        `
+        : '';
+
+    if (periods.length < 2) {
+      return `
+        <div class="obs-section">
+          ${ctrlsHtml}
+          ${customPickerHtml}
+          <div class="muted-note">${esc(t('obs.compareNeedTwo'))}</div>
+          ${renderObsJumpRangeCta(periods.length)}
+        </div>
+      `;
+    }
+
+    // Colors ordered oldest -> newest so newest is always crisp emerald green
+    const paletteByLen = {
+      2: ['var(--bad)', 'var(--ok)'],
+      3: ['var(--bad)', 'var(--warn)', 'var(--ok)'],
+      4: ['var(--bad)', 'var(--warn)', 'var(--ch-uncached)', 'var(--ok)'],
+    };
+    const colors = paletteByLen[periods.length] || ['var(--bad)', 'var(--warn)', 'var(--ch-uncached)', 'var(--ok)'];
+
+    // SVG Retention Curve Overlay across gapBuckets
+    const W = 480;
+    const H = 172;
+    const padL = 34;
+    const padR = 24;
+    const padT = 14;
+    const padB = 26;
+    const plotW = W - padL - padR;
+    const plotH = H - padT - padB;
+    const nB = Math.max(1, buckets.length);
+    const xForB = (idx) => (nB === 1 ? padL + plotW / 2 : padL + (idx / (nB - 1)) * plotW);
+    const yForR = (r) => padT + (1 - clamp(r, 0, 1)) * plotH;
+
+    // Active <=5m zone shading (buckets whose upper bound <= 300s)
+    let activeLastIdx = -1;
+    for (let i = 0; i < activeBps.length; i++) {
+      if (activeBps[i] <= 300) activeLastIdx = i;
+    }
+    let activeShadeSvg = '';
+    if (activeLastIdx >= 0 && nB > 1) {
+      const stepX = plotW / (nB - 1);
+      const xEnd = Math.min(W - padR, xForB(activeLastIdx) + stepX * 0.45);
+      const bandW = xEnd - padL;
+      activeShadeSvg = `
+        <rect x="${padL}" y="${padT}" width="${bandW.toFixed(1)}" height="${plotH}" fill="var(--ok)" fill-opacity="0.06"/>
+        ${bandW >= 56 ? `<text class="obs-band-label ok" x="${(padL + 4).toFixed(1)}" y="${(padT + plotH - 5).toFixed(1)}">${esc(t('obs.compareActiveZone'))}</text>` : ''}
+      `;
+    }
+
+    const cmpLabelStep = nB > 7 ? Math.max(1, Math.ceil((nB * 48) / plotW)) : 1;
+    const gridSvg = `
+      ${[1, 0.5, 0]
+        .map((r) => {
+          const y = yForR(r);
+          return `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W - padR}" y2="${y.toFixed(1)}" stroke="var(--line)" stroke-width="1"/>
+            <text class="obs-axis-label mono" x="${padL - 5}" y="${(y + 3).toFixed(1)}" text-anchor="end">${Math.round(r * 100)}%</text>`;
+        })
+        .join('')}
+      ${buckets
+        .map((bk, idx) => {
+          const x = xForB(idx);
+          const isLast = idx === nB - 1;
+          const isFirst = idx === 0;
+          const tooCloseLast = !isLast && nB > 7 && xForB(nB - 1) - x < 42;
+          const showLbl = isLast || isFirst || (!tooCloseLast && idx % cmpLabelStep === 0);
+          const anchor = isLast && nB > 1 ? 'end' : isFirst && nB > 1 ? 'start' : 'middle';
+          const tx = isLast && nB > 1 ? Math.min(W - 4, x + 6) : isFirst && nB > 1 ? Math.max(padL - 2, x - 4) : x;
+          return `<line x1="${x.toFixed(1)}" y1="${padT}" x2="${x.toFixed(1)}" y2="${padT + plotH}" stroke="var(--line)" stroke-width="1" stroke-dasharray="2,2"/>
+            ${showLbl ? `<text class="obs-axis-label mono" x="${tx.toFixed(1)}" y="${H - 7}" text-anchor="${anchor}">${esc(bk)}</text>` : ''}`;
+        })
+        .join('')}
+    `;
+
+    const curvesSvg = periods
+      .map((p, pIdx) => {
+        const color = colors[pIdx % colors.length];
+        const isNewest = pIdx === periods.length - 1;
+        const isBaseline = pIdx === 0;
+        const pts = buckets.map((bk, bIdx) => {
+          const b = p.stats?.buckets?.[bk];
+          const cnt = b ? num(b.total) : 0;
+          const val = b && cnt > 0 ? (metric === 'weightedHitRatio' ? b.weightedHitRatio : b.hitRate) : null;
+          return { bk, bIdx, b, cnt, val, x: xForB(bIdx), y: val != null ? yForR(val) : null };
+        });
+
+        const segs = [];
+        let prev = null;
+        for (const pt of pts) {
+          if (pt.val !== null) {
+            if (prev) {
+              const dashed = isBaseline || prev.cnt < 5 || pt.cnt < 5;
+              segs.push(
+                `<line x1="${prev.x.toFixed(1)}" y1="${prev.y.toFixed(1)}" x2="${pt.x.toFixed(1)}" y2="${pt.y.toFixed(1)}" stroke="${color}" stroke-width="${isNewest ? '2.4' : '1.8'}" ${dashed ? 'stroke-dasharray="4,3"' : ''} stroke-opacity="${isNewest ? '1' : '0.85'}"/>`
+              );
+            }
+            prev = pt;
+          }
+        }
+
+        const dots = pts
+          .filter((pt) => pt.val !== null)
+          .map((pt) => {
+            const lowN = pt.cnt < 5;
+            const tip = `${p.label} · ${pt.bk}\n${t('obs.metricFull.keepRate')}: ${pt.b.hitRate != null ? fmtPct(pt.b.hitRate, 0) : '—'} (${num(pt.b.hits)}/${pt.cnt})\n${t('obs.metricFull.weightedHit')}: ${pt.b.weightedHitRatio != null ? fmtPct(pt.b.weightedHitRatio, 1) : '—'}\n${t('obs.kpiFullMiss')}: ${num(pt.b.unexpMisses)} · ${fmtUsd(pt.b.missPenaltyUsd)}`;
+            return `<circle class="obs-pt" cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="${isNewest ? '4' : '3.3'}" fill="${lowN ? 'var(--surface)' : color}" stroke="${color}" stroke-width="${lowN ? '1.7' : '1'}" data-tip="${esc(tip)}" tabindex="0"/>`;
+          })
+          .join('');
+
+        return `${segs.join('')}${dots}`;
+      })
+      .join('');
+
+    const legendHtml = `
+      <div class="legend-inline" style="flex-wrap:wrap;margin-bottom:4px">
+        ${periods
+          .map((p, idx) => {
+            const color = colors[idx % colors.length];
+            return `<span class="legend-item"><span class="legend-swatch" style="background:${color};border-radius:50%"></span>${esc(p.label)} <span class="mono muted-note">(${num(p.stats.turns)}t)</span></span>`;
+          })
+          .join('')}
+      </div>
+    `;
+
+    // Delta summary strip (newest vs baseline)
+    const baseSt = periods[0].stats;
+    const newSt = periods[periods.length - 1].stats;
+    const deltaItems = [];
+    if (num(baseSt.activeTurns) > 0 && num(newSt.activeTurns) > 0) {
+      if (baseSt.activeWeightedHitRatio != null && newSt.activeWeightedHitRatio != null) {
+        const dHitPp = (newSt.activeWeightedHitRatio - baseSt.activeWeightedHitRatio) * 100;
+        const cls = dHitPp >= 0.5 ? 'ok' : dHitPp <= -0.5 ? 'bad' : '';
+        deltaItems.push(
+          `<span class="obs-delta-chip">${esc(t('obs.colActiveHit'))}: <span class="mono">${fmtPct(baseSt.activeWeightedHitRatio, 1)} → ${fmtPct(newSt.activeWeightedHitRatio, 1)}</span> <strong class="mono ${cls}">(${dHitPp >= 0 ? '+' : ''}${dHitPp.toFixed(1)}pp)</strong></span>`
+        );
+      }
+      const bMiss = (100 * num(baseSt.activeUnexpMisses)) / num(baseSt.activeTurns);
+      const nMiss = (100 * num(newSt.activeUnexpMisses)) / num(newSt.activeTurns);
+      const dMissPp = nMiss - bMiss;
+      const mCls = dMissPp <= -0.2 ? 'ok' : dMissPp >= 0.2 ? 'bad' : '';
+      deltaItems.push(
+        `<span class="obs-delta-chip">${esc(t('obs.colActiveMiss'))}: <span class="mono">${bMiss.toFixed(2)}% → ${nMiss.toFixed(2)}%</span> <strong class="mono ${mCls}">(${dMissPp >= 0 ? '+' : ''}${dMissPp.toFixed(2)}pp)</strong></span>`
+      );
+    }
+
+    // Compact summary comparison table
+    const tableRowsHtml = periods
+      .map((p, idx) => {
+        const st = p.stats;
+        const color = colors[idx % colors.length];
+        const actT = num(st.activeTurns);
+        const actHitVal = actT > 0 ? st.activeWeightedHitRatio : null;
+        const actHit = actHitVal != null ? fmtPct(actHitVal, 1) : '—';
+        const actHitCls =
+          actHitVal == null ? '' : num(actHitVal) >= 0.85 ? 'ok' : num(actHitVal) >= 0.65 ? 'warn' : 'bad';
+        const actMissStr =
+          actT > 0
+            ? `${((100 * num(st.activeUnexpMisses)) / actT).toFixed(2)}% (${num(st.activeUnexpMisses)}/${actT})`
+            : '—';
+        const actMissCls = actT === 0 ? '' : num(st.activeUnexpMisses) > 0 ? 'bad' : 'ok';
+        const allHit = st.weightedHitRatio != null ? fmtPct(st.weightedHitRatio, 1) : '—';
+        return `
+          <tr>
+            <td><div class="obs-cmp-period"><span class="obs-cmp-dot" style="background:${color}"></span><span class="mono truncate" title="${esc(p.label)}">${esc(p.label)}</span></div></td>
+            <td class="mono num">${num(st.turns)}</td>
+            <td class="mono num ${actHitCls}">${actHit}</td>
+            <td class="mono num ${actMissCls}">${actMissStr}</td>
+            <td class="mono num">${allHit}</td>
+            <td class="mono num ${num(st.missPenaltyUsd) > 0 ? 'bad' : ''}">${fmtUsd(st.missPenaltyUsd)}</td>
+          </tr>
+        `;
+      })
+      .join('');
+
+    const cmpCopyLbl =
+      state.obsCompareCopyStatus === 'copied'
+        ? t('common.copied')
+        : state.obsCompareCopyStatus === 'failed'
+          ? t('common.copyFailed')
+          : t('obs.compareCopyMd');
+    const cmpCopyCls = state.obsCompareCopyStatus === 'copied' ? 'ok' : '';
+
+    return `
+      <div class="obs-section">
+        ${ctrlsHtml}
+        ${customPickerHtml}
+        <div class="obs-scatter-box">
+          ${legendHtml}
+          <svg class="obs-compare-svg" viewBox="0 0 ${W} ${H}" aria-label="${esc(t('obs.compareAria'))}">
+            ${activeShadeSvg}
+            ${gridSvg}
+            ${curvesSvg}
+          </svg>
+        </div>
+        ${
+          deltaItems.length > 0
+            ? `<div class="obs-delta-bar"><span class="obs-delta-title">${esc(t('obs.compareDeltaTitle'))}</span><div class="obs-delta-chips">${deltaItems.join('')}</div></div>`
+            : ''
+        }
+        <div class="obs-matrix-wrap">
+          <table class="obs-matrix-table obs-cmp-table">
+            <thead>
+              <tr>
+                <th>${esc(t('obs.colPeriod'))}</th>
+                <th>${esc(t('obs.colTurns'))}</th>
+                <th>${esc(t('obs.colActiveHit'))}</th>
+                <th>${esc(t('obs.colActiveMiss'))}</th>
+                <th>${esc(t('obs.colOverallHit'))}</th>
+                <th>${esc(t('obs.colPenalty'))}</th>
+              </tr>
+            </thead>
+            <tbody>${tableRowsHtml}</tbody>
+          </table>
+        </div>
+        <div class="obs-actions-row">
+          <button type="button" class="btn-sm ${cmpCopyCls}" data-action="copy-obs-compare">${esc(cmpCopyLbl)}</button>
+        </div>
       </div>
     `;
   }
@@ -6113,8 +7167,170 @@
         return;
       }
 
+      if (action === 'set-obs-view') {
+        e.stopPropagation();
+        const v = actionEl.dataset.view;
+        if (v !== 'matrix' && v !== 'timeline' && v !== 'compare') return;
+        state.obsView = v;
+        if (v !== 'matrix') {
+          state.obsMetricMenuOpen = false;
+          state.obsGapMenuOpen = false;
+          dismissObsCellPopover();
+        }
+        renderGrid();
+        return;
+      }
+
+      if (action === 'set-obs-time-gran') {
+        e.stopPropagation();
+        const g = actionEl.dataset.gran;
+        if (!['1h', '5h', '1d', '7d'].includes(g)) return;
+        state.obsTimeGran = g;
+        state.obsSelectedSliceKey = '';
+        state.obsCompareKeys = [];
+        renderGrid();
+        return;
+      }
+
+      if (action === 'set-obs-time-zone') {
+        e.stopPropagation();
+        state.obsTimeZone = actionEl.dataset.zone === 'all' ? 'all' : 'active';
+        renderGrid();
+        return;
+      }
+
+      if (action === 'set-obs-time-mode') {
+        e.stopPropagation();
+        state.obsTimeMode = actionEl.dataset.mode === 'heatmap' ? 'heatmap' : 'chart';
+        renderGrid();
+        return;
+      }
+
+      if (action === 'select-obs-slice') {
+        const key = actionEl.dataset.sliceKey || '';
+        if (key) {
+          state.obsSelectedSliceKey = key;
+          renderGrid();
+        }
+        return;
+      }
+
+      if (action === 'obs-jump-range') {
+        e.stopPropagation();
+        const r = actionEl.dataset.range;
+        if (!r || !['5h', 'today', '7d', '30d', '90d', 'all'].includes(r)) return;
+        state.userChangedRange = true;
+        state.rangeKey = r;
+        state.obsTimeGran = 'auto';
+        state.obsSelectedSliceKey = '';
+        state.obsCompareKeys = [];
+        renderHeader();
+        refreshAll(true);
+        return;
+      }
+
+      if (action === 'set-obs-compare-preset') {
+        e.stopPropagation();
+        const p = actionEl.dataset.preset;
+        if (!['latest_prev', 'latest_prior3', 'recent3', 'custom'].includes(p)) return;
+        if (p === 'custom' && (!state.obsCompareKeys || state.obsCompareKeys.length < 2)) {
+          const co = state.analytics?.cacheObservatory;
+          const gran = resolveObsGranularity(co, ['5h', '1d', '7d']);
+          const activeFilter = getActiveObsModelFilter(co);
+          const raw = Array.isArray(co?.timeSeries?.granularities?.[gran])
+            ? co.timeSeries.granularities[gran]
+            : [];
+          const filt = raw.filter((sl) => {
+            const st = getObsSliceStats(sl, activeFilter);
+            return st && num(st.turns) > 0;
+          });
+          state.obsCompareKeys = filt.slice(-2).map((sl) => sl.key);
+        }
+        state.obsComparePreset = p;
+        renderGrid();
+        return;
+      }
+
+      if (action === 'set-obs-compare-metric') {
+        e.stopPropagation();
+        state.obsCompareMetric =
+          actionEl.dataset.metric === 'weightedHitRatio' ? 'weightedHitRatio' : 'hitRate';
+        renderGrid();
+        return;
+      }
+
+      if (action === 'toggle-obs-compare-key') {
+        e.stopPropagation();
+        const key = actionEl.dataset.sliceKey || '';
+        if (!key) return;
+        const co = state.analytics?.cacheObservatory;
+        const gran = resolveObsGranularity(co, ['5h', '1d', '7d']);
+        const activeFilter = getActiveObsModelFilter(co);
+        const raw = Array.isArray(co?.timeSeries?.granularities?.[gran])
+          ? co.timeSeries.granularities[gran]
+          : [];
+        const orderedValid = raw
+          .filter((sl) => {
+            const st = getObsSliceStats(sl, activeFilter);
+            return st && num(st.turns) > 0;
+          })
+          .map((sl) => sl.key);
+        const validSet = new Set(orderedValid);
+        const orderIndex = new Map(orderedValid.map((k, idx) => [k, idx]));
+        let next = (state.obsCompareKeys || []).filter((k) => validSet.has(k));
+        if (next.length < 2) {
+          next = orderedValid.slice(-2);
+        }
+        if (next.includes(key)) {
+          if (next.length > 2) {
+            next = next.filter((k) => k !== key);
+          }
+        } else {
+          next = [...next, key].sort((a, b) => (orderIndex.get(a) ?? 0) - (orderIndex.get(b) ?? 0));
+          if (next.length > 4) next = next.slice(next.length - 4);
+        }
+        state.obsComparePreset = 'custom';
+        state.obsCompareKeys = next;
+        renderGrid();
+        return;
+      }
+
+      if (action === 'copy-obs-compare') {
+        const co = state.analytics?.cacheObservatory;
+        if (!co) return;
+        const activeBps = sanitizeObsGapBreakpoints(
+          Array.isArray(co.gapBreakpointsSec) && co.gapBreakpointsSec.length
+            ? co.gapBreakpointsSec
+            : state.config.obsGapBreakpointsSec
+        );
+        const buckets = Array.isArray(co.gapBuckets) && co.gapBuckets.length
+          ? co.gapBuckets
+          : buildGapPreviewLabels(activeBps);
+        const gran = resolveObsGranularity(co, ['5h', '1d', '7d']);
+        const matrix = Array.isArray(co.matrix) ? co.matrix : [];
+        const activeFilter = getActiveObsModelFilter(co);
+        const metric = state.obsCompareMetric === 'weightedHitRatio' ? 'weightedHitRatio' : 'hitRate';
+        const { periods } = resolveObsComparePeriods(co, gran, activeFilter, buckets);
+        const modelLabel =
+          activeFilter === 'all'
+            ? 'All Models'
+            : matrix.find((m) => m.canonicalId === activeFilter)?.displayName || activeFilter;
+        const md = buildObsCompareMarkdown(periods, buckets, modelLabel, metric);
+        const ok = await copyTextWithFallback(md);
+        state.obsCompareCopyStatus = ok ? 'copied' : 'failed';
+        if (state.obsCompareCopyTimer) clearTimeout(state.obsCompareCopyTimer);
+        renderGrid();
+        state.obsCompareCopyTimer = setTimeout(() => {
+          state.obsCompareCopyStatus = '';
+          renderGrid();
+        }, 2000);
+        return;
+      }
+
       if (action === 'set-obs-filter') {
         state.obsModelFilter = actionEl.dataset.model || 'all';
+        state.obsSelectedSliceKey = '';
+        state.obsCompareKeys = [];
         renderGrid();
         return;
       }
@@ -6390,6 +7606,11 @@
         const has5h = (state.quotaData?.anchors || []).some((a) => (a.windowType ?? a.window_type) === '5h');
         if (has5h) state.quotaOlderOpen = true;
       }
+      renderGrid();
+    } else if (tgt.dataset?.action === 'select-obs-model') {
+      state.obsModelFilter = tgt.value || 'all';
+      state.obsSelectedSliceKey = '';
+      state.obsCompareKeys = [];
       renderGrid();
     } else if (tgt.dataset?.action === 'select-session') {
       state.selectedConversationId = tgt.value || '';
