@@ -16,8 +16,10 @@ import {
   openTelemetryCacheDb,
   rebuildIndex,
   resolveDataDir,
+  resolveTimeRange,
   runIncrementalIndex,
 } from './indexer.mjs';
+import { queryRequestsPage } from './request_speed.mjs';
 import {
   DEFAULTS_FILE,
   getOverridesPath,
@@ -84,6 +86,7 @@ export const DEFAULT_CONFIG = {
     'model-cost': true,
     'calendar-trends': true,
     'cache-observatory': true,
+    'request-speed': true,
     'quota-budget': true,
   },
   moduleOrder: [
@@ -93,6 +96,7 @@ export const DEFAULT_CONFIG = {
     'model-cost',
     'calendar-trends',
     'cache-observatory',
+    'request-speed',
     'quota-budget',
   ],
   expanded: {
@@ -102,12 +106,14 @@ export const DEFAULT_CONFIG = {
     'model-cost': false,
     'calendar-trends': false,
     'cache-observatory': false,
+    'request-speed': false,
     'quota-budget': false,
   },
   sources: { desktop: true, cli: true },
   refreshSec: 30,
   pricingAutoSync: false,
   quotaDisplayMode: 'remaining',
+  tpsAggMode: 'weighted',
   quotaAnchorsByPool: {},
   quotaCalibMode: 'auto',
   quotaManualFactors: { M: false, C: false, O: false },
@@ -250,6 +256,10 @@ export function deepMergeConfig(base, patch) {
       patch.quotaDisplayMode === 'used' || patch.quotaDisplayMode === 'remaining'
         ? patch.quotaDisplayMode
         : base.quotaDisplayMode,
+    tpsAggMode:
+      patch.tpsAggMode === 'p50' || patch.tpsAggMode === 'weighted'
+        ? patch.tpsAggMode
+        : base.tpsAggMode || 'weighted',
     quotaAnchorsByPool: sanitizeQuotaAnchorsByPool(base.quotaAnchorsByPool, patch.quotaAnchorsByPool),
     quotaCalibMode: calib.quotaCalibMode,
     quotaManualFactors: calib.quotaManualFactors,
@@ -555,7 +565,12 @@ export function createLensRuntime({
       const convId = rawConvId || (isValidConversationId(fallbackConvId) ? fallbackConvId : '');
       const modules = parseModulesSet(data?.modules);
       const sources = enabledSourcesList(config, data?.sources);
-      return getSessionSnapshot(cacheDb, pricingState, { conversationId: convId, modules, sources });
+      return getSessionSnapshot(cacheDb, pricingState, {
+        conversationId: convId,
+        modules,
+        sources,
+        gapBreakpointsSec: config.obsGapBreakpointsSec,
+      });
     });
 
     register('GET', '/api/accounts', () => {
@@ -689,6 +704,37 @@ export function createLensRuntime({
         sources,
         accountId,
       });
+    });
+
+    register('GET', '/api/requests', (data) => {
+      touchActivity();
+      const config = loadConfig();
+      const sources = enabledSourcesList(config, data?.sources);
+      runIncrementalIndex(cacheDb, { sources });
+      const pricingState = loadPricingState(resolvedDataDir);
+      const rangeObj = resolveTimeRange(
+        data?.range || config.defaultRange || '7d',
+        data?.from || null,
+        data?.to || null
+      );
+      const accountId = normalizeAccountIdFilter(data?.account);
+      return {
+        range: rangeObj,
+        accountId,
+        ...queryRequestsPage(cacheDb, pricingState, {
+          fromMs: rangeObj.fromMs,
+          toMs: rangeObj.toMs,
+          sources,
+          accountId,
+          model: typeof data?.model === 'string' ? data.model : 'all',
+          sourceFilter: typeof data?.sourceFilter === 'string' ? data.sourceFilter : 'all',
+          flag: typeof data?.flag === 'string' ? data.flag : 'all',
+          sort: typeof data?.sort === 'string' ? data.sort : 'time',
+          dir: data?.dir === 'asc' ? 'asc' : 'desc',
+          page: data?.page != null ? Number(data.page) : 1,
+          pageSize: data?.pageSize != null ? Number(data.pageSize) : 20,
+        }),
+      };
     });
 
     register('GET', '/api/pricing', () => {

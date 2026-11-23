@@ -15,6 +15,10 @@ import {
 import { calculateTurnCost, inferPool, normalizeModelId } from './pricing.mjs';
 import { computeCacheObservatory } from './cache_observatory.mjs';
 import {
+  computeRequestSpeedSummary,
+  computeSessionCacheFreshness,
+} from './request_speed.mjs';
+import {
   buildTurnAccountSql,
   ensureAccountSchema,
   hasAccountSchema,
@@ -872,7 +876,7 @@ function readLatestBreakdown(dbPath) {
 export function getSessionSnapshot(
   cacheDb,
   pricingState,
-  { conversationId = '', modules = null, sources = ['desktop', 'cli'] } = {}
+  { conversationId = '', modules = null, sources = ['desktop', 'cli'], gapBreakpointsSec = null } = {}
 ) {
   const sourceDirs = resolveSourceDirs();
   const entry = conversationId
@@ -931,6 +935,24 @@ export function getSessionSnapshot(
     }
     const sessionDurationMs = Number.isFinite(minStart) && maxEnd >= minStart ? maxEnd - minStart : 0;
 
+    const lastReplyAtMs = latestTurn
+      ? Number(latestTurn.completed_at_ms || latestTurn.created_at_ms || 0) || null
+      : null;
+    const latestIn = latestTurn
+      ? Number(latestTurn.uncached_in || 0) +
+        Number(latestTurn.cache_read || 0) +
+        Number(latestTurn.cache_create || 0)
+      : 0;
+    const lastTurnCold = Boolean(latestTurn && latestIn > 0 && Number(latestTurn.cache_read || 0) === 0);
+    const cacheFreshness =
+      lastReplyAtMs && modelId
+        ? computeSessionCacheFreshness(cacheDb, {
+            modelId,
+            sources,
+            gapBreakpointsSec: gapBreakpointsSec || undefined,
+          })
+        : null;
+
     liveContext = {
       modelId,
       displayName,
@@ -940,6 +962,9 @@ export function getSessionSnapshot(
       ratio,
       turnCount: turns.length,
       sessionDurationMs,
+      lastReplyAtMs,
+      lastTurnCold,
+      cacheFreshness,
       breakdown: latestGen?.breakdown || [],
     };
   }
@@ -1127,16 +1152,20 @@ function queryTurnsWithWorkspace(
   if (!sources || sources.length === 0) return [];
   const placeholders = sources.map(() => '?').join(',');
   const accFilter = normalizeAccountIdFilter(accountId);
-  const useAcc = accFilter !== 'all' && hasAccountSchema(cacheDb);
-  const accSql = useAcc ? buildTurnAccountSql('t') : null;
+  const hasAcc = hasAccountSchema(cacheDb);
+  const useAcc = accFilter !== 'all' && hasAcc;
+  const accSql = hasAcc ? buildTurnAccountSql('t') : null;
+  const tsExpr = hasAcc ? accSql.tsExprSql : 'COALESCE(t.completed_at_ms, t.created_at_ms, 0)';
   let sql = `
-    SELECT t.*, COALESCE(f.workspace, '') AS workspace, COALESCE(f.title, '') AS title
+    SELECT t.*, COALESCE(f.workspace, '') AS workspace, COALESCE(f.title, '') AS title,
+           ${hasAcc ? `(${accSql.exprSql})` : "'default'"} AS resolved_acc
     FROM turns t
     LEFT JOIN indexed_files f ON f.conversation_id = t.conversation_id AND f.source = t.source
-    ${useAcc ? accSql.joinSql : ''}
+    ${hasAcc ? accSql.joinSql : ''}
     WHERE t.source IN (${placeholders})
-      AND t.completed_at_ms >= ?
-      AND t.completed_at_ms <= ?
+      AND ${tsExpr} > 0
+      AND ${tsExpr} >= ?
+      AND ${tsExpr} <= ?
   `;
   const params = [...sources, fromMs, toMs];
   if (workspace) {
@@ -1179,9 +1208,10 @@ export function getAnalytics(
   const wantModel = wantAll || modules.has('model-cost');
   const wantCal = wantAll || modules.has('calendar-trends');
   const wantObs = wantAll || modules.has('cache-observatory');
+  const wantReqSpeed = wantAll || modules.has('request-speed');
 
   const turns =
-    wantIo || wantModel
+    wantIo || wantModel || wantReqSpeed
       ? queryTurnsWithWorkspace(cacheDb, {
           sources: activeSources,
           fromMs: rangeObj.fromMs,
@@ -1436,6 +1466,8 @@ export function getAnalytics(
       })
     : null;
 
+  const requestSpeed = wantReqSpeed ? computeRequestSpeedSummary(turns, pricingState) : null;
+
   return {
     range: rangeObj,
     sources: activeSources,
@@ -1445,6 +1477,7 @@ export function getAnalytics(
     modelCost,
     calendarTrends,
     cacheObservatory,
+    requestSpeed,
   };
 }
 

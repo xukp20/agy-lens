@@ -99,6 +99,7 @@
     'model-cost',
     'calendar-trends',
     'cache-observatory',
+    'request-speed',
     'quota-budget'
   ];
 
@@ -258,6 +259,12 @@
           setHelp: '展示内容：跨会话 Model × Idle-Gap 命中率矩阵、对数散点图、意外 0% Miss / 边界截断异常及一键脱敏 Issue 报告。\n何时开启：排查特定模型随请求间隔衰减、疑似 TTL 失效或上下文边界截断问题时开启（默认关闭）。\n扫描范围：按所选时间范围扫描历史索引中的全部连续轮次对。',
           headHelp: 'Idle Gap = 本轮发起时间 - 上轮完成时间；Start Gap = 本轮发起时间 - 上轮发起时间。\nUnexpected 0% Miss：上轮命中 ≥70% 且未换模/未压缩，本轮却突然 0 命中。\nBoundary Cut：上轮命中 ≥70%，本轮骤降至 <40% 且 cacheRead 落在 5k~28k。\nBounce-Back：异常断崖后的下一轮立刻恢复 ≥70% 命中，指向瞬态路由/缓存抖动而非前缀变化。'
         },
+        'request-speed': {
+          title: '请求日志与速度',
+          desc: '分页请求流水、TTFT / 纯生成与端到端 TPS、时段均值与总值统计',
+          setHelp: '展示内容：按需分页的逐条请求明细（输入/缓存命中/输出/首字/TPS/API 等价费用）以及按模型、按时段的平均值与总值速度统计。\n何时开启：需要排查单次请求耗费、对比模型吐字速率或按时段追踪速度波动时开启。\n扫描范围：统计汇总复用当前范围索引，请求明细仅在展开后按页查询。',
+          headHelp: '所有费用均按纯 API 标价（三层定价引擎）计算，不乘任何额度校准倍率。\n同时展示纯生成 TPS（输出 ÷ 生成耗时）与端到端 TPS（输出 ÷ 总耗时）；聚合口径支持在「Token 加权」与「逐条中位 P50」之间正交切换。'
+        },
         'quota-budget': {
           title: '订阅额度与总额反推',
           desc: '手动记录剩余 % 对齐点，推算周期隐含总额度与置信区间',
@@ -276,7 +283,92 @@
         nearWarnBanner: '⚠ 上下文已达压缩阈值附近（≥75%），即将触发自动摘要或前缀重算。',
         uncategorized: '未分类',
         chartAria: '上下文构成堆叠图',
-        noBreakdown: '暂无上下文构成明细（仅最新轮次保留构成快照）。'
+        noBreakdown: '暂无上下文构成明细（仅最新轮次保留构成快照）。',
+        lastReply: '上次回复 {time} · 已过 {age}',
+        freshHot: '缓存可能仍热',
+        freshWarn: '临界可能衰减',
+        freshCold: '大概率已失效',
+        freshPrevCold: '上轮冷启动',
+        freshTipEmpirical: '基于近 {hours}h 内 {scope} 的 {total} 轮实测（当前 {bucket} 区间 {n} 轮：保活率 {keep}%，Token 命中 {hit}%）。',
+        freshTipNeighbor: '基于近 {hours}h 内 {scope} 的 {total} 轮实测（当前 {bucket} 区间样本不足，参考相邻 {refBucket} 区间保活率 {keep}%）。',
+        freshTipPrior: '近 {hours}h 实测样本不足，当前按经验阈值参考（<5m 热 / 5–15m 临界 / >15m 大概率失效）。',
+        freshTipPrevCold: '上一轮缓存命中为 0%（冷启动），下一轮需视本次写入是否已建立前缀而定。',
+        freshScopeAll: '全模型'
+      },
+      reqSpeed: {
+        tabRequests: '请求明细',
+        tabSpeed: '速度与时段',
+        aggWeighted: 'Token 加权',
+        aggP50: '逐条 P50',
+        aggSettingName: 'TPS 汇总聚合方式',
+        aggSettingDesc: '正交作用于纯生成 TPS 与端到端 TPS 的统计汇总',
+        aggSettingHelp: 'Token 加权（∑输出 ÷ ∑耗时）：免疫极短响应畸高，反映真实吞吐。\n逐条 P50：对每条请求独立算 TPS 后取中位数，反映典型单次请求的体感速度。',
+        kpiRequests: '总请求数',
+        kpiTtft: '首字 TTFT',
+        kpiTps: 'TPS（生成 / E2E）',
+        kpiOutCost: '输出 / 等价 $',
+        kpiTtftSub: 'P50 {p50} · 均 {avg}',
+        kpiOutSub: '总输出 {out} · 均 {avgCost}',
+        latestPrefix: '最近',
+        emptyRange: '所选时间范围与账号下暂无请求记录。',
+        filterAllModels: '全部模型',
+        filterAllSources: '全部来源',
+        flagCold: '仅 0% 未命中',
+        flagSlow: '慢请求 ≥15s',
+        sortTime: '按时间',
+        sortCost: '按费用',
+        sortTtft: '按首字',
+        sortTps: '按生成 TPS',
+        sortE2eTps: '按端到端 TPS',
+        sortTokens: '按 Token',
+        colTime: '时间 / 模型',
+        colTokens: '输入 / 缓存 / 输出',
+        colSpeed: '首字 / TPS',
+        colCost: 'API 等价',
+        hitShort: '命中',
+        inShort: '入',
+        outShort: '出',
+        ttftShort: '首字',
+        genShort: '生成',
+        e2eShort: 'E2E',
+        lowConfTip: '生成耗时 <50ms（极短响应），单条生成 TPS 不计入高置信值',
+        detailSession: '会话',
+        detailWorkspace: '工作区',
+        detailReqId: '请求 ID',
+        detailInSplit: '输入拆解：未缓存 {uncached} · 缓存读 {cache} ({hit}%) · 总输入 {tot}',
+        detailOutSplit: '输出拆解：思考 {think} · 可见 {vis}',
+        tokensTripleTip: '未缓存输入 / 缓存读取 / 总输出',
+        detailTiming: '耗时：首字 {ttft} · 生成 {gen} · 总计 {tot}',
+        detailSaved: '缓存节省 {saved}',
+        pageSummary: '共 {total} 条 · 第 {page}/{pages} 页',
+        prevPage: '上一页',
+        nextPage: '下一页',
+        perPage: '{n} 条/页',
+        loadingPage: '加载请求明细…',
+        noMatchingReqs: '当前筛选条件下没有匹配的请求记录。',
+        summaryTotals: '区间总值',
+        summaryAverages: '均值与分位',
+        statTotalReq: '请求总数',
+        statTotalTokens: '总 Token',
+        statTotalOut: '总输出（含思考）',
+        statTotalCost: 'API 等价总费',
+        statCacheSaved: '缓存总节省',
+        statAvgCost: '单请求均价',
+        statAvgOut: '均输出 Token',
+        statTtftDist: '首字 P50 / 均 / P95',
+        statDecodeTps: '纯生成 TPS',
+        statE2eTps: '端到端 TPS',
+        byModelTitle: '按模型速度与费用对比',
+        modelColReq: '请求',
+        modelColTtft: '首字 (P50/均)',
+        modelColTps: '生成 / E2E TPS',
+        modelColCost: '总价 / 均价',
+        periodTitle: '按时段统计（均值 & 总值）',
+        periodColTime: '时段',
+        periodColVol: '请求 / 总 Token',
+        periodColSpeed: '首字 / 生成·E2E TPS',
+        periodColCost: '总价 / 均价',
+        periodNoData: '暂无时段聚合数据。'
       },
       cache: {
         noDataBadge: '无会话数据',
@@ -977,6 +1069,12 @@
           setHelp: 'What it shows: Cross-session Model × Idle-Gap hit matrix, log-scale gap scatter plot, top anomalies, and anonymized issue report.\nWhen to enable: Turn ON when diagnosing TTL decay, model-specific cache drops, or routing misses (OFF by default).\nScan scope: Consecutive turn pairs across the local historical index within the selected range.',
           headHelp: 'Idle Gap = cur.createdAt - prev.completedAt; Start Gap = cur.createdAt - prev.createdAt.\nUnexpected 0% Miss: prev hit ≥70% (same model, uncompacted) drops to 0 cacheRead.\nBoundary Cut: prev hit ≥70% drops to <40% with cacheRead in 5k–28k.\nBounce-Back: next turn immediately recovers ≥70% hit, indicating transient miss rather than prefix drift.'
         },
+        'request-speed': {
+          title: 'Request Log & Speed',
+          desc: 'Paginated request log, TTFT, Decode & E2E TPS, and period averages/totals',
+          setHelp: 'What it shows: On-demand paginated request log (input, cache hit, output, TTFT, TPS, pure API-eq. cost) plus per-model and per-period averages & totals.\nWhen to enable: Turn ON to inspect individual request costs/latency or track model throughput over time.\nScan scope: Summary reuses active range analytics; paginated details query on demand only when expanded.',
+          headHelp: 'All costs use pure 3-tier API rates (never multiplied by quota calibration factors).\nShows both Decode TPS (output / gen time) and End-to-End TPS (output / total time), with an orthogonal aggregation switch between Token-Weighted and Per-Request P50.'
+        },
         'quota-budget': {
           title: 'Quota & Cycle Budget',
           desc: 'Manual 2-decimal remaining % anchors with 95% CI cycle budget inversion',
@@ -995,7 +1093,92 @@
         nearWarnBanner: '⚠ Context is nearing the auto-compact ceiling (≥75%); summarization or prefix recompute may trigger soon.',
         uncategorized: 'Uncategorized',
         chartAria: 'Context composition stacked bar',
-        noBreakdown: 'No detailed context breakdown available (captured on latest turn only).'
+        noBreakdown: 'No detailed context breakdown available (captured on latest turn only).',
+        lastReply: 'Last reply {time} · {age} ago',
+        freshHot: 'Cache likely warm',
+        freshWarn: 'May be decaying',
+        freshCold: 'Likely expired',
+        freshPrevCold: 'Prev turn cold',
+        freshTipEmpirical: 'Based on {total} follow-ups for {scope} in last {hours}h ({bucket} bucket: {n} turns, {keep}% keep rate, {hit}% token hit).',
+        freshTipNeighbor: 'Based on {total} follow-ups for {scope} in last {hours}h ({bucket} bucket sparse; inferred from {refBucket} at {keep}% keep rate).',
+        freshTipPrior: 'Insufficient samples in last {hours}h; using heuristic baseline (<5m warm / 5–15m caution / >15m likely expired).',
+        freshTipPrevCold: 'The latest turn had 0% cache hit (cold start); next turn depends on whether its prefix stayed cached.',
+        freshScopeAll: 'all models'
+      },
+      reqSpeed: {
+        tabRequests: 'Requests',
+        tabSpeed: 'Speed & Periods',
+        aggWeighted: 'Token-Weighted',
+        aggP50: 'Per-Req P50',
+        aggSettingName: 'TPS Aggregation Mode',
+        aggSettingDesc: 'Applies orthogonally to both Decode TPS and End-to-End TPS summaries',
+        aggSettingHelp: 'Token-Weighted (sum(out) / sum(s)): Immune to tiny-response outliers; reflects true throughput.\nPer-Req P50: Computes TPS per request then takes the median; reflects typical single-turn feel.',
+        kpiRequests: 'Requests',
+        kpiTtft: 'TTFT',
+        kpiTps: 'TPS (Gen / E2E)',
+        kpiOutCost: 'Output / API $',
+        kpiTtftSub: 'P50 {p50} · Avg {avg}',
+        kpiOutSub: 'Out {out} · Avg {avgCost}',
+        latestPrefix: 'Latest',
+        emptyRange: 'No requests found for the selected range & account.',
+        filterAllModels: 'All Models',
+        filterAllSources: 'All Sources',
+        flagCold: '0% Miss Only',
+        flagSlow: 'Slow ≥15s',
+        sortTime: 'Time',
+        sortCost: 'Cost',
+        sortTtft: 'TTFT',
+        sortTps: 'Decode TPS',
+        sortE2eTps: 'E2E TPS',
+        sortTokens: 'Tokens',
+        colTime: 'Time / Model',
+        colTokens: 'In / Cache / Out',
+        colSpeed: 'TTFT / TPS',
+        colCost: 'API Eq.',
+        hitShort: 'Hit',
+        inShort: 'In',
+        outShort: 'Out',
+        ttftShort: 'TTFT',
+        genShort: 'Gen',
+        e2eShort: 'E2E',
+        lowConfTip: 'Generation time <50ms (ultra-short reply); decode TPS omitted as low-confidence',
+        detailSession: 'Session',
+        detailWorkspace: 'Workspace',
+        detailReqId: 'Request ID',
+        detailInSplit: 'Input split: Uncached {uncached} · Cache {cache} ({hit}%) · Total {tot}',
+        detailOutSplit: 'Output split: Think {think} · Visible {vis}',
+        tokensTripleTip: 'Uncached In / Cache Read / Total Out',
+        detailTiming: 'Timing: TTFT {ttft} · Gen {gen} · Total {tot}',
+        detailSaved: 'Cache saved {saved}',
+        pageSummary: '{total} total · Page {page}/{pages}',
+        prevPage: 'Prev',
+        nextPage: 'Next',
+        perPage: '{n}/page',
+        loadingPage: 'Loading requests…',
+        noMatchingReqs: 'No requests match the current filters.',
+        summaryTotals: 'Totals',
+        summaryAverages: 'Averages & Percentiles',
+        statTotalReq: 'Total Requests',
+        statTotalTokens: 'Total Tokens',
+        statTotalOut: 'Total Output',
+        statTotalCost: 'Total API Cost',
+        statCacheSaved: 'Total Cache Saved',
+        statAvgCost: 'Avg Cost / Req',
+        statAvgOut: 'Avg Output',
+        statTtftDist: 'TTFT P50 / Avg / P95',
+        statDecodeTps: 'Decode TPS',
+        statE2eTps: 'E2E TPS',
+        byModelTitle: 'Speed & Cost by Model',
+        modelColReq: 'Reqs',
+        modelColTtft: 'TTFT (P50/Avg)',
+        modelColTps: 'Gen / E2E TPS',
+        modelColCost: 'Total / Avg',
+        periodTitle: 'Period Stats (Averages & Totals)',
+        periodColTime: 'Period',
+        periodColVol: 'Reqs / Tokens',
+        periodColSpeed: 'TTFT / Gen·E2E TPS',
+        periodColCost: 'Total / Avg',
+        periodNoData: 'No period data available.'
       },
       cache: {
         noDataBadge: 'No data',
@@ -1735,6 +1918,182 @@
     return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${hhmm}`;
   }
 
+  function fmtTimeHms(tsMs) {
+    if (!tsMs) return '—';
+    const d = new Date(num(tsMs));
+    if (Number.isNaN(d.getTime())) return '—';
+    const pad = (x) => String(x).padStart(2, '0');
+    return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  }
+
+  function fmtElapsedAge(ms) {
+    const sec = Math.max(0, Math.floor(Number(ms || 0) / 1000));
+    if (sec < 60) return `${sec}s`;
+    const min = Math.floor(sec / 60);
+    const remS = sec % 60;
+    if (min < 60) return `${min}m ${String(remS).padStart(2, '0')}s`;
+    const hr = Math.floor(min / 60);
+    const remM = min % 60;
+    if (hr < 24) return remM > 0 ? `${hr}h ${remM}m` : `${hr}h`;
+    const days = Math.floor(hr / 24);
+    const remH = hr % 24;
+    return remH > 0 ? `${days}d ${remH}h` : `${days}d`;
+  }
+
+  function fmtLatencyMs(ms) {
+    if (ms === null || ms === undefined || !Number.isFinite(Number(ms))) return '—';
+    const v = Number(ms);
+    if (v < 1000) return `${Math.round(v)}ms`;
+    const s = v / 1000;
+    return s >= 10 ? `${s.toFixed(1)}s` : `${s.toFixed(2)}s`;
+  }
+
+  function fmtTps(val) {
+    if (val === null || val === undefined || !Number.isFinite(Number(val)) || Number(val) <= 0) return '—';
+    const v = Number(val);
+    return v >= 100 ? `${Math.round(v)}` : v.toFixed(1);
+  }
+
+  function evaluateLiveCacheFreshness(lc, nowMs = Date.now()) {
+    if (!lc || !lc.lastReplyAtMs) return null;
+    const elapsedMs = Math.max(0, nowMs - Number(lc.lastReplyAtMs));
+    const elapsedSec = elapsedMs / 1000;
+    const replyTimeStr = fmtResetClock(lc.lastReplyAtMs);
+    const ageStr = fmtElapsedAge(elapsedMs);
+
+    if (lc.lastTurnCold) {
+      return {
+        cls: 'outline',
+        label: t('ctx.freshPrevCold'),
+        tip: t('ctx.freshTipPrevCold'),
+        replyTimeStr,
+        ageStr
+      };
+    }
+
+    const cf = lc.cacheFreshness;
+    const classifyKeep = (keep) => {
+      if (keep >= 0.7) return { cls: 'ok', label: t('ctx.freshHot') };
+      if (keep >= 0.3) return { cls: 'warn', label: t('ctx.freshWarn') };
+      return { cls: 'bad', label: t('ctx.freshCold') };
+    };
+
+    const findBucketIdx = (buckets) => {
+      if (!Array.isArray(buckets) || buckets.length === 0) return -1;
+      for (let i = 0; i < buckets.length; i++) {
+        const b = buckets[i];
+        if (b.maxSec === null || b.maxSec === undefined || elapsedSec <= b.maxSec) return i;
+      }
+      return buckets.length - 1;
+    };
+
+    const resolveFromCurve = (curve, scopeLabel, windowHours, totalSamples) => {
+      if (!Array.isArray(curve) || !curve.length || totalSamples <= 0) return null;
+      const idx = findBucketIdx(curve);
+      if (idx < 0) return null;
+      const b = curve[idx];
+
+      // 1. Direct bucket observation (>= 3 turns)
+      if (b.turns >= 3 && b.keepRate !== null) {
+        const st = classifyKeep(b.keepRate);
+        return {
+          ...st,
+          tip: t('ctx.freshTipEmpirical', {
+            hours: windowHours,
+            scope: scopeLabel,
+            total: totalSamples,
+            bucket: b.key,
+            n: b.turns,
+            keep: Math.round(b.keepRate * 100),
+            hit: b.weightedHitRatio != null ? Math.round(b.weightedHitRatio * 100) : Math.round(b.keepRate * 100)
+          })
+        };
+      }
+
+      // 2. Monotonic neighbor inference:
+      //    (a) If a LONGER idle bucket has >=3 turns and keepRate >= 0.7, shorter gap is also warm.
+      for (let j = idx + 1; j < curve.length; j++) {
+        if (curve[j].turns >= 3 && curve[j].keepRate !== null && curve[j].keepRate >= 0.7) {
+          const st = classifyKeep(curve[j].keepRate);
+          return {
+            ...st,
+            tip: t('ctx.freshTipNeighbor', {
+              hours: windowHours,
+              scope: scopeLabel,
+              total: totalSamples,
+              bucket: b.key,
+              refBucket: curve[j].key,
+              keep: Math.round(curve[j].keepRate * 100)
+            })
+          };
+        }
+      }
+      //    (b) If a SHORTER idle bucket has >=3 turns and keepRate < 0.3, longer gap is likely expired.
+      for (let j = idx - 1; j >= 0; j--) {
+        if (curve[j].turns >= 3 && curve[j].keepRate !== null && curve[j].keepRate < 0.3) {
+          const st = classifyKeep(curve[j].keepRate);
+          return {
+            ...st,
+            tip: t('ctx.freshTipNeighbor', {
+              hours: windowHours,
+              scope: scopeLabel,
+              total: totalSamples,
+              bucket: b.key,
+              refBucket: curve[j].key,
+              keep: Math.round(curve[j].keepRate * 100)
+            })
+          };
+        }
+      }
+
+      // 3. Small-sample direct observation (1-2 turns)
+      if (b.turns > 0 && b.keepRate !== null) {
+        const st = classifyKeep(b.keepRate);
+        return {
+          ...st,
+          tip: t('ctx.freshTipEmpirical', {
+            hours: windowHours,
+            scope: scopeLabel,
+            total: totalSamples,
+            bucket: b.key,
+            n: b.turns,
+            keep: Math.round(b.keepRate * 100),
+            hit: b.weightedHitRatio != null ? Math.round(b.weightedHitRatio * 100) : Math.round(b.keepRate * 100)
+          })
+        };
+      }
+      return null;
+    };
+
+    if (cf) {
+      const modelScope = cf.scope === 'model' ? (lc.modelId || lc.displayName) : t('ctx.freshScopeAll');
+      const hitModel = resolveFromCurve(cf.buckets, modelScope, cf.windowHours || 5, cf.totalSamples || 0);
+      if (hitModel) return { ...hitModel, replyTimeStr, ageStr };
+      if (cf.scope === 'model' && cf.allModels) {
+        const hitAll = resolveFromCurve(
+          cf.allModels.buckets,
+          t('ctx.freshScopeAll'),
+          cf.allModels.windowHours || 5,
+          cf.allModels.totalSamples || 0
+        );
+        if (hitAll) return { ...hitAll, replyTimeStr, ageStr };
+      }
+    }
+
+    const prior =
+      elapsedSec < 300
+        ? { cls: 'ok', label: t('ctx.freshHot') }
+        : elapsedSec < 900
+          ? { cls: 'warn', label: t('ctx.freshWarn') }
+          : { cls: 'bad', label: t('ctx.freshCold') };
+    return {
+      ...prior,
+      tip: t('ctx.freshTipPrior', { hours: cf?.windowHours || 5 }),
+      replyTimeStr,
+      ageStr
+    };
+  }
+
   function getInheritableResetAt(pool, windowType, targetAccountId = null) {
     let summaries = Array.isArray(state.quotaData?.summaries) ? state.quotaData.summaries : [];
     if (
@@ -2113,6 +2472,7 @@
       'model-cost': true,
       'calendar-trends': true,
       'cache-observatory': true,
+      'request-speed': true,
       'quota-budget': true
     },
     moduleOrder: [...ALL_MODULE_IDS],
@@ -2123,12 +2483,14 @@
       'model-cost': false,
       'calendar-trends': false,
       'cache-observatory': false,
+      'request-speed': false,
       'quota-budget': false
     },
     sources: { desktop: true, cli: true },
     refreshSec: 30,
     pricingAutoSync: false,
     quotaDisplayMode: 'remaining',
+    tpsAggMode: 'weighted',
     defaultRange: '7d',
     defaultAccountId: 'all',
     quotaAnchorsByPool: {},
@@ -2249,6 +2611,25 @@
     obsPinnedCell: null, // { modelIdx, bucketKey } | null
     obsCopyStatus: '', // '' | 'copied' | 'failed'
     obsCopyTimer: null,
+
+    // Request Log & Speed UI state
+    reqSpeed: {
+      tab: 'requests', // 'requests' | 'speed'
+      periodGran: 'auto', // 'auto' | '1h' | '5h' | '1d' | '7d'
+      model: 'all',
+      sourceFilter: 'all', // 'all' | 'cli' | 'desktop'
+      flag: 'all', // 'all' | 'cold' | 'slow'
+      sort: 'time', // 'time' | 'cost' | 'ttft' | 'tps' | 'e2eTps' | 'tokens'
+      dir: 'desc',
+      page: 1,
+      pageSize: 15,
+      expandedKey: '',
+      openMenu: '', // '' | 'model' | 'sort' | 'pageSize'
+      loading: false,
+      error: '',
+      data: null,
+      reqSeq: 0
+    },
 
     // Quota Calibration Lab & History UI state
     quotaFormOpen: null, // null = auto (collapsed when anchors exist or in overviewOnly), boolean = explicit
@@ -2452,6 +2833,7 @@
       isModuleActiveForView('model-cost') ||
         isModuleActiveForView('calendar-trends') ||
         isModuleActiveForView('cache-observatory') ||
+        isModuleActiveForView('request-speed') ||
         (isModuleActiveForView('io-flow') && state.ioScope === 'analytics')
     );
   }
@@ -2470,6 +2852,7 @@
     if (isModuleActiveForView('model-cost')) list.push('model-cost');
     if (isModuleActiveForView('calendar-trends')) list.push('calendar-trends');
     if (isModuleActiveForView('cache-observatory')) list.push('cache-observatory');
+    if (isModuleActiveForView('request-speed')) list.push('request-speed');
     return list;
   }
 
@@ -2522,6 +2905,7 @@
       },
       quotaCalibMode,
       quotaManualFactors,
+      tpsAggMode: cfg.tpsAggMode === 'p50' ? 'p50' : 'weighted',
       obsMatrixPrimary,
       obsMatrixSubMetrics,
       obsGapBreakpointsSec,
@@ -2580,6 +2964,43 @@
       state.quotaError = err.message;
     }
     renderGrid();
+  }
+
+  async function fetchRequestsPage({ silent = false } = {}) {
+    const rs = state.reqSpeed;
+    const seq = ++rs.reqSeq;
+    const hadData = Boolean(rs.data);
+    if (!silent) {
+      rs.loading = true;
+      rs.error = '';
+      if (!hadData) renderGrid();
+    }
+    try {
+      const srcs = encodeURIComponent(getActiveSourcesList().join(','));
+      const acc = encodeURIComponent(state.accountId || 'all');
+      let qs = `range=${encodeURIComponent(state.rangeKey)}&sources=${srcs}&account=${acc}`;
+      if (state.rangeKey === 'custom' && state.customFrom && state.customTo) {
+        qs += `&from=${encodeURIComponent(state.customFrom)}&to=${encodeURIComponent(state.customTo)}`;
+      }
+      qs += `&model=${encodeURIComponent(rs.model || 'all')}`;
+      qs += `&sourceFilter=${encodeURIComponent(rs.sourceFilter || 'all')}`;
+      qs += `&flag=${encodeURIComponent(rs.flag || 'all')}`;
+      qs += `&sort=${encodeURIComponent(rs.sort || 'time')}&dir=${encodeURIComponent(rs.dir || 'desc')}`;
+      qs += `&page=${encodeURIComponent(rs.page || 1)}&pageSize=${encodeURIComponent(rs.pageSize || 15)}`;
+      const res = await getJson(`/api/requests?${qs}`);
+      if (seq !== rs.reqSeq) return; // drop stale out-of-order response
+      rs.data = res;
+      if (res && typeof res.page === 'number') rs.page = res.page;
+      rs.error = '';
+    } catch (err) {
+      if (seq !== rs.reqSeq) return;
+      rs.error = err.message;
+    } finally {
+      if (seq === rs.reqSeq) {
+        rs.loading = false;
+        if (!silent) renderGrid();
+      }
+    }
   }
 
   async function refreshAll(manual = false) {
@@ -2717,6 +3138,14 @@
         );
       }
 
+      if (
+        isModuleActiveForView('request-speed') &&
+        isCardExpandedForView('request-speed') &&
+        state.reqSpeed.tab === 'requests'
+      ) {
+        tasks.push(fetchRequestsPage({ silent: true }));
+      }
+
       await Promise.all(tasks);
       state.lastUpdatedAt = Date.now();
     } catch (err) {
@@ -2750,7 +3179,28 @@
     updateFreshnessUI();
   }
 
+  function tickLiveCacheFreshnessUI() {
+    const lc = state.session?.found ? state.session.liveContext : null;
+    if (!lc || !lc.lastReplyAtMs) return;
+    const textEl = document.getElementById('live-reply-age');
+    const pillEl = document.getElementById('live-cache-fresh-pill');
+    if (!textEl && !pillEl) return;
+    const info = evaluateLiveCacheFreshness(lc, Date.now());
+    if (!info) return;
+    if (textEl) {
+      const nextText = t('ctx.lastReply', { time: info.replyTimeStr, age: info.ageStr });
+      if (textEl.textContent !== nextText) textEl.textContent = nextText;
+    }
+    if (pillEl) {
+      const nextCls = `pill ${info.cls} live-fresh-pill`;
+      if (pillEl.className !== nextCls) pillEl.className = nextCls;
+      if (pillEl.textContent !== info.label) pillEl.textContent = info.label;
+      if (pillEl.dataset.tip !== info.tip) pillEl.setAttribute('data-tip', info.tip);
+    }
+  }
+
   function updateFreshnessUI() {
+    tickLiveCacheFreshnessUI();
     const el = dom.freshness;
     const txt = dom.freshnessText;
     if (!el || !txt) return;
@@ -3584,6 +4034,16 @@
           <span>${esc(t('ctx.turnsDur', { turns: num(lc.turnCount, 0), dur: fmtDurationMs(lc.sessionDurationMs) }))}</span>
           ${pct >= 75 ? `<span class="pill warn">${esc(t('ctx.nearCompact'))}</span>` : `<span>${esc(t('ctx.markers'))}</span>`}
         </div>
+        ${(() => {
+          const fresh = evaluateLiveCacheFreshness(lc, Date.now());
+          if (!fresh) return '';
+          return `
+            <div class="live-reply-row num">
+              <span id="live-reply-age" class="muted-note mono">${esc(t('ctx.lastReply', { time: fresh.replyTimeStr, age: fresh.ageStr }))}</span>
+              <span id="live-cache-fresh-pill" class="pill ${fresh.cls} live-fresh-pill" data-tip="${esc(fresh.tip)}" data-tip-anchor="1" tabindex="0">${esc(fresh.label)}</span>
+            </div>
+          `;
+        })()}
       </div>
     `;
 
@@ -7245,6 +7705,505 @@
   }
 
   // =========================================================================
+  // 16b. Rendering: Module 8 — Request Log & Speed
+  // =========================================================================
+  function getReqSpeedAggMode() {
+    return state.config.tpsAggMode === 'p50' ? 'p50' : 'weighted';
+  }
+
+  function pickAggTps(obj, aggMode) {
+    if (!obj) return { decode: null, e2e: null };
+    return aggMode === 'p50'
+      ? { decode: obj.p50DecodeTps, e2e: obj.p50E2eTps }
+      : { decode: obj.weightedDecodeTps, e2e: obj.weightedE2eTps };
+  }
+
+  function resolveReqPeriodGran(periods) {
+    const req = state.reqSpeed.periodGran;
+    if (req && req !== 'auto' && Array.isArray(periods?.[req])) return req;
+    if (state.rangeKey === '5h' || state.rangeKey === 'today') return '1h';
+    if (state.rangeKey === '7d') return '1d';
+    if (state.rangeKey === '30d' || state.rangeKey === '90d') return '1d';
+    return '7d';
+  }
+
+  function fmtReqPeriodLabel(p, gran) {
+    const d = new Date(p.startMs);
+    const pad = (x) => String(x).padStart(2, '0');
+    if (gran === '1h') return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:00`;
+    if (gran === '5h') return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:00`;
+    if (gran === '1d') return `${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const e = new Date(p.endMs - 1);
+    return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ~ ${pad(e.getMonth() + 1)}-${pad(e.getDate())}`;
+  }
+
+  function renderRequestSpeed(expanded) {
+    if (state.analyticsError) {
+      return {
+        badges: `<span class="pill bad">${esc(t('common.readFailed'))}</span>`,
+        body: `<div class="banner error">${esc(state.analyticsError)}</div>`
+      };
+    }
+
+    const rs = state.analytics?.requestSpeed;
+    const aggMode = getReqSpeedAggMode();
+    if (!rs || !rs.totals || num(rs.totals.requests, 0) === 0) {
+      return {
+        badges: `<span class="pill outline">0</span>`,
+        body: `<div class="muted-note">${esc(t('reqSpeed.emptyRange'))}</div>`
+      };
+    }
+
+    const tot = rs.totals;
+    const avg = rs.averages || {};
+    const tps = pickAggTps(avg, aggMode);
+    const badges = `
+      <span class="pill outline num">${num(tot.requests).toLocaleString()}</span>
+      ${tps.decode != null ? `<span class="pill accent num mono">${fmtTps(tps.decode)} / ${fmtTps(tps.e2e)} t/s</span>` : ''}
+    `;
+
+    const latest = rs.latestRequest;
+    const latestHtml = latest
+      ? (() => {
+          const hitPct = Math.round(num(latest.hitRatio, 0) * 100);
+          const hitCls = latest.cold ? 'bad' : hitPct >= 70 ? 'ok' : hitPct >= 30 ? 'warn' : 'bad';
+          return `
+            <div class="req-latest-strip num">
+              <span class="muted-note" style="flex:none">${esc(t('reqSpeed.latestPrefix'))}</span>
+              <span class="truncate" style="font-weight:500">${esc(shortModelName(latest.canonicalModelId))}</span>
+              <span class="pill ${hitCls}" style="font-size:9.5px;height:15px;padding:0 4px">${hitPct}%</span>
+              <span class="muted-note mono">${fmtLatencyMs(latest.ttftMs)}</span>
+              <span class="mono" style="font-weight:600">${fmtTps(latest.decodeTps)}/${fmtTps(latest.e2eTps)}</span>
+              <span class="mono" style="margin-left:auto">${fmtUsd(latest.costUsd, 3)}</span>
+            </div>
+          `;
+        })()
+      : '';
+
+    let html = `
+      <div class="req-kpi-grid">
+        <div class="req-kpi-tile">
+          <div class="req-kpi-head"><span>${esc(t('reqSpeed.kpiRequests'))}</span></div>
+          <div class="req-kpi-line num mono">
+            <strong>${num(tot.requests).toLocaleString()}</strong>
+            <span class="req-kpi-sub">· ${esc(t('reqSpeed.hitShort'))} ${fmtPct(tot.hitRatio)}</span>
+          </div>
+        </div>
+        <div class="req-kpi-tile">
+          <div class="req-kpi-head"><span>${esc(t('reqSpeed.kpiTtft'))}</span><span class="muted-note">P50</span></div>
+          <div class="req-kpi-line num mono">
+            <strong>${fmtLatencyMs(avg.p50TtftMs ?? avg.avgTtftMs)}</strong>
+            <span class="req-kpi-sub">· ${esc(t('reqSpeed.kpiTtftSub', { p50: fmtLatencyMs(avg.p50TtftMs), avg: fmtLatencyMs(avg.avgTtftMs) }).split('·')[1]?.trim() || fmtLatencyMs(avg.avgTtftMs))}</span>
+          </div>
+        </div>
+        <div class="req-kpi-tile">
+          <div class="req-kpi-head"><span>${esc(t('reqSpeed.kpiTps'))}</span><span class="muted-note">${esc(aggMode === 'p50' ? 'P50' : t('reqSpeed.aggWeighted'))}</span></div>
+          <div class="req-kpi-line num mono">
+            <strong>${fmtTps(tps.decode)}</strong>
+            <span class="req-kpi-sub">/ ${fmtTps(tps.e2e)} t/s</span>
+          </div>
+        </div>
+        <div class="req-kpi-tile">
+          <div class="req-kpi-head"><span>${esc(t('reqSpeed.kpiOutCost'))}</span><span class="muted-note mono">${fmtTokens(tot.totalOut)}</span></div>
+          <div class="req-kpi-line num mono">
+            <strong>${fmtUsd(tot.costUsd)}</strong>
+            <span class="req-kpi-sub">· ${fmtUsd(avg.avgCostUsd, 3)}/req</span>
+          </div>
+        </div>
+      </div>
+      ${latestHtml}
+    `;
+
+    if (expanded) {
+      const ui = state.reqSpeed;
+      const topControls = `
+        <div class="req-top-bar" data-stop-card>
+          <div class="seg">
+            <button type="button" class="${ui.tab === 'requests' ? 'active' : ''}" data-action="set-req-tab" data-tab="requests">${esc(t('reqSpeed.tabRequests'))}</button>
+            <button type="button" class="${ui.tab === 'speed' ? 'active' : ''}" data-action="set-req-tab" data-tab="speed">${esc(t('reqSpeed.tabSpeed'))}</button>
+          </div>
+          <div class="seg" title="${esc(t('reqSpeed.aggSettingHelp'))}">
+            <button type="button" class="${aggMode === 'weighted' ? 'active' : ''}" data-action="set-tps-agg" data-mode="weighted">${esc(t('reqSpeed.aggWeighted'))}</button>
+            <button type="button" class="${aggMode === 'p50' ? 'active' : ''}" data-action="set-tps-agg" data-mode="p50">${esc(t('reqSpeed.aggP50'))}</button>
+          </div>
+        </div>
+      `;
+
+      let tabBody = '';
+      if (ui.tab === 'requests') {
+        tabBody = renderRequestLogTab(rs);
+      } else {
+        tabBody = renderRequestSpeedStatsTab(rs, aggMode);
+      }
+
+      html += `<div class="card-expanded">${topControls}${tabBody}</div>`;
+    }
+
+    return { badges, body: html };
+  }
+
+  function fmtReqTimeCompact(tsMs) {
+    if (!tsMs) return '—';
+    const d = new Date(num(tsMs));
+    if (Number.isNaN(d.getTime())) return '—';
+    const now = new Date();
+    const pad = (x) => String(x).padStart(2, '0');
+    if (
+      d.getFullYear() === now.getFullYear() &&
+      d.getMonth() === now.getMonth() &&
+      d.getDate() === now.getDate()
+    ) {
+      return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    }
+    return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  function renderReqDropdown({ id, label, items, activeVal, pickAction, alignRight = false, small = false, dropUp = false }) {
+    const isOpen = state.reqSpeed.openMenu === id;
+    const checkSvg =
+      '<svg class="icon" width="11" height="11" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-6.5"/></svg>';
+    const menuHtml = isOpen
+      ? `<div class="req-dd-menu ${alignRight ? 'right' : ''} ${dropUp ? 'up' : ''} ${small ? 'compact' : ''}" role="listbox">
+           ${items
+             .map((it) => {
+               const sel = String(it.value) === String(activeVal);
+               return `<button type="button" class="req-dd-item ${sel ? 'active' : ''}" role="option" aria-selected="${sel}" data-action="${esc(pickAction)}" data-value="${esc(it.value)}">
+                 <span class="truncate">${esc(it.label)}</span>
+                 ${sel ? checkSvg : ''}
+               </button>`;
+             })
+             .join('')}
+         </div>`
+      : '';
+    return `
+      <div class="req-dd-wrap" data-stop-card>
+        <button type="button" class="req-dd-trigger ${small ? 'sm' : ''} ${isOpen ? 'open' : ''}" data-action="toggle-req-dd" data-dd="${esc(id)}" aria-haspopup="listbox" aria-expanded="${isOpen}">
+          <span class="truncate">${esc(label)}</span>
+          <svg class="icon req-dd-chev" width="10" height="10" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg>
+        </button>
+        ${menuHtml}
+      </div>
+    `;
+  }
+
+  function renderRequestLogTab(rsSummary) {
+    const ui = state.reqSpeed;
+    const pageData = ui.data;
+    const availModels =
+      Array.isArray(pageData?.availableModels) && pageData.availableModels.length
+        ? pageData.availableModels
+        : Array.isArray(rsSummary?.byModel)
+          ? rsSummary.byModel.map((m) => ({
+              canonicalId: m.canonicalId,
+              displayName: m.displayName,
+              count: m.requests
+            }))
+          : [];
+
+    const modelItems = [
+      { value: 'all', label: t('reqSpeed.filterAllModels') },
+      ...availModels.map((m) => ({
+        value: m.canonicalId,
+        label: `${shortModelName(m.canonicalId)} (${num(m.count)})`
+      }))
+    ];
+    const activeModelLabel =
+      ui.model === 'all'
+        ? t('reqSpeed.filterAllModels')
+        : shortModelName(ui.model);
+
+    const sortItems = [
+      { value: 'time', label: t('reqSpeed.sortTime') },
+      { value: 'cost', label: t('reqSpeed.sortCost') },
+      { value: 'ttft', label: t('reqSpeed.sortTtft') },
+      { value: 'tps', label: t('reqSpeed.sortTps') },
+      { value: 'e2eTps', label: t('reqSpeed.sortE2eTps') },
+      { value: 'tokens', label: t('reqSpeed.sortTokens') }
+    ];
+    const activeSortLabel = sortItems.find((x) => x.value === ui.sort)?.label || t('reqSpeed.sortTime');
+
+    const filterBar = `
+      <div class="req-filter-bar" data-stop-card>
+        ${renderReqDropdown({
+          id: 'model',
+          label: activeModelLabel,
+          items: modelItems,
+          activeVal: ui.model || 'all',
+          pickAction: 'pick-req-model'
+        })}
+        <div class="seg">
+          <button type="button" class="${ui.sourceFilter === 'all' ? 'active' : ''}" data-action="req-filter-source" data-src="all">${esc(t('common.all'))}</button>
+          <button type="button" class="${ui.sourceFilter === 'cli' ? 'active' : ''}" data-action="req-filter-source" data-src="cli">CLI</button>
+          <button type="button" class="${ui.sourceFilter === 'desktop' ? 'active' : ''}" data-action="req-filter-source" data-src="desktop">IDE</button>
+        </div>
+        <div class="quick-chips">
+          <button type="button" class="quick-chip ${ui.flag === 'cold' ? 'active' : ''}" data-action="req-toggle-flag" data-flag="cold">${esc(t('reqSpeed.flagCold'))}</button>
+          <button type="button" class="quick-chip ${ui.flag === 'slow' ? 'active' : ''}" data-action="req-toggle-flag" data-flag="slow">${esc(t('reqSpeed.flagSlow'))}</button>
+        </div>
+        <div style="display:inline-flex;align-items:center;gap:4px;margin-left:auto">
+          ${renderReqDropdown({
+            id: 'sort',
+            label: activeSortLabel,
+            items: sortItems,
+            activeVal: ui.sort || 'time',
+            pickAction: 'pick-req-sort',
+            alignRight: true
+          })}
+          <button type="button" class="icon-btn" style="width:24px;height:24px" data-action="req-toggle-dir" title="${ui.dir === 'asc' ? 'ASC' : 'DESC'}">${ui.dir === 'asc' ? '↑' : '↓'}</button>
+        </div>
+      </div>
+    `;
+
+    if (ui.error) {
+      return `${filterBar}<div class="banner error">${esc(ui.error)}</div>`;
+    }
+    if (ui.loading && !pageData) {
+      return `${filterBar}<div class="muted-note" style="padding:10px 2px">${esc(t('reqSpeed.loadingPage'))}</div>`;
+    }
+    const items = Array.isArray(pageData?.items) ? pageData.items : [];
+    if (!items.length) {
+      return `${filterBar}<div class="muted-note" style="padding:10px 2px">${esc(t('reqSpeed.noMatchingReqs'))}</div>`;
+    }
+
+    const multiAcc = isMultiAccountActive();
+    const tripleTip = t('reqSpeed.tokensTripleTip');
+    const rowsHtml = items
+      .map((it) => {
+        const rowKey = `${it.conversationId}:${it.stepIdx}`;
+        const isOpen = ui.expandedKey === rowKey;
+        const hitPct = Math.round(num(it.hitRatio, 0) * 100);
+        const hitCls = it.cold ? 'bad' : hitPct >= 70 ? 'ok' : hitPct >= 30 ? 'warn' : 'bad';
+        const acc = multiAcc ? getAccountById(it.accountId) : null;
+        const accDot = multiAcc
+          ? `<span class="acc-dot" style="background:${safeColor(acc?.color)}" title="${esc(getAccountDisplayName(it.accountId))}"></span>`
+          : '';
+        const srcTag = it.source === 'cli' ? 'CLI' : 'IDE';
+        const genTpsText =
+          it.decodeTps != null
+            ? fmtTps(it.decodeTps)
+            : it.lowConfGen
+              ? `<span class="muted-note" data-tip="${esc(t('reqSpeed.lowConfTip'))}" data-tip-anchor="1">—*</span>`
+              : '—';
+        const e2eTpsText = fmtTps(it.e2eTps);
+        const tripleText = `${fmtTokens(it.uncachedIn)}/${fmtTokens(it.cacheRead)}/${fmtTokens(it.totalOut)}`;
+
+        const detailHtml = isOpen
+          ? `<div class="req-detail-box num">
+               <div class="req-detail-line">
+                 <span class="pill outline" style="font-size:9px;height:15px;padding:0 4px">${srcTag}</span>
+                 ${it.longContext ? '<span class="pill warn" style="font-size:9px;height:15px;padding:0 4px">&gt;200k</span>' : ''}
+                 <span class="muted-note">${esc(t('reqSpeed.detailSession'))}:</span>
+                 <span class="truncate">${esc(it.title || it.conversationId.slice(0, 8))}</span>
+                 <span class="muted-note mono">#${it.stepIdx}</span>
+                 <span class="muted-note mono" style="margin-left:auto">${esc(fmtTimeHms(it.timestampMs))}</span>
+               </div>
+               ${it.workspace ? `<div class="req-detail-line"><span class="muted-note">${esc(t('reqSpeed.detailWorkspace'))}:</span><span class="truncate mono">${esc(baseName(it.workspace))}</span></div>` : ''}
+               <div class="req-detail-line mono">
+                 <span>${esc(
+                   t('reqSpeed.detailInSplit', {
+                     uncached: fmtTokens(it.uncachedIn),
+                     cache: fmtTokens(it.cacheRead),
+                     hit: (num(it.hitRatio, 0) * 100).toFixed(1),
+                     tot: fmtTokens(it.inputTotal)
+                   })
+                 )}</span>
+               </div>
+               <div class="req-detail-line mono">
+                 <span>${esc(t('reqSpeed.detailOutSplit', { think: fmtTokens(it.thinkingOut), vis: fmtTokens(it.visibleOut) }))}</span>
+                 <span>·</span>
+                 <span>${esc(t('reqSpeed.detailTiming', { ttft: fmtLatencyMs(it.ttftMs), gen: fmtLatencyMs(it.genMs), tot: fmtLatencyMs(it.totalMs) }))}</span>
+               </div>
+               <div class="req-detail-line mono">
+                 <span>${esc(t('reqSpeed.detailSaved', { saved: fmtUsd(it.cacheSavedUsd, 3) }))}</span>
+                 ${it.providerRequestId ? `<span>· ${esc(t('reqSpeed.detailReqId'))}: ${esc(it.providerRequestId)}</span>` : ''}
+               </div>
+             </div>`
+          : '';
+
+        return `
+          <div class="req-row-wrap ${isOpen ? 'open' : ''}">
+            <button type="button" class="req-row req-row-single num" data-action="toggle-req-detail" data-key="${esc(rowKey)}">
+              <span class="req-s-model">
+                ${accDot}
+                <strong class="truncate" title="${esc(it.canonicalModelId)}">${esc(shortModelName(it.canonicalModelId))}</strong>
+                <span class="req-s-time mono muted-note">${esc(fmtReqTimeCompact(it.timestampMs))}</span>
+              </span>
+              <span class="req-s-toks mono" data-tip="${esc(tripleTip)}" data-tip-anchor="1">${esc(tripleText)}</span>
+              <span class="pill ${hitCls} req-s-hit">${hitPct}%</span>
+              <span class="req-s-ttft mono" style="${it.slow ? 'color:var(--warn);font-weight:600' : ''}">${fmtLatencyMs(it.ttftMs)}</span>
+              <span class="req-s-tps mono" title="${esc(t('reqSpeed.genShort'))} / ${esc(t('reqSpeed.e2eShort'))} TPS">${genTpsText}<span class="muted-note">/${e2eTpsText}</span></span>
+              <span class="req-s-cost mono">${fmtUsd(it.costUsd, 3)}</span>
+            </button>
+            ${detailHtml}
+          </div>
+        `;
+      })
+      .join('');
+
+    const curPage = num(pageData.page, 1);
+    const totalPages = num(pageData.totalPages, 1);
+    const pageSizeItems = [15, 30, 50].map((sz) => ({
+      value: String(sz),
+      label: t('reqSpeed.perPage', { n: sz })
+    }));
+    const pagerHtml = `
+      <div class="req-pager num" data-stop-card>
+        <span class="muted-note">${esc(t('reqSpeed.pageSummary', { total: num(pageData.total).toLocaleString(), page: curPage, pages: totalPages }))}</span>
+        <div style="display:inline-flex;align-items:center;gap:5px">
+          ${renderReqDropdown({
+            id: 'pageSize',
+            label: t('reqSpeed.perPage', { n: num(ui.pageSize, 15) }),
+            items: pageSizeItems,
+            activeVal: String(num(ui.pageSize, 15)),
+            pickAction: 'pick-req-page-size',
+            alignRight: true,
+            small: true,
+            dropUp: true
+          })}
+          <button type="button" class="btn-sm" data-action="req-page-nav" data-page="${curPage - 1}" ${curPage <= 1 || ui.loading ? 'disabled' : ''}>${esc(t('reqSpeed.prevPage'))}</button>
+          <button type="button" class="btn-sm" data-action="req-page-nav" data-page="${curPage + 1}" ${curPage >= totalPages || ui.loading ? 'disabled' : ''}>${esc(t('reqSpeed.nextPage'))}</button>
+        </div>
+      </div>
+    `;
+
+    return `${filterBar}<div class="req-list ${ui.loading ? 'loading' : ''}">${rowsHtml}</div>${pagerHtml}`;
+  }
+
+  function renderRequestSpeedStatsTab(rs, aggMode) {
+    const tot = rs.totals || {};
+    const avg = rs.averages || {};
+    const tps = pickAggTps(avg, aggMode);
+    const byModel = Array.isArray(rs.byModel) ? rs.byModel : [];
+    const periods = rs.periods || {};
+    const gran = resolveReqPeriodGran(periods);
+    const periodList = Array.isArray(periods[gran]) ? periods[gran] : [];
+
+    const summaryCards = `
+      <div class="req-stats-split">
+        <div class="req-stats-box">
+          <div class="req-stats-title">${esc(t('reqSpeed.summaryAverages'))}</div>
+          <div class="req-kv-list num">
+            <div class="req-kv"><span>${esc(t('reqSpeed.statTtftDist'))}</span><strong class="mono">${fmtLatencyMs(avg.p50TtftMs)} / ${fmtLatencyMs(avg.avgTtftMs)} / ${fmtLatencyMs(avg.p95TtftMs)}</strong></div>
+            <div class="req-kv"><span>${esc(t('reqSpeed.statDecodeTps'))} (${esc(aggMode === 'p50' ? 'P50' : t('reqSpeed.aggWeighted'))})</span><strong class="mono">${fmtTps(tps.decode)} t/s</strong></div>
+            <div class="req-kv"><span>${esc(t('reqSpeed.statE2eTps'))} (${esc(aggMode === 'p50' ? 'P50' : t('reqSpeed.aggWeighted'))})</span><strong class="mono">${fmtTps(tps.e2e)} t/s</strong></div>
+            <div class="req-kv"><span>${esc(t('reqSpeed.statAvgCost'))}</span><strong class="mono">${fmtUsd(avg.avgCostUsd, 4)}</strong></div>
+            <div class="req-kv"><span>${esc(t('reqSpeed.statAvgOut'))}</span><strong class="mono">${fmtTokens(avg.avgOutputTokens)}</strong></div>
+          </div>
+        </div>
+        <div class="req-stats-box">
+          <div class="req-stats-title">${esc(t('reqSpeed.summaryTotals'))}</div>
+          <div class="req-kv-list num">
+            <div class="req-kv"><span>${esc(t('reqSpeed.statTotalReq'))}</span><strong class="mono">${num(tot.requests).toLocaleString()}</strong></div>
+            <div class="req-kv"><span>${esc(t('reqSpeed.statTotalTokens'))}</span><strong class="mono">${fmtTokens(tot.totalTokens)}</strong></div>
+            <div class="req-kv"><span>${esc(t('reqSpeed.statTotalOut'))}</span><strong class="mono">${fmtTokens(tot.totalOut)} <span class="muted-note" style="font-weight:400">(${esc(t('io.thinkingShort'))} ${fmtTokens(tot.thinkingOut)})</span></strong></div>
+            <div class="req-kv"><span>${esc(t('reqSpeed.statTotalCost'))}</span><strong class="mono">${fmtUsd(tot.costUsd)}</strong></div>
+            <div class="req-kv"><span>${esc(t('reqSpeed.statCacheSaved'))}</span><strong class="mono" style="color:var(--ok)">${fmtUsd(tot.cacheSavedUsd)}</strong></div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const modelTableHtml = byModel.length
+      ? `
+        <div class="req-sub-section">
+          <div class="req-stats-title">${esc(t('reqSpeed.byModelTitle'))}</div>
+          <div class="req-table-wrap">
+            <table class="req-table num">
+              <thead>
+                <tr>
+                  <th>${esc(t('model.viewModels'))}</th>
+                  <th class="r">${esc(t('reqSpeed.modelColReq'))}</th>
+                  <th class="r">${esc(t('reqSpeed.modelColTtft'))}</th>
+                  <th class="r">${esc(t('reqSpeed.modelColTps'))}</th>
+                  <th class="r">${esc(t('reqSpeed.modelColCost'))}</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${byModel
+                  .map((m) => {
+                    const mt = pickAggTps(m, aggMode);
+                    return `
+                      <tr>
+                        <td class="truncate" title="${esc(m.canonicalId)}"><strong>${esc(shortModelName(m.canonicalId))}</strong></td>
+                        <td class="r mono">${num(m.requests).toLocaleString()}</td>
+                        <td class="r mono">${fmtLatencyMs(m.p50TtftMs)} <span class="muted-note">/ ${fmtLatencyMs(m.avgTtftMs)}</span></td>
+                        <td class="r mono"><strong>${fmtTps(mt.decode)}</strong> <span class="muted-note">/ ${fmtTps(mt.e2e)}</span></td>
+                        <td class="r mono">${fmtUsd(m.costUsd)} <span class="muted-note">/ ${fmtUsd(m.avgCostUsd, 3)}</span></td>
+                      </tr>
+                    `;
+                  })
+                  .join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `
+      : '';
+
+    const periodGranBar = `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap">
+        <span class="req-stats-title" style="margin:0">${esc(t('reqSpeed.periodTitle'))}</span>
+        <div class="seg" data-stop-card>
+          ${['1h', '5h', '1d', '7d']
+            .map(
+              (g) =>
+                `<button type="button" class="${gran === g ? 'active' : ''}" data-action="set-req-period-gran" data-gran="${g}">${g}</button>`
+            )
+            .join('')}
+        </div>
+      </div>
+    `;
+
+    let periodBodyHtml = `<div class="muted-note" style="font-size:11px">${esc(t('reqSpeed.periodNoData'))}</div>`;
+    if (periodList.length > 0) {
+      const reversed = [...periodList].reverse();
+      const maxCost = Math.max(0.001, ...periodList.map((p) => num(p.costUsd, 0)));
+      const sparkBars = periodList
+        .map((p) => {
+          const pt = pickAggTps(p, aggMode);
+          const pctH = Math.max(8, Math.round((num(p.costUsd, 0) / maxCost) * 100));
+          const lbl = fmtReqPeriodLabel(p, gran);
+          const tip = `${lbl}: ${p.requests} reqs · ${fmtUsd(p.costUsd)} · TTFT ${fmtLatencyMs(p.avgTtftMs)} · TPS ${fmtTps(pt.decode)}/${fmtTps(pt.e2e)}`;
+          return `<div class="req-spark-col" data-tip="${esc(tip)}" tabindex="0"><div class="req-spark-bar" style="height:${pctH}%"></div></div>`;
+        })
+        .join('');
+
+      periodBodyHtml = `
+        <div class="req-spark-strip" aria-hidden="true">${sparkBars}</div>
+        <div class="req-table-wrap" style="max-height:240px;overflow-y:auto">
+          <table class="req-table num">
+            <thead>
+              <tr>
+                <th>${esc(t('reqSpeed.periodColTime'))}</th>
+                <th class="r">${esc(t('reqSpeed.periodColVol'))}</th>
+                <th class="r">${esc(t('reqSpeed.periodColSpeed'))}</th>
+                <th class="r">${esc(t('reqSpeed.periodColCost'))}</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${reversed
+                .map((p) => {
+                  const pt = pickAggTps(p, aggMode);
+                  return `
+                    <tr>
+                      <td class="mono">${esc(fmtReqPeriodLabel(p, gran))}</td>
+                      <td class="r mono">${num(p.requests)} <span class="muted-note">· ${fmtTokens(p.totalTokens)}</span></td>
+                      <td class="r mono">${fmtLatencyMs(p.avgTtftMs)} <span class="muted-note">·</span> <strong>${fmtTps(pt.decode)}</strong><span class="muted-note">/${fmtTps(pt.e2e)}</span></td>
+                      <td class="r mono">${fmtUsd(p.costUsd)} <span class="muted-note">/ ${fmtUsd(p.avgCostUsd, 3)}</span></td>
+                    </tr>
+                  `;
+                })
+                .join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    return `${summaryCards}${modelTableHtml}<div class="req-sub-section">${periodGranBar}${periodBodyHtml}</div>`;
+  }
+
+  // =========================================================================
   // 17. Rendering: Main Modules Grid
   // =========================================================================
   function renderGrid() {
@@ -7265,6 +8224,7 @@
       'model-cost': renderModelCost,
       'calendar-trends': renderCalendarTrends,
       'cache-observatory': renderCacheObservatory,
+      'request-speed': renderRequestSpeed,
       'quota-budget': renderQuotaBudget
     };
 
@@ -7272,7 +8232,12 @@
       .map((id) => {
         const expanded = isCardExpandedForView(id);
         const wideClass =
-          expanded && (id === 'calendar-trends' || id === 'model-cost' || id === 'cache-observatory' || id === 'quota-budget')
+          expanded &&
+          (id === 'calendar-trends' ||
+            id === 'model-cost' ||
+            id === 'cache-observatory' ||
+            id === 'request-speed' ||
+            id === 'quota-budget')
             ? 'span-wide'
             : '';
         const res = renderers[id](expanded);
@@ -7441,6 +8406,19 @@
                 <option value="300" ${refreshVal === '300' ? 'selected' : ''}>5m</option>
               </select>
             </label>
+          </div>
+          <div class="set-mod-row">
+            <div class="set-mod-meta">
+              <span class="set-mod-name">
+                <span>${esc(t('reqSpeed.aggSettingName'))}</span>
+                ${helpTip(t('reqSpeed.aggSettingHelp'))}
+              </span>
+              <span class="set-mod-desc">${esc(t('reqSpeed.aggSettingDesc'))}</span>
+            </div>
+            <div class="seg">
+              <button type="button" class="${getReqSpeedAggMode() === 'weighted' ? 'active' : ''}" data-action="set-tps-agg" data-mode="weighted">${esc(t('reqSpeed.aggWeighted'))}</button>
+              <button type="button" class="${getReqSpeedAggMode() === 'p50' ? 'active' : ''}" data-action="set-tps-agg" data-mode="p50">${esc(t('reqSpeed.aggP50'))}</button>
+            </div>
           </div>
         </div>
       </section>
@@ -7825,13 +8803,15 @@
     const active = document.activeElement;
     const editingQuotaForm = Boolean(
       isBackground &&
-        active &&
-        active.closest &&
-        (active.closest('#quota-anchor-form') ||
-          active.closest('.anchor-edit-inline') ||
-          active.closest('.calib-anchor-select') ||
-          active.closest('.session-acc-editor') ||
-          active.closest('[data-obs-gap-input="1"]'))
+        ((active &&
+          active.closest &&
+          (active.closest('#quota-anchor-form') ||
+            active.closest('.anchor-edit-inline') ||
+            active.closest('.calib-anchor-select') ||
+            active.closest('.session-acc-editor') ||
+            active.closest('.req-select') ||
+            active.closest('[data-obs-gap-input="1"]'))) ||
+          Boolean(state.reqSpeed.openMenu))
     );
     const editingSettingsInput = Boolean(
       isBackground && active && active.closest && active.closest('#settings-body input, #settings-body select')
@@ -7999,6 +8979,9 @@
         state.selectedDay = null;
         state.quotaFormOpen = null;
         state.quotaNearSwitchWarn = null;
+        state.reqSpeed.model = 'all';
+        state.reqSpeed.page = 1;
+        state.reqSpeed.expandedKey = '';
         renderHeader();
         await saveConfigPatch({ defaultAccountId: nextAcc });
         await refreshAll(true);
@@ -8191,6 +9174,9 @@
     if (!r) return;
     state.userChangedRange = true;
     state.rangeKey = r;
+    state.reqSpeed.model = 'all';
+    state.reqSpeed.page = 1;
+    state.reqSpeed.expandedKey = '';
     if (r === 'custom') {
       if (!state.customTo) state.customTo = fmtLocalDateStr(new Date());
       if (!state.customFrom) {
@@ -8211,6 +9197,9 @@
   dom.btnApplyCustom.addEventListener('click', () => {
     state.customFrom = dom.customFrom.value;
     state.customTo = dom.customTo.value;
+    state.reqSpeed.model = 'all';
+    state.reqSpeed.page = 1;
+    state.reqSpeed.expandedKey = '';
     if (state.customFrom && state.customTo) refreshAll(true);
   });
 
@@ -8230,11 +9219,139 @@
         if (state.query.expandAll || state.query.expandSet) {
           state.localExpandedOverrides.set(mod, next);
           renderGrid();
+          if (mod === 'request-speed' && next && state.reqSpeed.tab === 'requests') {
+            fetchRequestsPage();
+          }
           return;
         }
         state.config.expanded[mod] = next;
         renderGrid();
+        if (mod === 'request-speed' && next && state.reqSpeed.tab === 'requests') {
+          fetchRequestsPage();
+        }
         await saveConfigPatch({ expanded: { [mod]: next } });
+        return;
+      }
+
+      if (action === 'set-req-tab') {
+        e.stopPropagation();
+        const tab = actionEl.dataset.tab === 'speed' ? 'speed' : 'requests';
+        state.reqSpeed.tab = tab;
+        renderGrid();
+        if (tab === 'requests') {
+          await fetchRequestsPage();
+        }
+        return;
+      }
+
+      if (action === 'set-tps-agg') {
+        e.stopPropagation();
+        const mode = actionEl.dataset.mode === 'p50' ? 'p50' : 'weighted';
+        state.config.tpsAggMode = mode;
+        renderGrid();
+        if (state.settingsOpen) renderSettings();
+        await saveConfigPatch({ tpsAggMode: mode });
+        return;
+      }
+
+      if (action === 'req-filter-source') {
+        e.stopPropagation();
+        const src = actionEl.dataset.src || 'all';
+        if (src === 'all' || src === 'cli' || src === 'desktop') {
+          state.reqSpeed.sourceFilter = src;
+          state.reqSpeed.page = 1;
+          await fetchRequestsPage();
+        }
+        return;
+      }
+
+      if (action === 'req-toggle-flag') {
+        e.stopPropagation();
+        const fl = actionEl.dataset.flag;
+        if (fl === 'cold' || fl === 'slow') {
+          state.reqSpeed.flag = state.reqSpeed.flag === fl ? 'all' : fl;
+          state.reqSpeed.page = 1;
+          await fetchRequestsPage();
+        }
+        return;
+      }
+
+      if (action === 'req-toggle-dir') {
+        e.stopPropagation();
+        state.reqSpeed.dir = state.reqSpeed.dir === 'asc' ? 'desc' : 'asc';
+        state.reqSpeed.page = 1;
+        await fetchRequestsPage();
+        return;
+      }
+
+      if (action === 'toggle-req-detail') {
+        e.stopPropagation();
+        const key = actionEl.dataset.key || '';
+        state.reqSpeed.expandedKey = state.reqSpeed.expandedKey === key ? '' : key;
+        renderGrid();
+        return;
+      }
+
+      if (action === 'req-page-nav') {
+        e.stopPropagation();
+        const nextPage = Number(actionEl.dataset.page);
+        if (Number.isFinite(nextPage) && nextPage >= 1) {
+          state.reqSpeed.page = nextPage;
+          state.reqSpeed.expandedKey = '';
+          await fetchRequestsPage();
+        }
+        return;
+      }
+
+      if (action === 'set-req-period-gran') {
+        e.stopPropagation();
+        const g = actionEl.dataset.gran;
+        if (['1h', '5h', '1d', '7d'].includes(g)) {
+          state.reqSpeed.periodGran = g;
+          renderGrid();
+        }
+        return;
+      }
+
+      if (action === 'toggle-req-dd') {
+        e.stopPropagation();
+        const id = actionEl.dataset.dd || '';
+        state.reqSpeed.openMenu = state.reqSpeed.openMenu === id ? '' : id;
+        renderGrid();
+        return;
+      }
+
+      if (action === 'pick-req-model') {
+        e.stopPropagation();
+        state.reqSpeed.openMenu = '';
+        state.reqSpeed.model = actionEl.dataset.value || 'all';
+        state.reqSpeed.page = 1;
+        state.reqSpeed.expandedKey = '';
+        renderGrid();
+        await fetchRequestsPage();
+        return;
+      }
+
+      if (action === 'pick-req-sort') {
+        e.stopPropagation();
+        state.reqSpeed.openMenu = '';
+        state.reqSpeed.sort = actionEl.dataset.value || 'time';
+        state.reqSpeed.page = 1;
+        renderGrid();
+        await fetchRequestsPage();
+        return;
+      }
+
+      if (action === 'pick-req-page-size') {
+        e.stopPropagation();
+        state.reqSpeed.openMenu = '';
+        const sz = Number(actionEl.dataset.value);
+        if (Number.isFinite(sz) && sz >= 10 && sz <= 100) {
+          state.reqSpeed.pageSize = sz;
+          state.reqSpeed.page = 1;
+          renderGrid();
+          await fetchRequestsPage();
+        }
         return;
       }
 
@@ -8363,6 +9480,9 @@
         state.selectedDay = null;
         state.quotaFormOpen = null;
         state.quotaNearSwitchWarn = null;
+        state.reqSpeed.model = 'all';
+        state.reqSpeed.page = 1;
+        state.reqSpeed.expandedKey = '';
         renderHeader();
         await saveConfigPatch({ defaultAccountId: accId });
         await refreshAll(true);
@@ -9108,6 +10228,21 @@
       state.obsSelectedSliceKey = '';
       state.obsCompareKeys = [];
       renderGrid();
+    } else if (tgt.dataset?.action === 'req-filter-model') {
+      state.reqSpeed.model = tgt.value || 'all';
+      state.reqSpeed.page = 1;
+      await fetchRequestsPage();
+    } else if (tgt.dataset?.action === 'req-sort-by') {
+      state.reqSpeed.sort = tgt.value || 'time';
+      state.reqSpeed.page = 1;
+      await fetchRequestsPage();
+    } else if (tgt.dataset?.action === 'req-page-size') {
+      const sz = Number(tgt.value);
+      if (Number.isFinite(sz) && sz >= 10 && sz <= 100) {
+        state.reqSpeed.pageSize = sz;
+        state.reqSpeed.page = 1;
+        await fetchRequestsPage();
+      }
     } else if (tgt.dataset?.action === 'select-session') {
       state.selectedConversationId = tgt.value || '';
       state.sessionAccMenuOpen = false;
@@ -9217,6 +10352,14 @@
       state.config.lang = nextLang;
       renderAll();
       await saveConfigPatch({ lang: nextLang });
+      return;
+    }
+
+    if (action === 'set-tps-agg') {
+      const mode = actionEl.dataset.mode === 'p50' ? 'p50' : 'weighted';
+      state.config.tpsAggMode = mode;
+      renderAll();
+      await saveConfigPatch({ tpsAggMode: mode });
       return;
     }
 
@@ -9979,7 +11122,7 @@
     }
     const tipEl = e.target.closest?.('[data-tip]');
     if (!tipEl) return;
-    if (tipEl.classList.contains('help-tip')) {
+    if (tipEl.classList.contains('help-tip') || tipEl.dataset.tipAnchor === '1') {
       showTooltipAtElement(tipEl);
     } else {
       showTooltip(tipEl, e.clientX, e.clientY);
@@ -9992,7 +11135,7 @@
       if (!state.pinnedHelpEl) hideTooltip();
       return;
     }
-    if (!tipEl.classList.contains('help-tip')) {
+    if (!tipEl.classList.contains('help-tip') && tipEl.dataset.tipAnchor !== '1') {
       showTooltip(tipEl, e.clientX, e.clientY);
     }
   });
@@ -10111,6 +11254,11 @@
       renderAccountFilterMenu();
     }
 
+    if (state.reqSpeed.openMenu && !e.target.closest?.('.req-dd-wrap')) {
+      state.reqSpeed.openMenu = '';
+      renderGrid();
+    }
+
     const helpBtn = e.target.closest?.('.help-tip[data-tip]');
     if (helpBtn) {
       e.preventDefault();
@@ -10216,6 +11364,10 @@
       if (state.accFilterOpen) {
         state.accFilterOpen = false;
         renderAccountFilterMenu();
+      }
+      if (state.reqSpeed.openMenu) {
+        state.reqSpeed.openMenu = '';
+        renderGrid();
       }
       return;
     }

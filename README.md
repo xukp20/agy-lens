@@ -40,12 +40,12 @@ Many community usage extensions probe undocumented internal RPC endpoints, inspe
 
 ## Modular Feature Showcase
 
-AGY Lens ships with **7 independently toggleable and reorderable modules**—all enabled out of the box (with compact collapsed KPI cards for secondary views) so every capability is immediately discoverable while keeping your sidebar clean. Disable any module anytime to skip its queries completely.
+AGY Lens ships with **8 independently toggleable and reorderable modules**—all enabled out of the box (with compact collapsed KPI cards for secondary views) so every capability is immediately discoverable while keeping your sidebar clean. Disable any module anytime to skip its queries completely.
 
 ### 1. Live Context, Prompt Cache & Token Flow (Auxiliary Pane)
 
 Shown above in the dual-theme hero preview:
-- **Live Context**: Tracks tokens against the model's **Auto-Compact ceiling** (with `55%` caution and `80%` high-pressure ticks) and breaks down usage across `System Prompt`, `Tools`, `Rules`, `Skills`, `Subagents`, and `Chat Messages`.
+- **Live Context**: Tracks tokens against the model's **Auto-Compact ceiling** (with `55%` caution and `80%` high-pressure ticks) and breaks down usage across `System Prompt`, `Tools`, `Rules`, `Skills`, `Subagents`, and `Chat Messages`; also ticks live **time since last reply** with a color-coded empirical cache-freshness badge using progressive `5h`-step lookback (`5h → 10h → … → 168h` until `≥50` follow-up turns).
 - **Prompt Cache Diagnostics**: Displays last-turn hit ratio, session cumulative cache hit rate, estimated USD saved vs. uncached baseline, and a seamless **15-turn stacked bar chart** highlighting `Cold` starts and sudden `Drop` events.
 - **Input/Output & Token Flow**: Splits tokens across 4 buckets (`Uncached In`, `Cache Read`, `Thinking Out`, `Visible Out`) with `Session | Global` scope switching and average `TTFT / Gen` latency.
 
@@ -72,6 +72,7 @@ Diagnose cross-session prompt-cache instability—such as idle-gap TTL decay, tr
 
 - **Models & API-Eq. Cost**: Aggregates compute value by model or workspace, computes cache savings, uses flat 1M standard rates for Gemini 4 & Claude 5.5, and automatically applies **>200k tiered long-context pricing** (`>200k` badge) on models or user overrides that carry a long-context tier.
 - **16-Week Calendar Heatmap & Day Drill-Down**: Tracks active day streaks, Today vs. 7-day average deltas, 14-day sparkbars, and a crisp 1:1 pixel heatmap (`API-eq. $ | Tokens | Turns`). Click any day cell to drill down into that date's sessions and costs.
+- **Request Log & Speed (Module #8)**: On-demand SQL-paginated single-row request log (`GET /api/requests`) with model/source/0%-miss/slow filters and multi-field sorting, displaying `uncached/cacheRead/out`, hit %, TTFT, Decode & End-to-End TPS, and pure API-equivalent cost (never multiplied by quota calibration factors), with expandable per-turn details (`thinking/visible` split, timing, cache saved, `provider_request_id`). Its **Speed & Periods** view adds an orthogonal **`Token-Weighted` | `Per-Req P50`** switch, per-model speed comparisons, and `1h / 5h / 1d / 7d` period averages & totals.
 
 ### 4. Manual Quota Alignment & Cycle Budget Inversion (Module #7)
 
