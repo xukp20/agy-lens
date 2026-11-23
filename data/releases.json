@@ -1,0 +1,103 @@
+{
+  "updatedAt": "2026-11-23T08:34:57.367Z",
+  "totalAssetDownloads": 0,
+  "releaseCount": 15,
+  "releases": [
+    {
+      "tag": "v1.11.0",
+      "publishedAt": "2026-11-23T02:52:30Z",
+      "totalDownloads": 0,
+      "assets": []
+    },
+    {
+      "tag": "v1.10.0",
+      "publishedAt": "2026-11-22T15:10:01Z",
+      "totalDownloads": 0,
+      "assets": []
+    },
+    {
+      "tag": "v1.9.1",
+      "publishedAt": "2026-11-22T08:57:40Z",
+      "totalDownloads": 0,
+      "assets": []
+    },
+    {
+      "tag": "v1.9.0",
+      "publishedAt": "2026-11-22T07:50:10Z",
+      "totalDownloads": 0,
+      "assets": []
+    },
+    {
+      "tag": "v1.8.1",
+      "publishedAt": "2026-11-21T16:02:43Z",
+      "totalDownloads": 0,
+      "assets": []
+    },
+    {
+      "tag": "v1.8.0",
+      "publishedAt": "2026-11-21T15:50:35Z",
+      "totalDownloads": 0,
+      "assets": []
+    },
+    {
+      "tag": "v1.5.0",
+      "publishedAt": "2026-11-21T08:50:14Z",
+      "totalDownloads": 0,
+      "assets": []
+    },
+    {
+      "tag": "v1.4.2",
+      "publishedAt": "2026-11-21T08:18:45Z",
+      "totalDownloads": 0,
+      "assets": []
+    },
+    {
+      "tag": "v1.4.1",
+      "publishedAt": "2026-11-21T07:54:15Z",
+      "totalDownloads": 0,
+      "assets": []
+    },
+    {
+      "tag": "v1.4.0",
+      "publishedAt": "2026-11-21T07:33:56Z",
+      "totalDownloads": 0,
+      "assets": []
+    },
+    {
+      "tag": "v1.3.0",
+      "publishedAt": "2026-11-21T05:11:04Z",
+      "totalDownloads": 0,
+      "assets": []
+    },
+    {
+      "tag": "v1.2.1",
+      "publishedAt": "2026-11-20T11:22:04Z",
+      "totalDownloads": 0,
+      "assets": []
+    },
+    {
+      "tag": "v1.2.0",
+      "publishedAt": "2026-11-20T11:05:16Z",
+      "totalDownloads": 0,
+      "assets": []
+    },
+    {
+      "tag": "v1.1.0",
+      "publishedAt": "2026-11-20T10:28:13Z",
+      "totalDownloads": 0,
+      "assets": []
+    },
+    {
+      "tag": "v1.0.0",
+      "publishedAt": "2026-11-20T09:58:34Z",
+      "totalDownloads": 0,
+      "assets": []
+    }
+  ],
+  "history": {
+    "2026-11-23": {
+      "totalAssetDownloads": 0,
+      "releaseCount": 15
+    }
+  }
+}

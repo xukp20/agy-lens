@@ -1,0 +1,71 @@
+{
+  "updatedAt": "2026-11-23T08:34:57.367Z",
+  "last14d": {
+    "count": 92,
+    "uniques": 25,
+    "capturedAt": "2026-11-23T08:34:57.367Z"
+  },
+  "totals": {
+    "count": 92,
+    "sumDailyUniques": 26,
+    "recordedDays": 14
+  },
+  "days": {
+    "2026-11-08": {
+      "count": 0,
+      "uniques": 0
+    },
+    "2026-11-09": {
+      "count": 0,
+      "uniques": 0
+    },
+    "2026-11-10": {
+      "count": 0,
+      "uniques": 0
+    },
+    "2026-11-11": {
+      "count": 0,
+      "uniques": 0
+    },
+    "2026-11-12": {
+      "count": 0,
+      "uniques": 0
+    },
+    "2026-11-13": {
+      "count": 0,
+      "uniques": 0
+    },
+    "2026-11-14": {
+      "count": 0,
+      "uniques": 0
+    },
+    "2026-11-15": {
+      "count": 0,
+      "uniques": 0
+    },
+    "2026-11-16": {
+      "count": 0,
+      "uniques": 0
+    },
+    "2026-11-17": {
+      "count": 0,
+      "uniques": 0
+    },
+    "2026-11-18": {
+      "count": 0,
+      "uniques": 0
+    },
+    "2026-11-19": {
+      "count": 0,
+      "uniques": 0
+    },
+    "2026-11-20": {
+      "count": 15,
+      "uniques": 4
+    },
+    "2026-11-21": {
+      "count": 77,
+      "uniques": 22
+    }
+  }
+}

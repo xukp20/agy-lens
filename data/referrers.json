@@ -1,0 +1,32 @@
+{
+  "updatedAt": "2026-11-23T08:34:57.367Z",
+  "latest": {
+    "capturedAt": "2026-11-23T08:34:57.367Z",
+    "referrers": [
+      {
+        "referrer": "github.com",
+        "count": 18,
+        "uniques": 3
+      }
+    ]
+  },
+  "seenReferrers": {
+    "github.com": {
+      "firstSeen": "2026-11-23",
+      "lastSeen": "2026-11-23",
+      "max14dCount": 18,
+      "max14dUniques": 3,
+      "lastSeen14dCount": 18,
+      "lastSeen14dUniques": 3
+    }
+  },
+  "snapshots": {
+    "2026-11-23": [
+      {
+        "referrer": "github.com",
+        "count": 18,
+        "uniques": 3
+      }
+    ]
+  }
+}
