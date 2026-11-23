@@ -1,0 +1,76 @@
+name: Archive Traffic & Downloads
+
+on:
+  schedule:
+    - cron: '30 1 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: traffic-archive
+  cancel-in-progress: false
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository scripts
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Archive traffic and release metrics to traffic-data branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TRAFFIC_TOKEN: ${{ secrets.TRAFFIC_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          WORK_DIR="$(mktemp -d)"
+          trap 'rm -rf "$WORK_DIR"' EXIT
+
+          AUTH_B64="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 -w0)"
+          echo "::add-mask::${AUTH_B64}"
+          GIT_AUTH_CFG="http.https://github.com/.extraheader=AUTHORIZATION: basic ${AUTH_B64}"
+          REMOTE_URL="https://github.com/${GITHUB_REPOSITORY}.git"
+
+          git -C "$WORK_DIR" init -b traffic-data
+          git -C "$WORK_DIR" config user.name "github-actions[bot]"
+          git -C "$WORK_DIR" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C "$WORK_DIR" remote add origin "$REMOTE_URL"
+
+          set +e
+          git -C "$WORK_DIR" -c "$GIT_AUTH_CFG" ls-remote --exit-code --heads origin traffic-data >/dev/null
+          LS_RC=$?
+          set -e
+          if [ "$LS_RC" -eq 0 ]; then
+            git -C "$WORK_DIR" -c "$GIT_AUTH_CFG" fetch --depth=1 origin traffic-data
+            git -C "$WORK_DIR" reset --hard origin/traffic-data
+          elif [ "$LS_RC" -ne 2 ]; then
+            echo "::error::git ls-remote failed with exit code ${LS_RC}; aborting instead of overwriting traffic-data."
+            exit "$LS_RC"
+          fi
+
+          EXTRA_ARGS=()
+          if [ -n "${TRAFFIC_TOKEN:-}" ]; then
+            EXTRA_ARGS+=(--require-traffic)
+          fi
+          node scripts/archive_traffic.mjs --repo "$GITHUB_REPOSITORY" --out "$WORK_DIR" "${EXTRA_ARGS[@]}"
+
+          git -C "$WORK_DIR" add data SUMMARY.md
+          if git -C "$WORK_DIR" diff --cached --quiet; then
+            echo "No traffic archive changes to commit."
+            exit 0
+          fi
+
+          TODAY="$(date -u +%Y-%m-%d)"
+          git -C "$WORK_DIR" commit -m "chore(traffic): archive metrics for ${TODAY}"
+          git -C "$WORK_DIR" -c "$GIT_AUTH_CFG" push origin HEAD:refs/heads/traffic-data

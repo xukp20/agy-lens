@@ -1,0 +1,103 @@
+name: Release Tarball Asset
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to pack and upload (defaults to latest release)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-asset-${{ github.event.release.tag_name || github.event.inputs.tag || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  pack-and-upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve release tag
+        id: resolve
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT_TAG: ${{ github.event.release.tag_name }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          REPO: ${{ github.repository }}
+        run: |
+          TAG="${EVENT_TAG:-$INPUT_TAG}"
+          if [ -z "$TAG" ]; then
+            TAG="$(gh release view --repo "$REPO" --json tagName -q .tagName)"
+          fi
+          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][A-Za-z0-9.-]+)?$ ]]; then
+            echo "::error::Invalid release tag: $TAG"
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout tagged commit
+        uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ steps.resolve.outputs.tag }}
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Verify package version matches tag
+        env:
+          TAG: ${{ steps.resolve.outputs.tag }}
+        run: |
+          PKG_VER="$(node -e 'console.log(JSON.parse(require("fs").readFileSync("package.json", "utf8")).version)')"
+          if [ "v${PKG_VER}" != "$TAG" ]; then
+            echo "::error::package.json version (v${PKG_VER}) does not match release tag (${TAG})"
+            exit 1
+          fi
+
+      - name: Run unit tests
+        run: node --test scripts/test_*.mjs
+
+      - name: Pack tarball and checksums
+        id: pack
+        run: |
+          mkdir -p dist
+          TARBALL="$(npm pack --pack-destination dist | tail -n 1)"
+          if [ -z "$TARBALL" ] || [ ! -f "dist/$TARBALL" ]; then
+            echo "::error::npm pack did not produce expected tarball"
+            exit 1
+          fi
+          (cd dist && sha256sum "$TARBALL" > SHA256SUMS.txt)
+          SIZE_BYTES="$(stat -c%s "dist/$TARBALL")"
+          echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
+          echo "size_bytes=$SIZE_BYTES" >> "$GITHUB_OUTPUT"
+
+      - name: Upload assets to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.resolve.outputs.tag }}
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+        run: |
+          gh release upload "$TAG" "dist/$TARBALL" "dist/SHA256SUMS.txt" --clobber
+
+      - name: Write job summary
+        env:
+          TAG: ${{ steps.resolve.outputs.tag }}
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+          SIZE_BYTES: ${{ steps.pack.outputs.size_bytes }}
+        run: |
+          {
+            echo "### Release Asset Uploaded"
+            echo ""
+            echo "- **Release**: \`${TAG}\`"
+            echo "- **Tarball**: \`${TARBALL}\` (${SIZE_BYTES} bytes)"
+            echo "- **Checksums**: \`SHA256SUMS.txt\`"
+            echo ""
+            echo "\`\`\`text"
+            cat dist/SHA256SUMS.txt
+            echo "\`\`\`"
+          } >> "$GITHUB_STEP_SUMMARY"

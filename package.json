@@ -16,11 +16,23 @@
   "files": [
     "bin/",
     "sidecars/",
-    "assets/",
+    "assets/logo.svg",
     "plugin.json",
     "README.md",
     "README.zh-CN.md",
     "LICENSE"
+  ],
+  "keywords": [
+    "antigravity",
+    "agy",
+    "telemetry",
+    "prompt-caching",
+    "llm",
+    "gemini",
+    "claude",
+    "dashboard",
+    "cli",
+    "local-first"
   ],
   "engines": {
     "node": ">=24.0.0"
