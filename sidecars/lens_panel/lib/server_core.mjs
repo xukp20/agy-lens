@@ -126,7 +126,7 @@ export const DEFAULT_CONFIG = {
   defaultAccountId: 'all',
 };
 
-const POOL_ANCHOR_KEY_RE = /^(?:(?:default|acc_[0-9a-f]{4,16}):)?(?:gemini|argon|3p)$/;
+const POOL_ANCHOR_KEY_RE = /^(?:(?:default|acc_[0-9a-f]{4,16}):)?(?:gemini|3p)$/;
 
 function sanitizeQuotaAnchorsByPool(baseMap, patchMap) {
   const out = {};

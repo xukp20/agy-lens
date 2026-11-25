@@ -20,7 +20,7 @@ import {
   normalizeAccountIdFilter,
 } from './accounts.mjs';
 
-export const VALID_POOLS = ['gemini', 'argon', '3p'];
+export const VALID_POOLS = ['gemini', '3p'];
 export const VALID_WINDOWS = ['5h', '7d'];
 export const WINDOW_DURATION_MS = {
   '5h': 5 * 3600 * 1000,
@@ -45,7 +45,6 @@ export function getWindowDurationMs(windowType) {
 export function normalizePool(pool) {
   const s = String(pool || '').trim().toLowerCase();
   if (s === 'third-party' || s === 'third_party' || s === '3p') return '3p';
-  if (s === 'argon') return 'argon';
   if (s === 'gemini') return 'gemini';
   return null;
 }
@@ -152,7 +151,7 @@ export function validateResetAtForWindow(capturedAt, resetAt, windowType) {
 
 export function addQuotaAnchor(cacheDb, payload, nowMs = Date.now()) {
   const pool = normalizePool(payload?.pool);
-  if (!pool) throw new Error('Invalid pool (expected gemini, argon, or 3p)');
+  if (!pool) throw new Error('Invalid pool (expected gemini or 3p)');
 
   const windowType = normalizeWindowType(payload?.windowType ?? payload?.window);
   if (!windowType) throw new Error('Invalid windowType (expected 5h or 7d)');
@@ -427,15 +426,35 @@ function splitInternalRebounds(anchors, explicitRowSet) {
   return groups;
 }
 
+function hasReboundBeforeEntry(sorted, fromCapturedAt, entryRow) {
+  if (!Array.isArray(sorted) || !entryRow) return false;
+  const targetIdx = sorted.indexOf(entryRow);
+  const endIdx = targetIdx >= 0 ? targetIdx : sorted.length;
+  let minRow = null;
+  for (let i = 0; i <= endIdx && i < sorted.length; i++) {
+    const cur = sorted[i];
+    if (cur.captured_at < fromCapturedAt) continue;
+    if (minRow && cur.remaining_pct > minRow.remaining_pct + getReboundThreshold(minRow, cur)) {
+      return true;
+    }
+    if (!minRow || cur.remaining_pct < minRow.remaining_pct) {
+      minRow = cur;
+    }
+  }
+  return false;
+}
+
 /**
  * Two-pass cycle segmentation for ordered anchors of a single (pool, window_type).
  * Pass 1: Cluster explicit/legacy reset_at readings into cycle windows using interval overlap
- *         and 3-tier classification (shift > W/2 -> new cycle; overlap -> intersect;
- *         disjoint within W/2 -> correction conflict resolved by explicit & latest created_at).
- * Pass 2: Assign all anchors by captured_at into cycle windows. Anchors in the boundary
- *         ambiguity band [startLo, startHi) default to the older cycle unless they clearly
- *         show post-reset rebound or near-100% remaining. Unassigned gaps fall back to
- *         max-span and adaptive-rebound segmentation.
+ *         and 3-tier classification (shift > W/2 or early-reset forward shift with rebound /
+ *         pre-new-start history -> new cycle; overlap -> intersect;
+ *         disjoint within W/2 inside the same cycle -> correction conflict resolved by explicit & latest created_at).
+ * Pass 2: Assign all anchors by captured_at into cycle windows. Early-superseded slots are
+ *         clamped to the next slot's start so subsequent new-cycle anchors are never captured
+ *         by an overlapped older slot. Anchors in the boundary ambiguity band [startLo, startHi)
+ *         default to the older cycle unless they clearly show post-reset rebound or near-100%
+ *         remaining. Unassigned gaps fall back to max-span and adaptive-rebound segmentation.
  */
 export function buildCycleDescriptors(orderedAnchors, windowType = null) {
   if (!orderedAnchors || orderedAnchors.length === 0) return [];
@@ -465,6 +484,19 @@ export function buildCycleDescriptors(orderedAnchors, windowType = null) {
       // Clearly a later cycle if reset shifted forward > W/2 or capture crossed resetHi.
       if (windowMs > 0 && (delta > windowMs / 2 || entry.capturedAt > cl.resetHi)) {
         break;
+      }
+      // Early reset / cycle shift within W/2: reset moved strictly forward beyond precision
+      // uncertainty, and either quota clearly rebounded since cl or all resets in cl were
+      // captured strictly before the new cycle even began.
+      if (entry.lo > cl.resetHi) {
+        const lastMemberCap = cl.entries[cl.entries.length - 1]?.capturedAt ?? cl.winner.capturedAt;
+        const newStartLo = windowMs > 0 ? entry.lo - windowMs : null;
+        if (
+          hasReboundBeforeEntry(sorted, lastMemberCap, entry.row) ||
+          (newStartLo != null && lastMemberCap < newStartLo)
+        ) {
+          break;
+        }
       }
       if (intervalsOverlap || (windowMs > 0 && absDelta <= windowMs / 2)) {
         matched = cl;
@@ -556,6 +588,22 @@ export function buildCycleDescriptors(orderedAnchors, windowType = null) {
     members: cl.members,
     anchors: [],
   }));
+
+  // Clamp any slot superseded early by a subsequent explicit cycle so Pass 2 does not
+  // route new-cycle anchors into the older overlapping slot and spend windows stay disjoint.
+  for (let k = 0; k < explicitSlots.length - 1; k++) {
+    const slot = explicitSlots[k];
+    const nextSlot = explicitSlots[k + 1];
+    if (nextSlot.startLo != null && slot.resetHi != null && slot.resetHi > nextSlot.startLo) {
+      const floorLo = slot.startLo != null ? slot.startLo : -Infinity;
+      const floorHi = slot.startHi != null ? slot.startHi : floorLo;
+      slot.resetLo = Math.max(floorLo, Math.min(slot.resetLo, nextSlot.startLo));
+      slot.resetHi = Math.max(slot.resetLo, Math.min(slot.resetHi, nextSlot.startHi ?? nextSlot.startLo));
+      if (nextSlot.startMs != null && slot.endMs != null) {
+        slot.endMs = Math.max(slot.startMs ?? floorLo, Math.min(slot.endMs, nextSlot.startMs));
+      }
+    }
+  }
 
   if (explicitSlots.length === 0) {
     return splitGapRun(sorted, windowMs).map((anchors) => ({
@@ -726,24 +774,29 @@ export function segmentCycles(orderedAnchors, windowType = null) {
 function getPoolTurnsInInterval(cacheDb, pool, startExclusiveMs, endInclusiveMs, accountId = 'all') {
   if (!cacheDb || endInclusiveMs <= startExclusiveMs) return [];
   const accFilter = normalizeAccountIdFilter(accountId);
+  // Historical DBs (including --read-only snapshots) may still have legacy turns tagged pool='argon';
+  // Argon now shares the Gemini quota pool, so match both seamlessly.
+  const poolCondSql = pool === 'gemini' ? "pool IN ('gemini', 'argon')" : 'pool = ?';
+  const poolCondAliasedSql = pool === 'gemini' ? "t.pool IN ('gemini', 'argon')" : 't.pool = ?';
+  const poolParams = pool === 'gemini' ? [] : [pool];
   if (accFilter !== 'all' && hasAccountSchema(cacheDb)) {
     const { tsExprSql, joinSql, exprSql } = buildTurnAccountSql('t');
     return cacheDb
       .prepare(
         `SELECT t.* FROM turns t
          ${joinSql}
-         WHERE t.pool = ? AND ${tsExprSql} > ? AND ${tsExprSql} <= ? AND (${exprSql}) = ?
+         WHERE ${poolCondAliasedSql} AND ${tsExprSql} > ? AND ${tsExprSql} <= ? AND (${exprSql}) = ?
          ORDER BY ${tsExprSql} ASC`
       )
-      .all(pool, startExclusiveMs, endInclusiveMs, accFilter);
+      .all(...poolParams, startExclusiveMs, endInclusiveMs, accFilter);
   }
   return cacheDb
     .prepare(
       `SELECT * FROM turns
-       WHERE pool = ? AND completed_at_ms > ? AND completed_at_ms <= ?
+       WHERE ${poolCondSql} AND completed_at_ms > ? AND completed_at_ms <= ?
        ORDER BY completed_at_ms ASC`
     )
-    .all(pool, startExclusiveMs, endInclusiveMs);
+    .all(...poolParams, startExclusiveMs, endInclusiveMs);
 }
 
 function sumTurnsSpend(turns, pricingState, modelSpendMap) {
@@ -1712,6 +1765,9 @@ export function getQuotaStatus(
     if (filterPool) {
       clauses.push('pool = ?');
       params.push(filterPool);
+    } else {
+      clauses.push(`pool IN (${VALID_POOLS.map(() => '?').join(', ')})`);
+      params.push(...VALID_POOLS);
     }
     if (filterWin) {
       clauses.push('window_type = ?');

@@ -218,10 +218,10 @@ test('B4: two-pass splits beforeStart spanning 2+ cycles and handles out-of-orde
 
   // Deliberately unsorted / retroactive order spanning 3 distinct 7d cycles
   const anchors = [
-    { id: 1, pool: 'argon', window_type: '7d', remaining_pct: 70, precision_step: 0.01, captured_at: t0, reset_at: null, reset_source: '', reset_precision_ms: null, created_at: 1 },
-    { id: 3, pool: 'argon', window_type: '7d', remaining_pct: 85, precision_step: 0.01, captured_at: c3Start + DAY, reset_at: c3Reset, reset_source: 'explicit', reset_precision_ms: MIN, created_at: 3 },
+    { id: 1, pool: 'gemini', window_type: '7d', remaining_pct: 70, precision_step: 0.01, captured_at: t0, reset_at: null, reset_source: '', reset_precision_ms: null, created_at: 1 },
+    { id: 3, pool: 'gemini', window_type: '7d', remaining_pct: 85, precision_step: 0.01, captured_at: c3Start + DAY, reset_at: c3Reset, reset_source: 'explicit', reset_precision_ms: MIN, created_at: 3 },
     // Retroactive insert from cycle 2 (10 days after t0, 6 days before c3Start)
-    { id: 2, pool: 'argon', window_type: '7d', remaining_pct: 60, precision_step: 0.01, captured_at: t0 + 10 * DAY, reset_at: null, reset_source: '', reset_precision_ms: null, created_at: 4 },
+    { id: 2, pool: 'gemini', window_type: '7d', remaining_pct: 60, precision_step: 0.01, captured_at: t0 + 10 * DAY, reset_at: null, reset_source: '', reset_precision_ms: null, created_at: 4 },
   ];
 
   const cycles = segmentCycles(anchors, '7d');
@@ -340,38 +340,39 @@ test('I2: validation rejects 7d countdown entered into 5h window and future capt
   );
 });
 
-test('Three pools (gemini, argon, 3p) maintain completely independent 7d reset cycles', () => {
+test('Two pools (gemini, 3p) maintain completely independent 7d reset cycles and merge legacy argon turns into gemini', () => {
   const db = createTestDb();
   const now = Date.parse('2026-11-21T12:00:00Z');
 
   const gReset = now + 2 * DAY; // Gemini cycle: Nov 16 -> Nov 23
-  const aReset = now + 4 * DAY; // Argon cycle:  Nov 18 -> Nov 25
   const pReset = now + 6 * DAY; // 3P cycle:     Nov 20 -> Nov 27
 
   // Insert an old anchor and a current anchor for each pool
   addQuotaAnchor(db, { pool: 'gemini', windowType: '7d', remainingPct: 40, capturedAt: gReset - W7D - DAY }, now);
   addQuotaAnchor(db, { pool: 'gemini', windowType: '7d', remainingPct: 85, capturedAt: now - HOUR, resetAt: gReset, resetPrecisionMs: MIN }, now);
 
-  addQuotaAnchor(db, { pool: 'argon', windowType: '7d', remainingPct: 50, capturedAt: aReset - W7D - DAY }, now);
-  addQuotaAnchor(db, { pool: 'argon', windowType: '7d', remainingPct: 75, capturedAt: now - HOUR, resetAt: aReset, resetPrecisionMs: MIN }, now);
-
   addQuotaAnchor(db, { pool: '3p', windowType: '7d', remainingPct: 30, capturedAt: pReset - W7D - DAY }, now);
   addQuotaAnchor(db, { pool: '3p', windowType: '7d', remainingPct: 95, capturedAt: now - HOUR, resetAt: pReset, resetPrecisionMs: MIN }, now);
 
+  // Legacy turn tagged pool='argon' must count toward Gemini pool spend, and no separate argon summary is emitted.
+  db.prepare(
+    `INSERT INTO turns (conversation_id, step_idx, completed_at_ms, canonical_model_id, pool, uncached_in)
+     VALUES ('c-argon', 1, ?, 'gemini-4-argon', 'argon', 1000000)`
+  ).run(now - 30 * MIN);
+
   const status = getQuotaStatus(db, pricingState, {}, now);
   const g7 = status.summaries.find((s) => s.pool === 'gemini' && s.windowType === '7d');
-  const a7 = status.summaries.find((s) => s.pool === 'argon' && s.windowType === '7d');
+  const a7 = status.summaries.find((s) => s.pool === 'argon');
   const p7 = status.summaries.find((s) => s.pool === '3p' && s.windowType === '7d');
+
+  assert.equal(a7, undefined, 'argon must no longer produce a separate quota pool summary');
+  assert.throws(() => addQuotaAnchor(db, { pool: 'argon', windowType: '7d', remainingPct: 50 }, now), /Invalid pool/);
+  assert.ok(g7.spendSinceLastUsd > 0, 'legacy turns tagged pool=argon must roll into gemini pool spend');
 
   assert.equal(g7.cycleResetAt, gReset);
   assert.equal(g7.cycleWindowStart, gReset - W7D);
   assert.equal(g7.currentCycleAnchors.length, 1);
   assert.equal(g7.olderCycleAnchors.length, 1);
-
-  assert.equal(a7.cycleResetAt, aReset);
-  assert.equal(a7.cycleWindowStart, aReset - W7D);
-  assert.equal(a7.currentCycleAnchors.length, 1);
-  assert.equal(a7.olderCycleAnchors.length, 1);
 
   assert.equal(p7.cycleResetAt, pReset);
   assert.equal(p7.cycleWindowStart, pReset - W7D);
@@ -962,4 +963,63 @@ test('v1.8.0: two-tier Manual Explore vs Auto Adopt gates, clamped boundary SE, 
   });
   assert.ok(Math.abs(calN0.subsets.base.tCrit - 2.7764) < 0.001, 'N=0 fallbackPooled must use t_{0.975, 4}');
 });
+
+test('v1.11.2: official early reset within W/2 splits cleanly into disjoint cycles without resetConflict', () => {
+  // Scenario A: Real-world early reset (+52.4h < W/2=84h) with rebound & subsequent reset=null anchors
+  const c1Cap1 = Date.parse('2026-11-22T14:47:38Z');
+  const c1Reset = Date.parse('2026-11-28T16:15:38Z');
+  const c1Cap2 = Date.parse('2026-11-23T14:26:00Z');
+  const c2Cap1 = Date.parse('2026-11-24T00:46:29Z');
+  const c2Reset = Date.parse('2026-11-30T20:40:29Z');
+  const c2Cap2 = Date.parse('2026-11-25T01:56:37Z');
+  const c2Cap3 = Date.parse('2026-11-25T08:10:43Z');
+
+  const anchorsEarlyReset = [
+    { id: 25, pool: 'gemini', window_type: '7d', remaining_pct: 95.42, precision_step: 0.01, captured_at: c1Cap1, reset_at: c1Reset, reset_source: 'explicit', reset_precision_ms: 5 * MIN, created_at: c1Cap1 },
+    { id: 44, pool: 'gemini', window_type: '7d', remaining_pct: 45.27, precision_step: 0.01, captured_at: c1Cap2, reset_at: null, reset_source: '', reset_precision_ms: null, created_at: c1Cap2 },
+    { id: 45, pool: 'gemini', window_type: '7d', remaining_pct: 98.17, precision_step: 0.01, captured_at: c2Cap1, reset_at: c2Reset, reset_source: 'explicit', reset_precision_ms: 5 * MIN, created_at: c2Cap1 },
+    { id: 46, pool: 'gemini', window_type: '7d', remaining_pct: 84.81, precision_step: 0.01, captured_at: c2Cap2, reset_at: null, reset_source: '', reset_precision_ms: null, created_at: c2Cap2 },
+    { id: 47, pool: 'gemini', window_type: '7d', remaining_pct: 72.92, precision_step: 0.01, captured_at: c2Cap3, reset_at: null, reset_source: '', reset_precision_ms: null, created_at: c2Cap3 },
+  ];
+
+  const descsA = buildCycleDescriptors(anchorsEarlyReset, '7d');
+  assert.equal(descsA.length, 2, 'early reset within W/2 must split into 2 cycles');
+  assert.equal(descsA[0].resetConflict, false, 'old early-ended cycle must not flag resetConflict');
+  assert.equal(descsA[1].resetConflict, false, 'new cycle after early reset must not flag resetConflict');
+  assert.deepEqual(descsA[0].anchors.map((a) => a.id), [25, 44], 'old anchors archived into cycle 0');
+  assert.deepEqual(descsA[1].anchors.map((a) => a.id), [45, 46, 47], 'new anchors (including reset=null follow-ups) routed to cycle 1');
+  assert.ok(descsA[0].endMs <= descsA[1].startMs, 'clamped old cycle end must not overlap new cycle start');
+  assert.equal(descsA[1].endMs, c2Reset);
+
+  // Scenario B: Early reset within W/2 without intermediate low anchor (no rebound vs old 95.42%,
+  // but old capture predates new cycle's inferred start c2Reset - 7d).
+  const anchorsNoRebound = [
+    { id: 101, pool: 'gemini', window_type: '7d', remaining_pct: 95.42, precision_step: 0.01, captured_at: c1Cap1, reset_at: c1Reset, reset_source: 'explicit', reset_precision_ms: 5 * MIN, created_at: c1Cap1 },
+    { id: 102, pool: 'gemini', window_type: '7d', remaining_pct: 91.50, precision_step: 0.01, captured_at: c2Cap1, reset_at: c2Reset, reset_source: 'explicit', reset_precision_ms: 5 * MIN, created_at: c2Cap1 },
+    { id: 103, pool: 'gemini', window_type: '7d', remaining_pct: 82.00, precision_step: 0.01, captured_at: c2Cap2, reset_at: null, reset_source: '', reset_precision_ms: null, created_at: c2Cap2 },
+  ];
+
+  const descsB = buildCycleDescriptors(anchorsNoRebound, '7d');
+  assert.equal(descsB.length, 2, 'pre-new-start old anchor + forward reset shift must split cleanly');
+  assert.equal(descsB[0].resetConflict, false);
+  assert.equal(descsB[1].resetConflict, false);
+  assert.deepEqual(descsB[0].anchors.map((a) => a.id), [101]);
+  assert.deepEqual(descsB[1].anchors.map((a) => a.id), [102, 103]);
+
+  // Scenario C: Intermediate untagged rebound (95% -> 45% -> 98% reset=null) followed by drained
+  // explicit reset anchor (35% reset=new) still detects the rebound and splits cleanly.
+  const anchorsMidRebound = [
+    { id: 201, pool: 'gemini', window_type: '7d', remaining_pct: 95.0, precision_step: 0.01, captured_at: c1Cap1, reset_at: c1Reset, reset_source: 'explicit', reset_precision_ms: 5 * MIN, created_at: c1Cap1 },
+    { id: 202, pool: 'gemini', window_type: '7d', remaining_pct: 45.0, precision_step: 0.01, captured_at: c1Cap2, reset_at: null, reset_source: '', reset_precision_ms: null, created_at: c1Cap2 },
+    { id: 203, pool: 'gemini', window_type: '7d', remaining_pct: 98.0, precision_step: 0.01, captured_at: c2Cap1, reset_at: null, reset_source: '', reset_precision_ms: null, created_at: c2Cap1 },
+    { id: 204, pool: 'gemini', window_type: '7d', remaining_pct: 35.0, precision_step: 0.01, captured_at: c2Cap2, reset_at: c2Reset, reset_source: 'explicit', reset_precision_ms: 5 * MIN, created_at: c2Cap2 },
+  ];
+  const descsC = buildCycleDescriptors(anchorsMidRebound, '7d');
+  assert.equal(descsC.length, 2, 'intermediate rebound before drained explicit reset must still split');
+  assert.equal(descsC[0].resetConflict, false);
+  assert.equal(descsC[1].resetConflict, false);
+  assert.deepEqual(descsC[0].anchors.map((a) => a.id), [201, 202]);
+  assert.deepEqual(descsC[1].anchors.map((a) => a.id), [203, 204]);
+});
+
 

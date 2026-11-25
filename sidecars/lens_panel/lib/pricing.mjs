@@ -123,7 +123,6 @@ export function inferPool(canonicalId, rawModelId = '') {
   if (def?.pool) return def.pool;
 
   const s = `${canonicalId} ${rawModelId}`.toLowerCase();
-  if (s.includes('argon')) return 'argon';
   if (
     s.startsWith('claude') ||
     s.startsWith('gpt') ||
@@ -201,7 +200,7 @@ export function loadPricingState(dataDir) {
   const defaultAnchors =
     defaults?.defaultAnchors && typeof defaults.defaultAnchors === 'object'
       ? { ...defaults.defaultAnchors }
-      : { gemini: 'gemini-4-neon', argon: 'gemini-4-argon', '3p': 'claude-opus-5-5' };
+      : { gemini: 'gemini-4-neon', '3p': 'claude-opus-5-5' };
   return {
     defaults,
     defaultAnchors,
@@ -694,7 +693,6 @@ export function listPricingModels(state, nowMs = Date.now(), { observedModelIds 
       state.defaultAnchors ||
       state.defaults?.defaultAnchors || {
         gemini: 'gemini-4-neon',
-        argon: 'gemini-4-argon',
         '3p': 'claude-opus-5-5',
       },
     models,

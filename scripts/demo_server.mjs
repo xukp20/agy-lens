@@ -137,7 +137,6 @@ function getDemoPricingState() {
     defaults,
     defaultAnchors: defaults.defaultAnchors || {
       gemini: 'gemini-4-neon',
-      argon: 'gemini-4-argon',
       '3p': 'claude-opus-5-5',
     },
     overrides: pricingOverrides,
@@ -1455,7 +1454,7 @@ const server = createServer(async (req, res) => {
         }
         if (body.quotaAnchorsByPool && typeof body.quotaAnchorsByPool === 'object') {
           for (const [k, v] of Object.entries(body.quotaAnchorsByPool)) {
-            if (k !== 'gemini' && k !== 'argon' && k !== '3p') continue;
+            if (k !== 'gemini' && k !== '3p') continue;
             if (v === null || v === undefined || (typeof v === 'string' && !v.trim())) {
               delete demoConfig.quotaAnchorsByPool[k];
             } else if (typeof v === 'string' && v.trim()) {
@@ -1508,7 +1507,7 @@ const server = createServer(async (req, res) => {
         const pool = normalizePool(body?.pool);
         const windowType = normalizeWindowType(body?.windowType ?? body?.window);
         const num = Number(body?.remainingPct);
-        if (!pool) return sendJson(res, 400, { error: 'Invalid pool (expected gemini, argon, or 3p)' });
+        if (!pool) return sendJson(res, 400, { error: 'Invalid pool (expected gemini or 3p)' });
         if (!windowType) return sendJson(res, 400, { error: 'Invalid windowType (expected 5h or 7d)' });
         if (!Number.isFinite(num) || num < 0 || num > 100) {
           return sendJson(res, 400, { error: 'remainingPct must be a number in [0, 100]' });

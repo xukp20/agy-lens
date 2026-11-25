@@ -2207,8 +2207,7 @@
   }
 
   function poolLabel(pool) {
-    if (pool === 'gemini') return 'Gemini';
-    if (pool === 'argon') return 'Argon';
+    if (pool === 'gemini' || pool === 'argon') return 'Gemini';
     if (pool === '3p') return 'Third-Party';
     return pool || t('common.unknownPool');
   }
@@ -6775,7 +6774,6 @@
                  <label>${esc(t('quota.poolLabel'))}</label>
                  <div class="seg seg-full">
                    <button type="button" class="${f.pool === 'gemini' ? 'active' : ''}" data-action="set-qa-pool" data-pool="gemini">Gemini</button>
-                   <button type="button" class="${f.pool === 'argon' ? 'active' : ''}" data-action="set-qa-pool" data-pool="argon">Argon</button>
                    <button type="button" class="${f.pool === '3p' ? 'active' : ''}" data-action="set-qa-pool" data-pool="3p" title="${esc(poolLabel('3p'))}">${esc(t('quota.pool3p'))}</button>
                  </div>
                </div>
@@ -6999,7 +6997,7 @@
       if (a.id != null) anchorById.set(a.id, a);
     }
 
-    const poolOrder = ['gemini', 'argon', '3p'];
+    const poolOrder = ['gemini', '3p'];
     const currentGroups = [];
     const shownAnchorIds = new Set();
     const older7dGroups = [];
@@ -10212,7 +10210,7 @@
       if (action === 'set-qa-pool') {
         e.stopPropagation();
         const p = actionEl.dataset.pool;
-        if (p === 'gemini' || p === 'argon' || p === '3p') {
+        if (p === 'gemini' || p === '3p') {
           state.quotaForm.pool = p;
           renderGrid();
         }

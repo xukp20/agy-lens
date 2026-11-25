@@ -152,6 +152,9 @@ export function openTelemetryCacheDb(dataDir) {
     db.exec('ALTER TABLE quota_anchors ADD COLUMN reset_precision_ms INTEGER');
   }
 
+  // Migrate legacy turns tagged pool='argon' into the unified 'gemini' pool.
+  db.exec("UPDATE turns SET pool = 'gemini' WHERE pool = 'argon'");
+
   // Backfill legacy rows missing reset_source: deduplicate identical inherited reset_at copies
   // while seeding from any already-migrated explicit/legacy anchors in the same (pool, window_type).
   const unmigratedResetRows = db
@@ -956,7 +959,7 @@ export function getSessionSnapshot(
     liveContext = {
       modelId,
       displayName,
-      pool: latestTurn?.pool || inferPool(modelId),
+      pool: latestTurn?.pool && latestTurn.pool !== 'argon' ? latestTurn.pool : inferPool(modelId),
       contextUsed,
       compactLimit,
       ratio,
