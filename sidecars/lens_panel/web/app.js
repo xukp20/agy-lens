@@ -299,13 +299,14 @@
         tabRequests: '请求明细',
         tabSpeed: '速度与时段',
         aggWeighted: 'Token 加权',
+        aggWeightedShort: '加权',
         aggP50: '逐条 P50',
         aggSettingName: 'TPS 汇总聚合方式',
         aggSettingDesc: '正交作用于纯生成 TPS 与端到端 TPS 的统计汇总',
         aggSettingHelp: 'Token 加权（∑输出 ÷ ∑耗时）：免疫极短响应畸高，反映真实吞吐。\n逐条 P50：对每条请求独立算 TPS 后取中位数，反映典型单次请求的体感速度。',
         kpiRequests: '总请求数',
         kpiTtft: '首字 TTFT',
-        kpiTps: 'TPS（生成 / E2E）',
+        kpiTps: 'TPS 生成/E2E',
         kpiOutCost: '输出 / 等价 $',
         kpiTtftSub: 'P50 {p50} · 均 {avg}',
         kpiOutSub: '总输出 {out} · 均 {avgCost}',
@@ -626,7 +627,7 @@
         emptyDesc: '尚未记录订阅额度对齐点。展开卡片后可记录当前的精确剩余百分比（如 94.25%），自动反推周期隐含总额度。',
         formTitle: '快速记录对齐点',
         poolLabel: '额度池',
-        pool3p: '第三方 (3P)',
+        pool3p: '第三方',
         windowLabel: '统计窗口',
         win5h: '5h 窗口',
         win7d: '7d 周期',
@@ -1109,13 +1110,14 @@
         tabRequests: 'Requests',
         tabSpeed: 'Speed & Periods',
         aggWeighted: 'Token-Weighted',
+        aggWeightedShort: 'Weighted',
         aggP50: 'Per-Req P50',
         aggSettingName: 'TPS Aggregation Mode',
         aggSettingDesc: 'Applies orthogonally to both Decode TPS and End-to-End TPS summaries',
         aggSettingHelp: 'Token-Weighted (sum(out) / sum(s)): Immune to tiny-response outliers; reflects true throughput.\nPer-Req P50: Computes TPS per request then takes the median; reflects typical single-turn feel.',
         kpiRequests: 'Requests',
         kpiTtft: 'TTFT',
-        kpiTps: 'TPS (Gen / E2E)',
+        kpiTps: 'TPS Gen/E2E',
         kpiOutCost: 'Output / API $',
         kpiTtftSub: 'P50 {p50} · Avg {avg}',
         kpiOutSub: 'Out {out} · Avg {avgCost}',
@@ -1436,7 +1438,7 @@
         emptyDesc: 'No quota anchors yet. Expand to log your remaining % (e.g. 94.25%) and estimate the implied cycle budget.',
         formTitle: 'Record Alignment Anchor',
         poolLabel: 'Quota Pool',
-        pool3p: 'Third-Party (3P)',
+        pool3p: '3P',
         windowLabel: 'Window',
         win5h: '5h Window',
         win7d: '7d Cycle',
@@ -2505,6 +2507,7 @@
 
   const state = {
     booted: false,
+    openDropdown: '',
     query: parseQueryOverrides(),
     localExpandedOverrides: new Map(), // temporary per-session expand override when ?expand is set
     config: structuredClone(DEFAULT_CONFIG),
@@ -2624,7 +2627,6 @@
       page: 1,
       pageSize: 15,
       expandedKey: '',
-      openMenu: '', // '' | 'model' | 'sort' | 'pageSize'
       loading: false,
       error: '',
       data: null,
@@ -2703,7 +2705,6 @@
     readonlyPill: $('readonly-pill'),
     btnThemeToggle: $('btn-theme-toggle'),
     refreshSelectWrap: $('refresh-select-wrap'),
-    refreshSelect: $('refresh-select'),
     btnRefresh: $('btn-refresh'),
     btnSettings: $('btn-settings'),
     accountBar: $('account-bar'),
@@ -3249,10 +3250,9 @@
     }
     dom.appTitle.textContent = 'AGY Lens';
     dom.freshness.title = t('header.freshnessTitle');
-    dom.refreshSelectWrap.title = t('header.refreshIntervalTitle');
-    dom.refreshSelect.setAttribute('aria-label', t('header.refreshIntervalAria'));
-    const offOpt = dom.refreshSelect.querySelector('option[value="0"]');
-    if (offOpt) offOpt.textContent = t('header.off');
+    if (dom.refreshSelectWrap) {
+      dom.refreshSelectWrap.title = t('header.refreshIntervalTitle');
+    }
     dom.btnRefresh.title = t('header.refreshNow');
     dom.btnRefresh.setAttribute('aria-label', t('header.refreshNow'));
     dom.btnSettings.title = t('header.settingsTitle');
@@ -3295,12 +3295,147 @@
     dom.btnCloseSettings.setAttribute('aria-label', t('settings.closeTitle'));
   }
 
-  function renderHeader() {
+  function getRefreshOptions() {
+    return [
+      { value: '0', label: t('header.off') },
+      { value: '15', label: '15s' },
+      { value: '30', label: '30s' },
+      { value: '60', label: '60s' },
+      { value: '300', label: '5m' }
+    ];
+  }
+
+  function dropdownScopeOf(id) {
+    if (!id) return '';
+    if (id.startsWith('hdr-')) return 'header';
+    if (id.startsWith('set-') || id.startsWith('acc-merge-')) return 'settings';
+    return 'grid';
+  }
+
+  function rerenderDropdownScope(scope) {
+    if (scope === 'header') renderHeader();
+    else if (scope === 'settings') renderSettings();
+    else if (scope === 'grid') renderGrid();
+  }
+
+  function toggleCustomDropdown(id) {
+    const prev = state.openDropdown;
+    const prevScope = dropdownScopeOf(prev);
+    const next = prev === id ? '' : id;
+    const nextScope = dropdownScopeOf(next);
+    state.openDropdown = next;
+    if (prevScope && prevScope !== nextScope) rerenderDropdownScope(prevScope);
+    if (nextScope) rerenderDropdownScope(nextScope);
+    else if (prevScope) rerenderDropdownScope(prevScope);
+  }
+
+  function closeCustomDropdown() {
+    if (!state.openDropdown) return false;
+    const prevScope = dropdownScopeOf(state.openDropdown);
+    state.openDropdown = '';
+    if (prevScope) rerenderDropdownScope(prevScope);
+    return true;
+  }
+
+  function renderCustomDropdown({
+    id,
+    label,
+    dotColor = '',
+    items = [],
+    activeVal = '',
+    pickAction,
+    alignRight = false,
+    small = false,
+    dropUp = false,
+    fullWidth = false,
+    ghost = false,
+    mono = false,
+    compact = false,
+    ariaLabel = '',
+    title = '',
+    extraData = null
+  }) {
+    const isOpen = state.openDropdown === id;
+    const checkSvg =
+      '<svg class="icon" width="11" height="11" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-6.5"/></svg>';
+    const extraAttrs = extraData
+      ? Object.entries(extraData)
+          .map(([k, v]) => ` data-${esc(k)}="${esc(v)}"`)
+          .join('')
+      : '';
+    const menuCls = [
+      'req-dd-menu',
+      alignRight ? 'right' : '',
+      dropUp ? 'up' : '',
+      compact || small ? 'compact' : '',
+      fullWidth ? 'full' : '',
+      mono ? 'mono' : ''
+    ]
+      .filter(Boolean)
+      .join(' ');
+    const triggerCls = [
+      'req-dd-trigger',
+      small ? 'sm' : '',
+      fullWidth ? 'full' : '',
+      ghost ? 'ghost' : '',
+      mono ? 'mono' : '',
+      isOpen ? 'open' : ''
+    ]
+      .filter(Boolean)
+      .join(' ');
+    const menuHtml = isOpen
+      ? `<div class="${menuCls}" role="listbox">
+           ${items
+             .map((it) => {
+               const sel = String(it.value) === String(activeVal);
+               const dotHtml = it.dotColor
+                 ? `<span class="acc-dot" style="background:${safeColor(it.dotColor)}"></span>`
+                 : '';
+               return `<button type="button" class="req-dd-item ${sel ? 'active' : ''}" role="option" aria-selected="${sel}" data-action="${esc(pickAction)}" data-value="${esc(it.value)}"${extraAttrs}>
+                 <span class="req-dd-item-main">${dotHtml}<span class="truncate">${esc(it.label)}</span></span>
+                 ${sel ? checkSvg : ''}
+               </button>`;
+             })
+             .join('')}
+         </div>`
+      : '';
+    const trigDotHtml = dotColor
+      ? `<span class="acc-dot" style="background:${safeColor(dotColor)}"></span>`
+      : '';
+    const ariaAttr = ariaLabel ? ` aria-label="${esc(ariaLabel)}"` : '';
+    const titleAttr = title ? ` title="${esc(title)}"` : '';
+    return `
+      <div class="req-dd-wrap ${fullWidth ? 'full' : ''}" data-stop-card>
+        <button type="button" class="${triggerCls}" data-action="toggle-custom-dd" data-dd="${esc(id)}" aria-haspopup="listbox" aria-expanded="${isOpen}"${ariaAttr}${titleAttr}>
+          <span class="req-dd-item-main">${trigDotHtml}<span class="truncate">${esc(label)}</span></span>
+          <svg class="icon req-dd-chev" width="10" height="10" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg>
+        </button>
+        ${menuHtml}
+      </div>
+    `;
+  }
+
+  function renderHeader(isBackground = false) {
     applyStaticI18n();
     dom.stickyHeader.classList.toggle('hidden', Boolean(state.query.hideHeader));
 
     const sec = String(num(state.config.refreshSec, 30));
-    if (dom.refreshSelect.value !== sec) dom.refreshSelect.value = sec;
+    if (dom.refreshSelectWrap && !(isBackground && state.openDropdown === 'hdr-refresh')) {
+      const refreshOpts = getRefreshOptions();
+      const curRefresh = refreshOpts.find((o) => o.value === sec) || refreshOpts[2];
+      dom.refreshSelectWrap.innerHTML = renderCustomDropdown({
+        id: 'hdr-refresh',
+        label: curRefresh.label,
+        items: refreshOpts,
+        activeVal: sec,
+        pickAction: 'pick-refresh-sec',
+        alignRight: true,
+        ghost: true,
+        compact: true,
+        ariaLabel: t('header.refreshIntervalAria'),
+        title: t('header.refreshIntervalTitle')
+      });
+    }
     updateFreshnessUI();
 
     const showAnalyticsBar = hasAnyAnalyticsModule();
@@ -3886,24 +4021,29 @@
     if (!isStandaloneMode() || state.recentSessions.length === 0) return '';
     const activeId = currentSession?.found && currentSession.conversationId ? currentSession.conversationId : '';
     const hasActiveInList = activeId ? state.recentSessions.some((rs) => rs.conversationId === activeId) : false;
-    const options = [];
-    if (!activeId) {
-      options.push(`<option value="" selected disabled>— ${esc(t('ctx.noActive'))} —</option>`);
-    } else if (!hasActiveInList) {
+    const items = [];
+    if (activeId && !hasActiveInList) {
       const curLbl = currentSession.title || baseName(currentSession.workspace) || activeId.slice(0, 8);
       const curSrcTag = currentSession.source === 'cli' ? 'CLI' : 'Desktop';
-      options.push(`<option value="${esc(activeId)}" selected>[${curSrcTag}] ${esc(curLbl.slice(0, 56))}</option>`);
+      items.push({ value: activeId, label: `[${curSrcTag}] ${curLbl.slice(0, 56)}` });
     }
     for (const rs of state.recentSessions) {
       const lbl = rs.title || baseName(rs.workspace) || rs.conversationId.slice(0, 8);
       const srcTag = rs.source === 'cli' ? 'CLI' : 'Desktop';
-      const selected = activeId && rs.conversationId === activeId ? 'selected' : '';
-      options.push(`<option value="${esc(rs.conversationId)}" ${selected}>[${srcTag}] ${esc(lbl.slice(0, 56))}</option>`);
+      items.push({ value: rs.conversationId, label: `[${srcTag}] ${lbl.slice(0, 56)}` });
     }
+    const activeItem = items.find((it) => it.value === activeId);
+    const activeLabel = activeItem ? activeItem.label : `— ${t('ctx.noActive')} —`;
     return `<div class="session-picker-bar" data-stop-card>
-      <select class="session-picker-select" data-action="select-session" aria-label="${esc(t('header.switchSessionAria'))}">
-        ${options.join('')}
-      </select>
+      ${renderCustomDropdown({
+        id: 'session-picker',
+        label: activeLabel,
+        items,
+        activeVal: activeId,
+        pickAction: 'pick-session',
+        fullWidth: true,
+        ariaLabel: t('header.switchSessionAria')
+      })}
     </div>`;
   }
 
@@ -3969,19 +4109,35 @@
                 : esc(t('accounts.previewZero'))
             }</div>`
           : '';
+        const ovItems = [
+          { value: '__auto__', label: t('accounts.autoByTimeline') },
+          ...allAccounts.map((a) => ({
+            value: a.id,
+            label: `${a.name}${a.archivedAt != null ? ` (${t('accounts.archivedTag')})` : ''}`,
+            dotColor: a.color
+          }))
+        ];
+        const curOvItem = ovItems.find((it) => it.value === curOvVal) || ovItems[0];
+        const swItems = activeAccounts.map((a) => ({
+          value: a.id,
+          label: a.name,
+          dotColor: a.color
+        }));
+        const curSwItem = swItems.find((it) => it.value === curSwTarget) || swItems[0];
         sessionAccEditorHtml = `
           <div class="session-acc-editor" data-stop-card>
             <div class="session-acc-row">
               <span class="muted-note" style="flex:none">${esc(t('accounts.reassignLabel'))}</span>
-              <select data-action="change-session-acc-target">
-                <option value="__auto__" ${curOvVal === '__auto__' ? 'selected' : ''}>${esc(t('accounts.autoByTimeline'))}</option>
-                ${allAccounts
-                  .map(
-                    (a) =>
-                      `<option value="${esc(a.id)}" ${curOvVal === a.id ? 'selected' : ''}>${esc(a.name)}${a.archivedAt != null ? ` (${esc(t('accounts.archivedTag'))})` : ''}</option>`
-                  )
-                  .join('')}
-              </select>
+              ${renderCustomDropdown({
+                id: 'session-acc-target',
+                label: curOvItem?.label || '',
+                dotColor: curOvItem?.dotColor || '',
+                items: ovItems,
+                activeVal: curOvVal,
+                pickAction: 'pick-session-acc-target',
+                fullWidth: true,
+                small: true
+              })}
               <button type="button" class="btn-sm primary" data-action="apply-session-acc-override" data-conv-id="${esc(s.conversationId)}" ${state.sessionAccSaving ? 'disabled' : ''}>${esc(t('accounts.applyOverride'))}</button>
             </div>
             ${
@@ -3990,14 +4146,16 @@
                   <div style="border-top:1px solid var(--line);padding-top:6px;display:flex;flex-direction:column;gap:5px">
                     <span class="muted-note num">${esc(t('accounts.startSwitchLabel', { time: fmtTimeShort(firstMs), src: sourceLabel(s.source) }))}</span>
                     <div class="session-acc-row">
-                      <select data-action="change-session-sw-target">
-                        ${activeAccounts
-                          .map(
-                            (a) =>
-                              `<option value="${esc(a.id)}" ${curSwTarget === a.id ? 'selected' : ''}>${esc(a.name)}</option>`
-                          )
-                          .join('')}
-                      </select>
+                      ${renderCustomDropdown({
+                        id: 'session-sw-target',
+                        label: curSwItem?.label || '',
+                        dotColor: curSwItem?.dotColor || '',
+                        items: swItems,
+                        activeVal: curSwTarget,
+                        pickAction: 'pick-session-sw-target',
+                        fullWidth: true,
+                        small: true
+                      })}
                       <button type="button" class="btn-sm" data-action="preview-session-switch" data-first-ms="${firstMs}" data-source="${esc(s.source || 'cli')}" ${state.sessionAccSaving ? 'disabled' : ''}>${esc(t('accounts.previewBtn'))}</button>
                       <button type="button" class="btn-sm primary" data-action="apply-session-switch" data-first-ms="${firstMs}" data-source="${esc(s.source || 'cli')}" ${state.sessionAccSaving ? 'disabled' : ''}>${esc(t('accounts.startSwitchBtn'))}</button>
                     </div>
@@ -5547,21 +5705,28 @@
 
   function renderObsModelSelect(matrix, activeFilter, inline = false) {
     if (!Array.isArray(matrix) || matrix.length <= 1) return '';
-    const selectEl = `
-      <select class="obs-model-select" data-action="select-obs-model" aria-label="${esc(t('obs.ctrlModel'))}">
-        <option value="all" ${activeFilter === 'all' ? 'selected' : ''}>${esc(t('obs.allModelsOption', { n: matrix.length }))}</option>
-        ${matrix
-          .map(
-            (m) =>
-              `<option value="${esc(m.canonicalId)}" ${activeFilter === m.canonicalId ? 'selected' : ''}>${esc(m.displayName || m.canonicalId)} (${num(m.followUpTurns)}t)</option>`
-          )
-          .join('')}
-      </select>
-    `;
+    const items = [
+      { value: 'all', label: t('obs.allModelsOption', { n: matrix.length }) },
+      ...matrix.map((m) => ({
+        value: m.canonicalId,
+        label: `${m.displayName || m.canonicalId} (${num(m.followUpTurns)}t)`
+      }))
+    ];
+    const activeItem = items.find((it) => it.value === activeFilter) || items[0];
+    const ddHtml = renderCustomDropdown({
+      id: 'obs-model',
+      label: activeItem.label,
+      items,
+      activeVal: activeFilter,
+      pickAction: 'pick-obs-model',
+      small: true,
+      fullWidth: !inline,
+      ariaLabel: t('obs.ctrlModel')
+    });
     if (inline) {
-      return `<label class="obs-ctrl-item" data-stop-card><span class="obs-ctrl-lbl">${esc(t('obs.ctrlModel'))}</span>${selectEl}</label>`;
+      return `<div class="obs-ctrl-item" data-stop-card><span class="obs-ctrl-lbl">${esc(t('obs.ctrlModel'))}</span>${ddHtml}</div>`;
     }
-    return `<div class="obs-ctrl-row" data-stop-card><label class="obs-ctrl-item obs-ctrl-grow"><span class="obs-ctrl-lbl">${esc(t('obs.ctrlModel'))}</span>${selectEl}</label></div>`;
+    return `<div class="obs-ctrl-row" data-stop-card><div class="obs-ctrl-item obs-ctrl-grow"><span class="obs-ctrl-lbl">${esc(t('obs.ctrlModel'))}</span>${ddHtml}</div></div>`;
   }
 
   function renderObsJumpRangeCta(sliceCount) {
@@ -6605,19 +6770,21 @@
            </div>
            <div class="form-grid">
              ${formAccountFieldHtml}
-             <div class="field">
-               <label>${esc(t('quota.poolLabel'))}</label>
-               <div class="seg" style="width:100%">
-                 <button type="button" style="flex:1" class="${f.pool === 'gemini' ? 'active' : ''}" data-action="set-qa-pool" data-pool="gemini">Gemini</button>
-                 <button type="button" style="flex:1" class="${f.pool === 'argon' ? 'active' : ''}" data-action="set-qa-pool" data-pool="argon">Argon</button>
-                 <button type="button" style="flex:1" class="${f.pool === '3p' ? 'active' : ''}" data-action="set-qa-pool" data-pool="3p">${esc(t('quota.pool3p'))}</button>
+             <div class="quota-pool-win-row">
+               <div class="field">
+                 <label>${esc(t('quota.poolLabel'))}</label>
+                 <div class="seg seg-full">
+                   <button type="button" class="${f.pool === 'gemini' ? 'active' : ''}" data-action="set-qa-pool" data-pool="gemini">Gemini</button>
+                   <button type="button" class="${f.pool === 'argon' ? 'active' : ''}" data-action="set-qa-pool" data-pool="argon">Argon</button>
+                   <button type="button" class="${f.pool === '3p' ? 'active' : ''}" data-action="set-qa-pool" data-pool="3p" title="${esc(poolLabel('3p'))}">${esc(t('quota.pool3p'))}</button>
+                 </div>
                </div>
-             </div>
-             <div class="field">
-               <label>${esc(t('quota.windowLabel'))}</label>
-               <div class="seg" style="width:100%">
-                 <button type="button" style="flex:1" class="${f.windowType === '7d' ? 'active' : ''}" data-action="set-qa-window" data-window="7d">${esc(t('quota.win7d'))}</button>
-                 <button type="button" style="flex:1" class="${f.windowType === '5h' ? 'active' : ''}" data-action="set-qa-window" data-window="5h">${esc(t('quota.win5h'))}</button>
+               <div class="field">
+                 <label>${esc(t('quota.windowLabel'))}</label>
+                 <div class="seg seg-full">
+                   <button type="button" class="${f.windowType === '7d' ? 'active' : ''}" data-action="set-qa-window" data-window="7d">${esc(t('quota.win7d'))}</button>
+                   <button type="button" class="${f.windowType === '5h' ? 'active' : ''}" data-action="set-qa-window" data-window="5h">${esc(t('quota.win5h'))}</button>
+                 </div>
                </div>
              </div>
              <div class="field full">
@@ -7382,17 +7549,26 @@
     const anchorUsd =
       activeSubObj?.anchorPoolUsd != null ? fmtUsd(activeSubObj.anchorPoolUsd) : '—';
 
+    const anchorItems = avail.map((m) => ({
+      value: m.canonicalId,
+      label: `${m.canonicalId} (${Math.round(num(m.share) * 100)}%)`
+    }));
+    const curAnchorItem = anchorItems.find((it) => it.value === cal.anchorModel) || anchorItems[0];
+
     return `
       <div class="calib-anchor-row">
         <div class="calib-anchor-ctrl">
-          <label for="${esc(selId)}">${esc(t('quota.baseAnchorLabel'))}</label>
-          <select id="${esc(selId)}" class="calib-anchor-select mono" data-action="set-pool-anchor" data-pool="${esc(summary.pool)}">
-            ${avail
-              .map(
-                (m) => `<option value="${esc(m.canonicalId)}" ${m.canonicalId === cal.anchorModel ? 'selected' : ''}>${esc(m.canonicalId)} (${Math.round(num(m.share) * 100)}%)</option>`
-              )
-              .join('')}
-          </select>
+          <span class="calib-anchor-lbl">${esc(t('quota.baseAnchorLabel'))}</span>
+          ${renderCustomDropdown({
+            id: selId,
+            label: curAnchorItem?.label || cal.anchorModel || '',
+            items: anchorItems,
+            activeVal: cal.anchorModel,
+            pickAction: 'pick-pool-anchor',
+            small: true,
+            mono: true,
+            extraData: { pool: summary.pool }
+          })}
           <span class="pill ${srcInfo.cls}">${esc(srcInfo.text)}</span>
         </div>
         <div class="calib-q-anchor num mono">
@@ -7770,11 +7946,11 @@
           return `
             <div class="req-latest-strip num">
               <span class="muted-note" style="flex:none">${esc(t('reqSpeed.latestPrefix'))}</span>
-              <span class="truncate" style="font-weight:500">${esc(shortModelName(latest.canonicalModelId))}</span>
-              <span class="pill ${hitCls}" style="font-size:9.5px;height:15px;padding:0 4px">${hitPct}%</span>
-              <span class="muted-note mono">${fmtLatencyMs(latest.ttftMs)}</span>
-              <span class="mono" style="font-weight:600">${fmtTps(latest.decodeTps)}/${fmtTps(latest.e2eTps)}</span>
-              <span class="mono" style="margin-left:auto">${fmtUsd(latest.costUsd, 3)}</span>
+              <span class="truncate" style="font-weight:500;flex:1 1 50px">${esc(shortModelName(latest.canonicalModelId))}</span>
+              <span class="pill ${hitCls}" style="font-size:9.5px;height:15px;padding:0 4px;flex:none">${hitPct}%</span>
+              <span class="muted-note mono" style="flex:none">${fmtLatencyMs(latest.ttftMs)}</span>
+              <span class="mono" style="font-weight:600;flex:none">${fmtTps(latest.decodeTps)}/${fmtTps(latest.e2eTps)}</span>
+              <span class="mono" style="margin-left:auto;flex:none">${fmtUsd(latest.costUsd, 3)}</span>
             </div>
           `;
         })()
@@ -7797,7 +7973,7 @@
           </div>
         </div>
         <div class="req-kpi-tile">
-          <div class="req-kpi-head"><span>${esc(t('reqSpeed.kpiTps'))}</span><span class="muted-note">${esc(aggMode === 'p50' ? 'P50' : t('reqSpeed.aggWeighted'))}</span></div>
+          <div class="req-kpi-head"><span title="${esc(t('reqSpeed.kpiTps'))}">${esc(t('reqSpeed.kpiTps'))}</span><span class="muted-note" title="${esc(aggMode === 'p50' ? t('reqSpeed.aggP50') : t('reqSpeed.aggWeighted'))}">${esc(aggMode === 'p50' ? 'P50' : t('reqSpeed.aggWeightedShort'))}</span></div>
           <div class="req-kpi-line num mono">
             <strong>${fmtTps(tps.decode)}</strong>
             <span class="req-kpi-sub">/ ${fmtTps(tps.e2e)} t/s</span>
@@ -7858,32 +8034,8 @@
     return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
 
-  function renderReqDropdown({ id, label, items, activeVal, pickAction, alignRight = false, small = false, dropUp = false }) {
-    const isOpen = state.reqSpeed.openMenu === id;
-    const checkSvg =
-      '<svg class="icon" width="11" height="11" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-6.5"/></svg>';
-    const menuHtml = isOpen
-      ? `<div class="req-dd-menu ${alignRight ? 'right' : ''} ${dropUp ? 'up' : ''} ${small ? 'compact' : ''}" role="listbox">
-           ${items
-             .map((it) => {
-               const sel = String(it.value) === String(activeVal);
-               return `<button type="button" class="req-dd-item ${sel ? 'active' : ''}" role="option" aria-selected="${sel}" data-action="${esc(pickAction)}" data-value="${esc(it.value)}">
-                 <span class="truncate">${esc(it.label)}</span>
-                 ${sel ? checkSvg : ''}
-               </button>`;
-             })
-             .join('')}
-         </div>`
-      : '';
-    return `
-      <div class="req-dd-wrap" data-stop-card>
-        <button type="button" class="req-dd-trigger ${small ? 'sm' : ''} ${isOpen ? 'open' : ''}" data-action="toggle-req-dd" data-dd="${esc(id)}" aria-haspopup="listbox" aria-expanded="${isOpen}">
-          <span class="truncate">${esc(label)}</span>
-          <svg class="icon req-dd-chev" width="10" height="10" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg>
-        </button>
-        ${menuHtml}
-      </div>
-    `;
+  function renderReqDropdown(opts) {
+    return renderCustomDropdown(opts);
   }
 
   function renderRequestLogTab(rsSummary) {
@@ -7940,7 +8092,7 @@
           <button type="button" class="quick-chip ${ui.flag === 'cold' ? 'active' : ''}" data-action="req-toggle-flag" data-flag="cold">${esc(t('reqSpeed.flagCold'))}</button>
           <button type="button" class="quick-chip ${ui.flag === 'slow' ? 'active' : ''}" data-action="req-toggle-flag" data-flag="slow">${esc(t('reqSpeed.flagSlow'))}</button>
         </div>
-        <div style="display:inline-flex;align-items:center;gap:4px;margin-left:auto">
+        <div style="display:inline-flex;align-items:center;gap:4px;margin-left:auto;min-width:0;max-width:100%">
           ${renderReqDropdown({
             id: 'sort',
             label: activeSortLabel,
@@ -8049,7 +8201,7 @@
     const pagerHtml = `
       <div class="req-pager num" data-stop-card>
         <span class="muted-note">${esc(t('reqSpeed.pageSummary', { total: num(pageData.total).toLocaleString(), page: curPage, pages: totalPages }))}</span>
-        <div style="display:inline-flex;align-items:center;gap:5px">
+        <div style="display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap;max-width:100%">
           ${renderReqDropdown({
             id: 'pageSize',
             label: t('reqSpeed.perPage', { n: num(ui.pageSize, 15) }),
@@ -8397,15 +8549,21 @@
               </span>
               <span class="set-mod-desc">${esc(t('settings.autoRefreshDesc'))}</span>
             </div>
-            <label class="select sm" style="border:1px solid var(--border-c);border-radius:var(--r-md)">
-              <select data-action="set-refresh-sec" aria-label="${esc(t('header.refreshIntervalAria'))}">
-                <option value="0" ${refreshVal === '0' ? 'selected' : ''}>${esc(t('header.off'))}</option>
-                <option value="15" ${refreshVal === '15' ? 'selected' : ''}>15s</option>
-                <option value="30" ${refreshVal === '30' ? 'selected' : ''}>30s</option>
-                <option value="60" ${refreshVal === '60' ? 'selected' : ''}>60s</option>
-                <option value="300" ${refreshVal === '300' ? 'selected' : ''}>5m</option>
-              </select>
-            </label>
+            ${(() => {
+              const refreshOpts = getRefreshOptions();
+              const curRefresh = refreshOpts.find((o) => o.value === refreshVal) || refreshOpts[2];
+              return renderCustomDropdown({
+                id: 'set-refresh',
+                label: curRefresh.label,
+                items: refreshOpts,
+                activeVal: refreshVal,
+                pickAction: 'pick-refresh-sec',
+                alignRight: true,
+                small: true,
+                compact: true,
+                ariaLabel: t('header.refreshIntervalAria')
+              });
+            })()}
           </div>
           <div class="set-mod-row">
             <div class="set-mod-meta">
@@ -8571,26 +8729,48 @@
              </form>`
           : '';
 
+        const mergeTargetItems = mergeTargets.map((x) => ({
+          value: x.id,
+          label: `${x.name}${x.archivedAt != null ? ` (${t('accounts.archivedTag')})` : ''}`,
+          dotColor: x.color
+        }));
+        const curMergeTarget = mergeTargetItems.find((it) => it.value === as.mergeToId) || mergeTargetItems[0];
+        const mergeAnchorItems = [
+          { value: 'reassign', label: t('accounts.mergeAnchorReassign') },
+          { value: 'delete', label: t('accounts.mergeAnchorDelete') }
+        ];
+        const curMergeAnchorVal = as.mergeAnchorAction === 'delete' ? 'delete' : 'reassign';
+        const curMergeAnchor = mergeAnchorItems.find((it) => it.value === curMergeAnchorVal) || mergeAnchorItems[0];
+
         const mergeBoxHtml = isMerging
           ? `<form class="acc-inline-box" data-action="confirm-acc-merge" data-from-id="${esc(a.id)}">
                <strong style="font-size:11.5px">${esc(t('accounts.mergeTitle', { name: a.name }))}</strong>
                <div class="field">
                  <label>${esc(t('accounts.mergeTarget'))}</label>
-                 <select name="toId" data-action="change-acc-merge-to">
-                   ${mergeTargets
-                     .map(
-                       (x) =>
-                         `<option value="${esc(x.id)}" ${as.mergeToId === x.id ? 'selected' : ''}>${esc(x.name)}${x.archivedAt != null ? ` (${esc(t('accounts.archivedTag'))})` : ''}</option>`
-                     )
-                     .join('')}
-                 </select>
+                 ${renderCustomDropdown({
+                   id: `acc-merge-to-${a.id}`,
+                   label: curMergeTarget?.label || '',
+                   dotColor: curMergeTarget?.dotColor || '',
+                   items: mergeTargetItems,
+                   activeVal: curMergeTarget?.value || '',
+                   pickAction: 'pick-acc-merge-to',
+                   fullWidth: true,
+                   small: true,
+                   dropUp: true
+                 })}
                </div>
                <div class="field">
                  <label>${esc(t('accounts.mergeAnchorLabel'))}</label>
-                 <select name="anchorAction" data-action="change-acc-merge-anchor">
-                   <option value="reassign" ${as.mergeAnchorAction !== 'delete' ? 'selected' : ''}>${esc(t('accounts.mergeAnchorReassign'))}</option>
-                   <option value="delete" ${as.mergeAnchorAction === 'delete' ? 'selected' : ''}>${esc(t('accounts.mergeAnchorDelete'))}</option>
-                 </select>
+                 ${renderCustomDropdown({
+                   id: `acc-merge-anchor-${a.id}`,
+                   label: curMergeAnchor.label,
+                   items: mergeAnchorItems,
+                   activeVal: curMergeAnchorVal,
+                   pickAction: 'pick-acc-merge-anchor',
+                   fullWidth: true,
+                   small: true,
+                   dropUp: true
+                 })}
                </div>
                <div class="muted-note" style="font-size:10.5px;color:var(--warn)">${esc(t('accounts.mergeWarn'))}</div>
                <div style="display:flex;justify-content:flex-end;gap:6px">
@@ -8799,22 +8979,28 @@
   }
 
   function renderAll(isBackground = false) {
-    renderHeader();
+    renderHeader(isBackground);
     const active = document.activeElement;
+    const ddScope = dropdownScopeOf(state.openDropdown);
+    const gridDdMounted = ddScope === 'grid' && Boolean(dom.modulesGrid.querySelector('.req-dd-menu'));
+    const settingsDdMounted = ddScope === 'settings' && Boolean(dom.settingsBody.querySelector('.req-dd-menu'));
+    if (state.openDropdown && ddScope === 'grid' && !gridDdMounted) state.openDropdown = '';
+    if (state.openDropdown && ddScope === 'settings' && !settingsDdMounted) state.openDropdown = '';
     const editingQuotaForm = Boolean(
       isBackground &&
         ((active &&
           active.closest &&
           (active.closest('#quota-anchor-form') ||
             active.closest('.anchor-edit-inline') ||
-            active.closest('.calib-anchor-select') ||
             active.closest('.session-acc-editor') ||
-            active.closest('.req-select') ||
+            active.closest('.req-dd-wrap') ||
             active.closest('[data-obs-gap-input="1"]'))) ||
-          Boolean(state.reqSpeed.openMenu))
+          gridDdMounted)
     );
     const editingSettingsInput = Boolean(
-      isBackground && active && active.closest && active.closest('#settings-body input, #settings-body select')
+      isBackground &&
+        ((active && active.closest && active.closest('#settings-body input, #settings-body .req-dd-wrap')) ||
+          settingsDdMounted)
     );
     const editingSwitchPop = Boolean(
       isBackground && active && active.closest && active.closest('#account-switch-popover')
@@ -8829,6 +9015,7 @@
   // =========================================================================
   function openSettings() {
     dismissHelpPin();
+    closeCustomDropdown();
     if (state.accSwitchOpen) {
       state.accSwitchOpen = false;
       renderAccountSwitchPopover();
@@ -8864,6 +9051,7 @@
 
   function closeSettings() {
     dismissHelpPin();
+    closeCustomDropdown();
     state.settingsOpen = false;
     dom.btnSettings.setAttribute('aria-expanded', 'false');
     dom.settingsBackdrop.classList.add('hidden');
@@ -8908,13 +9096,28 @@
   }
 
   // Header Controls
-  dom.refreshSelect.addEventListener('change', async (e) => {
-    const val = Number(e.target.value);
-    state.config.refreshSec = Number.isFinite(val) ? val : 30;
-    resetRefreshTimer();
-    if (state.settingsOpen) renderSettings();
-    await saveConfigPatch({ refreshSec: state.config.refreshSec });
-  });
+  if (dom.refreshSelectWrap) {
+    dom.refreshSelectWrap.addEventListener('click', async (e) => {
+      const actionEl = e.target.closest?.('[data-action]');
+      if (!actionEl) return;
+      const action = actionEl.dataset.action;
+      if (action === 'toggle-custom-dd') {
+        e.stopPropagation();
+        toggleCustomDropdown(actionEl.dataset.dd || '');
+        return;
+      }
+      if (action === 'pick-refresh-sec') {
+        e.stopPropagation();
+        state.openDropdown = '';
+        const val = Number(actionEl.dataset.value);
+        state.config.refreshSec = Number.isFinite(val) ? val : 30;
+        resetRefreshTimer();
+        renderHeader();
+        if (state.settingsOpen) renderSettings();
+        await saveConfigPatch({ refreshSec: state.config.refreshSec });
+      }
+    });
+  }
 
   dom.btnRefresh.addEventListener('click', () => refreshAll(true));
   if (dom.btnThemeToggle) {
@@ -9206,6 +9409,11 @@
   // Modules Grid Click Delegation
   dom.modulesGrid.addEventListener('click', async (e) => {
     if (e.target.closest('.help-tip')) return;
+    if (state.openDropdown && !e.target.closest('.req-dd-wrap')) {
+      const prevScope = dropdownScopeOf(state.openDropdown);
+      state.openDropdown = '';
+      if (prevScope && prevScope !== 'grid') rerenderDropdownScope(prevScope);
+    }
     const stopEl = e.target.closest('[data-stop-card]');
     const actionEl = e.target.closest('[data-action]');
 
@@ -9313,17 +9521,15 @@
         return;
       }
 
-      if (action === 'toggle-req-dd') {
+      if (action === 'toggle-custom-dd' || action === 'toggle-req-dd') {
         e.stopPropagation();
-        const id = actionEl.dataset.dd || '';
-        state.reqSpeed.openMenu = state.reqSpeed.openMenu === id ? '' : id;
-        renderGrid();
+        toggleCustomDropdown(actionEl.dataset.dd || '');
         return;
       }
 
       if (action === 'pick-req-model') {
         e.stopPropagation();
-        state.reqSpeed.openMenu = '';
+        state.openDropdown = '';
         state.reqSpeed.model = actionEl.dataset.value || 'all';
         state.reqSpeed.page = 1;
         state.reqSpeed.expandedKey = '';
@@ -9334,7 +9540,7 @@
 
       if (action === 'pick-req-sort') {
         e.stopPropagation();
-        state.reqSpeed.openMenu = '';
+        state.openDropdown = '';
         state.reqSpeed.sort = actionEl.dataset.value || 'time';
         state.reqSpeed.page = 1;
         renderGrid();
@@ -9344,7 +9550,7 @@
 
       if (action === 'pick-req-page-size') {
         e.stopPropagation();
-        state.reqSpeed.openMenu = '';
+        state.openDropdown = '';
         const sz = Number(actionEl.dataset.value);
         if (Number.isFinite(sz) && sz >= 10 && sz <= 100) {
           state.reqSpeed.pageSize = sz;
@@ -9352,6 +9558,66 @@
           renderGrid();
           await fetchRequestsPage();
         }
+        return;
+      }
+
+      if (action === 'pick-session') {
+        e.stopPropagation();
+        state.openDropdown = '';
+        state.selectedConversationId = actionEl.dataset.value || '';
+        state.sessionAccMenuOpen = false;
+        state.sessionSwitchPreview = null;
+        state.sessionAccError = '';
+        renderGrid();
+        await refreshAll(true);
+        return;
+      }
+
+      if (action === 'pick-session-acc-target') {
+        e.stopPropagation();
+        state.openDropdown = '';
+        state.sessionAccTargetId = actionEl.dataset.value || '__auto__';
+        renderGrid();
+        return;
+      }
+
+      if (action === 'pick-session-sw-target') {
+        e.stopPropagation();
+        state.openDropdown = '';
+        state.sessionSwitchTargetId = actionEl.dataset.value || '';
+        state.sessionSwitchPreview = null;
+        renderGrid();
+        return;
+      }
+
+      if (action === 'pick-obs-model') {
+        e.stopPropagation();
+        state.openDropdown = '';
+        state.obsModelFilter = actionEl.dataset.value || 'all';
+        state.obsSelectedSliceKey = '';
+        state.obsCompareKeys = [];
+        renderGrid();
+        return;
+      }
+
+      if (action === 'pick-pool-anchor') {
+        e.stopPropagation();
+        state.openDropdown = '';
+        const pool = actionEl.dataset.pool;
+        const modelId = actionEl.dataset.value;
+        if (!pool || !modelId) {
+          renderGrid();
+          return;
+        }
+        const key =
+          isMultiAccountActive() && state.accountId && state.accountId !== 'all'
+            ? `${state.accountId}:${pool}`
+            : pool;
+        const nextAnchors = { ...(state.config.quotaAnchorsByPool || {}), [key]: modelId };
+        state.config.quotaAnchorsByPool = nextAnchors;
+        renderGrid();
+        await saveConfigPatch({ quotaAnchorsByPool: nextAnchors });
+        await refreshQuotaOnly();
         return;
       }
 
@@ -10342,9 +10608,48 @@
   // Settings Drawer Delegation
   dom.settingsBody.addEventListener('click', async (e) => {
     if (e.target.closest('.help-tip')) return;
+    if (state.openDropdown && !e.target.closest('.req-dd-wrap')) {
+      const prevScope = dropdownScopeOf(state.openDropdown);
+      state.openDropdown = '';
+      if (prevScope && prevScope !== 'settings') rerenderDropdownScope(prevScope);
+    }
     const actionEl = e.target.closest('[data-action]');
     if (!actionEl) return;
     const action = actionEl.dataset.action;
+
+    if (action === 'toggle-custom-dd') {
+      e.stopPropagation();
+      toggleCustomDropdown(actionEl.dataset.dd || '');
+      return;
+    }
+
+    if (action === 'pick-refresh-sec') {
+      e.stopPropagation();
+      state.openDropdown = '';
+      const val = Number(actionEl.dataset.value);
+      state.config.refreshSec = Number.isFinite(val) ? val : 30;
+      resetRefreshTimer();
+      renderHeader();
+      renderSettings();
+      await saveConfigPatch({ refreshSec: state.config.refreshSec });
+      return;
+    }
+
+    if (action === 'pick-acc-merge-to') {
+      e.stopPropagation();
+      state.openDropdown = '';
+      state.accSettings.mergeToId = actionEl.dataset.value || '';
+      renderSettings();
+      return;
+    }
+
+    if (action === 'pick-acc-merge-anchor') {
+      e.stopPropagation();
+      state.openDropdown = '';
+      state.accSettings.mergeAnchorAction = actionEl.dataset.value === 'delete' ? 'delete' : 'reassign';
+      renderSettings();
+      return;
+    }
 
     if (action === 'set-lang') {
       const nextLang = normalizeLang(actionEl.dataset.lang) || 'zh-CN';
@@ -11254,9 +11559,8 @@
       renderAccountFilterMenu();
     }
 
-    if (state.reqSpeed.openMenu && !e.target.closest?.('.req-dd-wrap')) {
-      state.reqSpeed.openMenu = '';
-      renderGrid();
+    if (state.openDropdown && !e.target.closest?.('.req-dd-wrap')) {
+      closeCustomDropdown();
     }
 
     const helpBtn = e.target.closest?.('.help-tip[data-tip]');
@@ -11283,6 +11587,7 @@
       e.preventDefault();
       e.stopPropagation();
       dismissObsCellPopover();
+      closeCustomDropdown();
       state.update.popoverOpen = !state.update.popoverOpen;
       renderUpdateUI();
     });
@@ -11365,9 +11670,8 @@
         state.accFilterOpen = false;
         renderAccountFilterMenu();
       }
-      if (state.reqSpeed.openMenu) {
-        state.reqSpeed.openMenu = '';
-        renderGrid();
+      if (state.openDropdown) {
+        closeCustomDropdown();
       }
       return;
     }
