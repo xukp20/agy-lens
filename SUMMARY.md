@@ -1,29 +1,29 @@
 # xukp20/agy-lens — Traffic & Download Archive
 
-Last updated: `2026-11-25T10:08:59.170Z`
+Last updated: `2026-11-26T09:51:01.183Z`
 
 ## Overview
 
 | Metric | All-Time Archived | Rolling 14d |
 | :--- | ---: | ---: |
-| Git Clones | 206 | 206 (110 unique) |
-| Repo Views | 182 | 182 (50 unique) |
-| Release Asset Downloads | 11 | — |
+| Git Clones | 261 | 261 (139 unique) |
+| Repo Views | 194 | 194 (52 unique) |
+| Release Asset Downloads | 14 | — |
 | Stars / Forks | 9 / 0 | — |
 
 ## Top Referrers (Last 14d)
 
 | Referrer | Views | Unique Visitors |
 | :--- | ---: | ---: |
-| github.com | 29 | 7 |
+| github.com | 31 | 7 |
 | Bing | 2 | 1 |
 
 ## Release Asset Downloads
 
 | Tag | Asset | Downloads |
 | :--- | :--- | ---: |
-| v1.11.2 | `agy-lens-1.11.2.tgz` | 0 |
-| v1.11.2 | `SHA256SUMS.txt` | 0 |
+| v1.11.2 | `agy-lens-1.11.2.tgz` | 2 |
+| v1.11.2 | `SHA256SUMS.txt` | 1 |
 | v1.11.1 | `agy-lens-1.11.1.tgz` | 3 |
 | v1.11.1 | `SHA256SUMS.txt` | 2 |
 | v1.11.0 | `agy-lens-1.11.0.tgz` | 4 |
@@ -33,6 +33,7 @@ Last updated: `2026-11-25T10:08:59.170Z`
 
 | Date (UTC) | Clones (Unique) | Views (Unique) |
 | :--- | ---: | ---: |
+| 2026-11-25 | 55 (32) | 12 (4) |
 | 2026-11-24 | 22 (18) | 20 (11) |
 | 2026-11-23 | 63 (27) | 39 (8) |
 | 2026-11-22 | 28 (16) | 31 (10) |
