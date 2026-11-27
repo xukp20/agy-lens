@@ -240,7 +240,7 @@ node scripts/demo_server.mjs --port 4318
 非常欢迎通过 Issue 反馈 Bug、提出希望扩展的功能/平台兼容需求，或提交改进建议与 PR！
 
 - **提交 Bug 或功能建议**：直接前往 [GitHub Issues](https://github.com/xukp20/agy-lens/issues/new/choose)（已内置 Bug 反馈与功能建议模板）。
-- **参与代码或文档贡献**：请查看 [CONTRIBUTING.md](CONTRIBUTING.md) 了解本地校验命令与项目设计原则。
+- **参与代码或文档贡献**：请查看 [CONTRIBUTING.zh-CN.md](CONTRIBUTING.zh-CN.md) 了解本地校验命令与项目设计原则。
 
 ---
 

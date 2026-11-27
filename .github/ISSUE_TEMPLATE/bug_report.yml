@@ -1,21 +1,26 @@
-name: Bug Report / 问题反馈
-description: Report a bug, UI glitch, or unexpected behavior in AGY Lens / 反馈 Bug、界面异常或数据计算问题
+name: Bug Report
+description: Report a bug, UI glitch, or unexpected calculation in AGY Lens. / 反馈 Bug、界面异常或数据计算问题。
 labels: ["bug"]
 body:
   - type: textarea
     id: description
     attributes:
-      label: What happened? / 问题描述
-      description: Briefly describe the bug and what you expected to happen.
-      placeholder: e.g. Clicking Sync Now in Auto Quota Alignment shows ...
+      label: Description
+      description: |
+        Briefly describe what happened and what you expected.
+        简要描述遇到的问题以及预期行为。
+      placeholder: e.g. Clicking Sync Now in Auto Quota Alignment timed out...
     validations:
       required: true
   - type: textarea
     id: steps
     attributes:
-      label: Steps to Reproduce / 复现步骤
+      label: Steps to Reproduce
+      description: |
+        Steps to reproduce the issue (if applicable).
+        复现步骤（如可复现）。
       placeholder: |
-        1. Open Settings → ...
+        1. Open Settings -> ...
         2. Click ...
         3. Observe ...
     validations:
@@ -23,26 +28,33 @@ body:
   - type: dropdown
     id: mode
     attributes:
-      label: Runtime Mode / 运行模式
+      label: Runtime Mode
+      description: |
+        How you are running AGY Lens.
+        你的运行方式。
       options:
         - Antigravity Desktop Sidecar
-        - Standalone Web Server (`agy-lens serve`)
-        - Headless CLI (`agy-lens status`)
+        - Standalone Web Server (agy-lens serve)
+        - Headless CLI (agy-lens status)
         - Remote SSH / Container
     validations:
       required: false
   - type: input
     id: env
     attributes:
-      label: OS & Version / 系统与版本
-      description: OS, AGY Lens version, Node.js version, and agy CLI version (if relevant).
-      placeholder: e.g. macOS 15 / AGY Lens v1.12.0 / Node 24 / agy 1.5.18
+      label: Environment
+      description: |
+        OS, AGY Lens version, Node.js version, and agy CLI version (if relevant).
+        操作系统、AGY Lens 版本、Node.js 版本及 agy CLI 版本（如相关）。
+      placeholder: e.g. macOS 15, AGY Lens v1.12.1, Node 24, agy 1.5.18
     validations:
       required: false
   - type: textarea
     id: logs
     attributes:
-      label: Screenshots or Logs / 截图或日志（可选，注意脱敏）
-      description: Feel free to paste sanitized error messages or screenshots.
+      label: Screenshots or Logs
+      description: |
+        Optional sanitized error messages or screenshots.
+        可选：脱敏后的报错信息或截图。
     validations:
       required: false
