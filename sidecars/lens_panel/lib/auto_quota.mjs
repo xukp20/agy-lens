@@ -236,7 +236,7 @@ export async function probeAgyCli({
 
   try {
     const res = await execCliBinary(resolved, ['--version'], {
-      timeoutMs: 8000,
+      timeoutMs: 12000,
       env,
       platform,
       execFileFn,
@@ -299,7 +299,7 @@ function shouldRetryWithoutAllProxy(env, err, stdout, stderr) {
 }
 
 /**
- * Execute `agy -p "/usage" --output-format json --print-timeout 12s` safely.
+ * Execute `agy -p "/usage" --output-format json --print-timeout 35s` safely.
  */
 export async function fetchAgyUsageRaw({
   cliPath = '',
@@ -321,10 +321,10 @@ export async function fetchAgyUsageRaw({
     };
   }
 
-  const args = ['-p', '/usage', '--output-format', 'json', '--print-timeout', '12s'];
+  const args = ['-p', '/usage', '--output-format', 'json', '--print-timeout', '35s'];
   try {
     const res = await execCliBinary(resolved, args, {
-      timeoutMs: 18000,
+      timeoutMs: 45000,
       env,
       platform,
       execFileFn,
@@ -346,7 +346,7 @@ export async function fetchAgyUsageRaw({
       delete retryEnv.all_proxy;
       try {
         const res2 = await execCliBinary(resolved, args, {
-          timeoutMs: 18000,
+          timeoutMs: 45000,
           env: retryEnv,
           platform,
           execFileFn,

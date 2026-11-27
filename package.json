@@ -1,6 +1,6 @@
 {
   "name": "agy-lens",
-  "version": "1.12.0",
+  "version": "1.12.1",
   "description": "Local-first Antigravity telemetry sidecar & standalone web/CLI dashboard: live context, prompt cache observatory, long-context API cost analytics, calendar heatmap, and 2-decimal quota alignment.",
   "type": "module",
   "license": "MIT",
