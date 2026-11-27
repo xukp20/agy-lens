@@ -1,16 +1,33 @@
 {
-  "updatedAt": "2026-11-26T09:51:01.183Z",
-  "totalAssetDownloads": 14,
-  "releaseCount": 17,
+  "updatedAt": "2026-11-27T09:55:55.010Z",
+  "totalAssetDownloads": 18,
+  "releaseCount": 18,
   "releases": [
+    {
+      "tag": "v1.12.0",
+      "publishedAt": "2026-11-27T09:54:03Z",
+      "totalDownloads": 0,
+      "assets": [
+        {
+          "name": "agy-lens-1.12.0.tgz",
+          "downloads": 0,
+          "sizeBytes": 289885
+        },
+        {
+          "name": "SHA256SUMS.txt",
+          "downloads": 0,
+          "sizeBytes": 86
+        }
+      ]
+    },
     {
       "tag": "v1.11.2",
       "publishedAt": "2026-11-25T09:55:53Z",
-      "totalDownloads": 3,
+      "totalDownloads": 5,
       "assets": [
         {
           "name": "agy-lens-1.11.2.tgz",
-          "downloads": 2,
+          "downloads": 4,
           "sizeBytes": 268430
         },
         {
@@ -23,11 +40,11 @@
     {
       "tag": "v1.11.1",
       "publishedAt": "2026-11-25T02:03:02Z",
-      "totalDownloads": 5,
+      "totalDownloads": 6,
       "assets": [
         {
           "name": "agy-lens-1.11.1.tgz",
-          "downloads": 3,
+          "downloads": 4,
           "sizeBytes": 267562
         },
         {
@@ -40,11 +57,11 @@
     {
       "tag": "v1.11.0",
       "publishedAt": "2026-11-23T02:52:30Z",
-      "totalDownloads": 6,
+      "totalDownloads": 7,
       "assets": [
         {
           "name": "agy-lens-1.11.0.tgz",
-          "downloads": 4,
+          "downloads": 5,
           "sizeBytes": 1727109
         },
         {
@@ -155,6 +172,10 @@
     "2026-11-26": {
       "totalAssetDownloads": 14,
       "releaseCount": 17
+    },
+    "2026-11-27": {
+      "totalAssetDownloads": 18,
+      "releaseCount": 18
     }
   }
 }

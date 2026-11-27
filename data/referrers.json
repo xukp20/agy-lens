@@ -1,12 +1,17 @@
 {
-  "updatedAt": "2026-11-26T09:51:01.183Z",
+  "updatedAt": "2026-11-27T09:55:55.010Z",
   "latest": {
-    "capturedAt": "2026-11-26T09:51:01.183Z",
+    "capturedAt": "2026-11-27T09:55:55.010Z",
     "referrers": [
       {
         "referrer": "github.com",
         "count": 31,
         "uniques": 7
+      },
+      {
+        "referrer": "Google",
+        "count": 2,
+        "uniques": 2
       },
       {
         "referrer": "Bing",
@@ -18,15 +23,23 @@
   "seenReferrers": {
     "Bing": {
       "firstSeen": "2026-11-24",
-      "lastSeen": "2026-11-26",
+      "lastSeen": "2026-11-27",
       "max14dCount": 2,
       "max14dUniques": 1,
       "lastSeen14dCount": 2,
       "lastSeen14dUniques": 1
     },
+    "Google": {
+      "firstSeen": "2026-11-27",
+      "lastSeen": "2026-11-27",
+      "max14dCount": 2,
+      "max14dUniques": 2,
+      "lastSeen14dCount": 2,
+      "lastSeen14dUniques": 2
+    },
     "github.com": {
       "firstSeen": "2026-11-23",
-      "lastSeen": "2026-11-26",
+      "lastSeen": "2026-11-27",
       "max14dCount": 31,
       "max14dUniques": 7,
       "lastSeen14dCount": 31,
@@ -70,6 +83,23 @@
         "referrer": "github.com",
         "count": 31,
         "uniques": 7
+      },
+      {
+        "referrer": "Bing",
+        "count": 2,
+        "uniques": 1
+      }
+    ],
+    "2026-11-27": [
+      {
+        "referrer": "github.com",
+        "count": 31,
+        "uniques": 7
+      },
+      {
+        "referrer": "Google",
+        "count": 2,
+        "uniques": 2
       },
       {
         "referrer": "Bing",

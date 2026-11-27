@@ -1,14 +1,14 @@
 {
-  "updatedAt": "2026-11-26T09:51:01.183Z",
+  "updatedAt": "2026-11-27T09:55:55.010Z",
   "last14d": {
-    "count": 194,
-    "uniques": 52,
-    "capturedAt": "2026-11-26T09:51:01.183Z"
+    "count": 204,
+    "uniques": 61,
+    "capturedAt": "2026-11-27T09:55:55.010Z"
   },
   "totals": {
-    "count": 194,
-    "sumDailyUniques": 59,
-    "recordedDays": 18
+    "count": 204,
+    "sumDailyUniques": 68,
+    "recordedDays": 19
   },
   "days": {
     "2026-11-08": {
@@ -82,6 +82,10 @@
     "2026-11-25": {
       "count": 12,
       "uniques": 4
+    },
+    "2026-11-26": {
+      "count": 10,
+      "uniques": 9
     }
   }
 }
