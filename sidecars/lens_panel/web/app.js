@@ -961,6 +961,54 @@
         errNameRequired: '请输入账号名称',
         errInvalidTime: '请选择有效的生效时间',
         savedMsg: '已保存'
+      },
+      autoQuota: {
+        sectionTitle: '自动额度对齐',
+        enableLabel: '启用自动对齐',
+        disclosureTitle: '工作原理与风险说明',
+        disclosure: '开启后，AGY Lens 会在满足间隔与活跃阈值时，调用本机官方 agy CLI 执行 agy -p "/usage" --output-format json 获取高精度剩余额度（0 模型消耗、不新建会话、不读取 OAuth 凭据、不探测内部接口）。理论上与人工在终端运行 /usage 等价，但任何自动化触发均无法保证 100% 零风险，请按需开启。',
+        providerLabel: '对齐方式',
+        providerAgyCli: '官方 agy CLI (/usage JSON)',
+        intervalLabel: '最短间隔',
+        minTurnsLabel: '新增轮次 ≥',
+        minSpendLabel: '新增等价费 ≥ ($)',
+        gateHelp: '需同时满足“最短间隔 + 新增轮次 + 新增等价费”三项条件才在后台自动对齐；闲置期间零调用。',
+        include5hLabel: '同时记录 5h 窗口',
+        include5hDesc: '默认仅记录 7d 周额度（已满足周预算与模型系数校准）',
+        accountBindLabel: 'CLI 归属账号',
+        accountBindTimeline: '跟随 CLI 切号时间轴',
+        cliPathLabel: '自定义 agy 路径（可选）',
+        cliPathPlaceholder: '留空自动检测，或填绝对路径',
+        cliReady: 'CLI 就绪',
+        cliMissing: '未检测到 agy CLI',
+        cliAuthErr: 'agy CLI 未登录或会话失效，请在终端运行一次 agy 登录',
+        cliNetErr: '网络或代理连接失败，请检查代理或网络设置',
+        cliTimeoutErr: 'agy /usage 执行超时',
+        cliParseErr: '未能解析 agy /usage 输出格式',
+        installTitle: '需要安装并登录官方 agy CLI',
+        installStep1: '1. 在 {shell} 中运行以下命令安装（仅复制，不在后台自动执行）：',
+        installStep2: '2. 安装完成后在终端运行一次 agy 完成登录，再点击“重新检测”。',
+        copyCmdBtn: '复制命令',
+        docsLink: '官方安装文档 ↗',
+        recheckBtn: '重新检测',
+        rechecking: '检测中…',
+        syncNowBtn: '立即对齐',
+        syncingBtn: '对齐中…',
+        lastSyncedAt: '上次对齐：{time}',
+        neverSynced: '尚未对齐',
+        progressLine: '当前累计：{turns}/{minTurns} 轮 · {spend}/{minSpend}',
+        cooldownWait: '冷却剩余 {dur}',
+        gateReady: '已达阈值，下次刷新自动对齐',
+        gateNearSwitch: '距切号点不足 5 分钟，暂缓自动对齐',
+        syncOkInserted: '已写入 {n} 条高精度快照',
+        syncOkUnchanged: '额度无变化，已跳过重复写入',
+        badgeAuto: '自动',
+        badgeAutoTitle: '由官方 agy CLI 自动对齐写入',
+        quotaBarOff: '自动对齐：关',
+        quotaBarGoSettings: '去设置',
+        quotaBarOn: '自动 {h}h',
+        quotaBarWarn: 'CLI 未就绪',
+        quotaBarTip: '间隔 ≥{h}h · 累计 {turns}/{minTurns} 轮 · {spend}/{minSpend} · 上次：{last}'
       }
     },
     en: {
@@ -1772,6 +1820,54 @@
         errNameRequired: 'Account name is required',
         errInvalidTime: 'Please select a valid effective time',
         savedMsg: 'Saved'
+      },
+      autoQuota: {
+        sectionTitle: 'Auto Quota Alignment',
+        enableLabel: 'Enable auto alignment',
+        disclosureTitle: 'How it works & risk notice',
+        disclosure: 'When enabled, AGY Lens invokes the official local agy CLI (agy -p "/usage" --output-format json) only after both the cooldown and activity thresholds are met (0 model tokens, 0 new conversations, never reads OAuth credentials or internal RPCs). Equivalent to running /usage manually, though no automation can guarantee 100% zero risk.',
+        providerLabel: 'Sync Method',
+        providerAgyCli: 'Official agy CLI (/usage JSON)',
+        intervalLabel: 'Min Interval',
+        minTurnsLabel: 'New Turns ≥',
+        minSpendLabel: 'New Spend ≥ ($)',
+        gateHelp: 'Requires ALL 3 conditions (cooldown + new turns + new spend) before background sync triggers; zero calls while idle.',
+        include5hLabel: 'Also record 5h window',
+        include5hDesc: 'Default records 7d weekly quota only (sufficient for weekly calibration)',
+        accountBindLabel: 'CLI Account',
+        accountBindTimeline: 'Follow CLI switch timeline',
+        cliPathLabel: 'Custom agy path (optional)',
+        cliPathPlaceholder: 'Blank for auto-detect, or absolute path',
+        cliReady: 'CLI Ready',
+        cliMissing: 'agy CLI not detected',
+        cliAuthErr: 'agy CLI is not signed in — run `agy` once in a terminal to log in',
+        cliNetErr: 'Network or proxy connection failed',
+        cliTimeoutErr: 'agy /usage command timed out',
+        cliParseErr: 'Could not parse agy /usage output',
+        installTitle: 'Install & sign in to official agy CLI',
+        installStep1: '1. Run this command in {shell} (copy only — never auto-executed):',
+        installStep2: '2. Run `agy` once in your terminal to sign in, then click Re-check.',
+        copyCmdBtn: 'Copy',
+        docsLink: 'Install docs ↗',
+        recheckBtn: 'Re-check',
+        rechecking: 'Checking…',
+        syncNowBtn: 'Sync Now',
+        syncingBtn: 'Syncing…',
+        lastSyncedAt: 'Last synced: {time}',
+        neverSynced: 'Never synced',
+        progressLine: 'Progress: {turns}/{minTurns} turns · {spend}/{minSpend}',
+        cooldownWait: 'Cooldown {dur}',
+        gateReady: 'Thresholds met — will sync on next refresh',
+        gateNearSwitch: 'Near account switch (<5m) — paused',
+        syncOkInserted: 'Recorded {n} precision snapshot(s)',
+        syncOkUnchanged: 'No quota change — skipped duplicate',
+        badgeAuto: 'Auto',
+        badgeAutoTitle: 'Auto-synced via official agy CLI',
+        quotaBarOff: 'Auto sync: Off',
+        quotaBarGoSettings: 'Settings',
+        quotaBarOn: 'Auto {h}h',
+        quotaBarWarn: 'CLI not ready',
+        quotaBarTip: 'Interval ≥{h}h · {turns}/{minTurns} turns · {spend}/{minSpend} · Last: {last}'
       }
     }
   };
@@ -2501,7 +2597,18 @@
     obsMatrixSubMetrics: ['keepRate', 'avgCost'],
     obsGapBreakpointsSec: [...DEFAULT_OBS_GAP_BREAKPOINTS],
     updateMode: 'auto',
-    dismissedUpdateVersion: ''
+    dismissedUpdateVersion: '',
+    autoQuota: {
+      enabled: false,
+      provider: 'agy_cli',
+      intervalMinutes: 120,
+      minTurns: 20,
+      minSpendUsd: 3.0,
+      include5h: false,
+      accountMode: 'timeline',
+      accountId: '',
+      cliPath: ''
+    }
   };
 
   const state = {
@@ -2531,6 +2638,18 @@
       rollingBack: false,
       restartMsg: '',
       restartFallback: false,
+      copyStatus: ''
+    },
+
+    autoQuota: {
+      data: null,
+      lastFetchedAt: 0,
+      loading: false,
+      probing: false,
+      syncing: false,
+      disclosureOpen: true,
+      msg: '',
+      msgTone: '',
       copyStatus: ''
     },
 
@@ -2911,6 +3030,10 @@
       obsGapBreakpointsSec,
       updateMode: ['auto', 'notify', 'off'].includes(cfg.updateMode) ? cfg.updateMode : DEFAULT_CONFIG.updateMode,
       dismissedUpdateVersion: typeof cfg.dismissedUpdateVersion === 'string' ? cfg.dismissedUpdateVersion : '',
+      autoQuota: {
+        ...DEFAULT_CONFIG.autoQuota,
+        ...(cfg.autoQuota && typeof cfg.autoQuota === 'object' ? cfg.autoQuota : {})
+      },
       moduleOrder: Array.isArray(cfg.moduleOrder) && cfg.moduleOrder.length
         ? cfg.moduleOrder.filter((id) => ALL_MODULE_IDS.includes(id))
         : [...DEFAULT_CONFIG.moduleOrder]
@@ -3111,6 +3234,16 @@
               state.quotaError = e.message;
             })
         );
+        if (state.config.autoQuota?.enabled && (manual || Date.now() - state.autoQuota.lastFetchedAt > 60000)) {
+          tasks.push(
+            getJson('/api/auto-quota/status')
+              .then((d) => {
+                state.autoQuota.data = d;
+                state.autoQuota.lastFetchedAt = Date.now();
+              })
+              .catch(() => {})
+          );
+        }
       }
 
       if (isModuleActiveForView('model-cost') && !state.pricing.data && !state.pricing.prefetching) {
@@ -3352,9 +3485,10 @@
     compact = false,
     ariaLabel = '',
     title = '',
-    extraData = null
+    extraData = null,
+    disabled = false
   }) {
-    const isOpen = state.openDropdown === id;
+    const isOpen = !disabled && state.openDropdown === id;
     const checkSvg =
       '<svg class="icon" width="11" height="11" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-6.5"/></svg>';
     const extraAttrs = extraData
@@ -3403,9 +3537,10 @@
       : '';
     const ariaAttr = ariaLabel ? ` aria-label="${esc(ariaLabel)}"` : '';
     const titleAttr = title ? ` title="${esc(title)}"` : '';
+    const disabledAttr = disabled ? ' disabled' : '';
     return `
       <div class="req-dd-wrap ${fullWidth ? 'full' : ''}" data-stop-card>
-        <button type="button" class="${triggerCls}" data-action="toggle-custom-dd" data-dd="${esc(id)}" aria-haspopup="listbox" aria-expanded="${isOpen}"${ariaAttr}${titleAttr}>
+        <button type="button" class="${triggerCls}" data-action="toggle-custom-dd" data-dd="${esc(id)}" aria-haspopup="listbox" aria-expanded="${isOpen}"${ariaAttr}${titleAttr}${disabledAttr}>
           <span class="req-dd-item-main">${trigDotHtml}<span class="truncate">${esc(label)}</span></span>
           <svg class="icon req-dd-chev" width="10" height="10" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg>
         </button>
@@ -6825,9 +6960,12 @@
          </form>`
       : `<button type="button" class="acc-add-toggle" data-action="toggle-quota-form" data-open="1" ${isReadOnlyMode() ? 'disabled' : ''}>+ ${esc(t('quota.formTitle'))}</button>`;
 
+    const aqBarHtml = renderQuotaAutoBar();
+
     let expHtml = `
       <div class="card-expanded">
         ${overviewOnly ? `<div class="muted-note" style="font-size:11px;line-height:1.45">${esc(t('accounts.quotaAllHint'))}</div>` : ''}
+        ${aqBarHtml}
         ${formSectionHtml}
         ${nearWarnHtml}
     `;
@@ -7242,13 +7380,18 @@
                 <div class="anchor-top num">
                   <strong class="mono">${esc(mode === 'used' ? t('quota.used') : t('quota.remaining'))} ${fmtPctDirect(shown, step)}</strong>
                   <span class="muted-note mono" style="font-size:10px" title="${esc(t('quota.precision', { step }))}">±${step}%</span>
+                  ${a.anchorSource && a.anchorSource !== 'manual' ? `<span class="anchor-src-tag" title="${esc(t('autoQuota.badgeAutoTitle'))}">${esc(t('autoQuota.badgeAuto'))}</span>` : ''}
                   <span class="muted-note mono anchor-times">${esc(timeParts.join(' · '))}</span>
                 </div>
                 ${a.note ? `<div class="muted-note truncate" style="font-size:10.5px">${esc(a.note)}</div>` : ''}
               </div>
               <div class="anchor-actions">
-                <button type="button" class="btn-sm" data-action="edit-anchor-reset" data-id="${esc(a.id)}" ${isReadOnlyMode() ? 'disabled' : ''}>${esc(t('quota.editResetBtn'))}</button>
-                <button type="button" class="btn-sm danger" data-action="delete-anchor" data-id="${esc(a.id)}" ${isReadOnlyMode() ? 'disabled' : ''}>${esc(t('common.delete'))}</button>
+                <button type="button" class="anchor-icon-btn" data-action="edit-anchor-reset" data-id="${esc(a.id)}" title="${esc(t('quota.editResetBtn'))}" aria-label="${esc(t('quota.editResetBtn'))}" ${isReadOnlyMode() ? 'disabled' : ''}>
+                  <svg class="icon" width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.3 2.5a1.5 1.5 0 0 1 2.2 2.2L6 12.2 2.8 13l.8-3.2 7.7-7.3z"/></svg>
+                </button>
+                <button type="button" class="anchor-icon-btn danger" data-action="delete-anchor" data-id="${esc(a.id)}" title="${esc(t('common.delete'))}" aria-label="${esc(t('common.delete'))}" ${isReadOnlyMode() ? 'disabled' : ''}>
+                  <svg class="icon" width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.2 4.5V3.3c0-.4.3-.8.8-.8h2c.5 0 .8.4.8.8v1.2M4.5 4.5l.6 8.2c0 .5.4.8.9.8h4c.5 0 .9-.3.9-.8l.6-8.2"/></svg>
+                </button>
               </div>
             </div>
             ${editInlineHtml}
@@ -8419,6 +8562,7 @@
   function renderSettings() {
     if (!state.settingsOpen) return;
 
+    const prevBodyScrollTop = dom.settingsBody.scrollTop;
     const prevPricingScrollEl = dom.settingsBody.querySelector('[data-pricing-scroll]');
     const prevPricingScrollTop = prevPricingScrollEl ? prevPricingScrollEl.scrollTop : 0;
     const ro = isReadOnlyMode();
@@ -8628,6 +8772,8 @@
 
       ${renderSettingsAccountsSection()}
 
+      ${renderSettingsAutoQuotaSection()}
+
       <section class="set-section">
         <div class="set-title-row">
           <h3 class="set-title">${esc(t('settings.pricingSection'))}</h3>
@@ -8672,6 +8818,7 @@
       ${renderSettingsUpdateSection()}
     `;
 
+    dom.settingsBody.scrollTop = prevBodyScrollTop;
     if (prevPricingScrollTop > 0) {
       const nextPricingScrollEl = dom.settingsBody.querySelector('[data-pricing-scroll]');
       if (nextPricingScrollEl) nextPricingScrollEl.scrollTop = prevPricingScrollTop;
@@ -8901,6 +9048,421 @@
     `;
   }
 
+  function formatAutoQuotaError(code, fallbackMsg = '') {
+    switch (code) {
+      case 'not_installed':
+        return t('autoQuota.cliMissing');
+      case 'not_authenticated':
+        return t('autoQuota.cliAuthErr');
+      case 'network_error':
+        return t('autoQuota.cliNetErr');
+      case 'timeout':
+        return t('autoQuota.cliTimeoutErr');
+      case 'parse_error':
+        return t('autoQuota.cliParseErr');
+      default:
+        return fallbackMsg || code || t('common.readFailed');
+    }
+  }
+
+  function renderSettingsIfNotEditing() {
+    if (!state.settingsOpen) return;
+    const active = document.activeElement;
+    const ddScope = dropdownScopeOf(state.openDropdown);
+    const settingsDdMounted = ddScope === 'settings' && Boolean(dom.settingsBody.querySelector('.req-dd-menu'));
+    const editingSettings = Boolean(
+      (active && active.closest && active.closest('#settings-body input, #settings-body .req-dd-wrap')) ||
+        settingsDdMounted
+    );
+    if (!editingSettings) renderSettings();
+  }
+
+  async function fetchAutoQuotaStatus({ forceProbe = false } = {}) {
+    const aq = state.autoQuota;
+    if (forceProbe) {
+      if (isReadOnlyMode()) return;
+      aq.probing = true;
+      renderSettingsIfNotEditing();
+    } else if (aq.loading) {
+      return;
+    } else {
+      aq.loading = true;
+    }
+    try {
+      const data = forceProbe
+        ? await postJson('/api/auto-quota/probe', {})
+        : await getJson('/api/auto-quota/status');
+      aq.data = data;
+      aq.lastFetchedAt = Date.now();
+    } catch {
+      // ignore transient status errors
+    } finally {
+      aq.loading = false;
+      aq.probing = false;
+      renderSettingsIfNotEditing();
+      if (isModuleActiveForView('quota-budget')) renderGrid();
+    }
+  }
+
+  async function triggerAutoQuotaSync() {
+    if (isReadOnlyMode() || state.autoQuota.syncing) return;
+    const aq = state.autoQuota;
+    aq.syncing = true;
+    aq.msg = '';
+    aq.msgTone = '';
+    if (state.settingsOpen) renderSettings();
+    renderGrid();
+    try {
+      const cfg = state.config.autoQuota || DEFAULT_CONFIG.autoQuota;
+      const targetAcc =
+        isMultiAccountActive() && state.accountId !== 'all'
+          ? state.accountId
+          : cfg.accountMode === 'fixed' && cfg.accountId
+            ? cfg.accountId
+            : '';
+      const res = await postJson('/api/auto-quota/sync', {
+        accountId: targetAcc || undefined,
+        viewAccountId: state.accountId || 'all'
+      });
+      if (res.autoQuota) {
+        aq.data = res.autoQuota;
+        aq.lastFetchedAt = Date.now();
+      }
+      if (res.quota) {
+        state.quotaData = res.quota;
+        state.quotaError = null;
+      }
+      const sr = res.syncResult || {};
+      if (sr.ok) {
+        const n = Array.isArray(sr.inserted) ? sr.inserted.length : 0;
+        aq.msg = n > 0 ? t('autoQuota.syncOkInserted', { n }) : t('autoQuota.syncOkUnchanged');
+        aq.msgTone = 'ok';
+      } else {
+        aq.msg = formatAutoQuotaError(sr.code, sr.error);
+        aq.msgTone = 'bad';
+      }
+    } catch (err) {
+      aq.msg = err.message;
+      aq.msgTone = 'bad';
+    } finally {
+      aq.syncing = false;
+      if (state.settingsOpen) renderSettings();
+      renderGrid();
+    }
+  }
+
+  function renderQuotaAutoBar() {
+    const cfg = state.config.autoQuota || DEFAULT_CONFIG.autoQuota;
+    const aq = state.autoQuota;
+    const st = aq.data;
+    const ro = isReadOnlyMode();
+
+    if (!cfg.enabled) {
+      return `
+        <div class="aq-quota-bar muted" data-stop-card>
+          <span class="muted-note" style="font-size:11px">${esc(t('autoQuota.quotaBarOff'))}</span>
+          <button type="button" class="aq-link-btn" data-action="open-settings-auto-quota">${esc(t('autoQuota.quotaBarGoSettings'))}</button>
+        </div>
+      `;
+    }
+
+    const hrs = Math.round((num(cfg.intervalMinutes, 120) / 60) * 10) / 10;
+    const hasCliErr = Boolean(
+      (st?.cli && (!st.cli.installed || !st.cli.ok)) || st?.lastStatus === 'error'
+    );
+    const gate = st?.gate;
+    const lastStr = st?.lastSyncAt ? fmtRelTime(st.lastSyncAt) : t('autoQuota.neverSynced');
+    const tipStr = gate
+      ? t('autoQuota.quotaBarTip', {
+          h: hrs,
+          turns: gate.newTurns,
+          minTurns: gate.minTurns,
+          spend: fmtUsd(gate.newSpendUsd),
+          minSpend: fmtUsd(gate.minSpendUsd),
+          last: lastStr
+        })
+      : '';
+
+    const warnLabel =
+      st?.cli && !st.cli.installed
+        ? t('autoQuota.quotaBarWarn')
+        : formatAutoQuotaError(st?.lastErrorCode || st?.cli?.status, st?.lastError || st?.cli?.error);
+
+    const statusBadge = hasCliErr
+      ? `<button type="button" class="pill warn aq-pill-btn" data-action="open-settings-auto-quota" title="${esc(warnLabel)}">⚠ ${esc(t('autoQuota.quotaBarWarn'))}</button>`
+      : `<span class="aq-status-pill" title="${esc(tipStr)}"><span class="aq-dot ok"></span><span>${esc(t('autoQuota.quotaBarOn', { h: hrs }))}</span>${st?.lastSyncAt ? `<span class="muted-note num">· ${esc(lastStr)}</span>` : ''}</span>`;
+
+    return `
+      <div class="aq-quota-bar-wrap" data-stop-card>
+        <div class="aq-quota-bar">
+          ${statusBadge}
+          <div style="display:flex;align-items:center;gap:6px;flex:none">
+            <button type="button" class="btn-sm" data-action="sync-auto-quota-now" ${aq.syncing || ro ? 'disabled' : ''}>${esc(aq.syncing ? t('autoQuota.syncingBtn') : t('autoQuota.syncNowBtn'))}</button>
+            <button type="button" class="aq-link-btn" data-action="open-settings-auto-quota">${esc(t('autoQuota.quotaBarGoSettings'))}</button>
+          </div>
+        </div>
+        ${aq.msg ? `<div class="muted-note" style="font-size:10.5px;color:${aq.msgTone === 'bad' ? 'var(--bad)' : 'var(--ok)'}">${esc(aq.msg)}</div>` : ''}
+      </div>
+    `;
+  }
+
+  function renderSettingsAutoQuotaSection() {
+    const ro = isReadOnlyMode();
+    const cfg = { ...DEFAULT_CONFIG.autoQuota, ...(state.config.autoQuota || {}) };
+    const aq = state.autoQuota;
+    const st = aq.data;
+    const cli = st?.cli || null;
+    const gate = st?.gate || null;
+    const guide = st?.installGuidance || null;
+
+    const intervalItems = [
+      { value: '60', label: '1h' },
+      { value: '120', label: '2h' },
+      { value: '240', label: '4h' },
+      { value: '360', label: '6h' },
+      { value: '720', label: '12h' }
+    ];
+    const curIntervalVal = String(num(cfg.intervalMinutes, 120));
+    const curIntervalItem = intervalItems.find((it) => it.value === curIntervalVal) || {
+      value: curIntervalVal,
+      label: `${Math.round((num(cfg.intervalMinutes, 120) / 60) * 10) / 10}h`
+    };
+
+    const providerItems = [
+      { value: 'agy_cli', label: t('autoQuota.providerAgyCli') }
+    ];
+
+    let bodyHtml = '';
+    if (cfg.enabled) {
+      // 1. CLI readiness / status banner
+      let cliStatusHtml = '';
+      if (cli && !cli.installed) {
+        const installCmd = guide?.command || 'curl -fsSL https://antigravity.google/cli/install.sh | bash';
+        const shellLbl = guide?.shellLabel || 'Terminal';
+        const docsUrl = guide?.docsUrl || 'https://antigravity.google/docs/getting-started?tab=cli';
+        cliStatusHtml = `
+          <div class="aq-install-box">
+            <div class="aq-install-head">
+              <span class="pill warn">${esc(t('autoQuota.cliMissing'))}</span>
+              <button type="button" class="btn-sm" data-action="probe-auto-quota" ${aq.probing || ro ? 'disabled' : ''}>${esc(aq.probing ? t('autoQuota.rechecking') : t('autoQuota.recheckBtn'))}</button>
+            </div>
+            <div class="muted-note" style="font-size:11px;line-height:1.45">${esc(t('autoQuota.installStep1', { shell: shellLbl }))}</div>
+            <div class="aq-cmd-row">
+              <code class="aq-cmd-code">${esc(installCmd)}</code>
+              <button type="button" class="btn-sm" data-action="copy-aq-install-cmd" data-cmd="${esc(installCmd)}">${esc(aq.copyStatus || t('autoQuota.copyCmdBtn'))}</button>
+            </div>
+            <div class="muted-note" style="font-size:11px;line-height:1.45">${esc(t('autoQuota.installStep2'))}</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+              <a class="aq-docs-link" href="${esc(docsUrl)}" target="_blank" rel="noopener noreferrer">${esc(t('autoQuota.docsLink'))}</a>
+            </div>
+          </div>
+        `;
+      } else {
+        const cliOk = Boolean(cli && cli.ok);
+        const cliErrored = Boolean(cli && !cli.ok);
+        const verStr = cli?.version ? `v${cli.version}` : '';
+        const lastSyncStr = st?.lastSyncAt ? fmtTimeShort(st.lastSyncAt) : t('autoQuota.neverSynced');
+        const summaryStr = Array.isArray(st?.lastSummary) && st.lastSummary.length > 0
+          ? st.lastSummary
+              .map((b) => `${poolLabel(b.pool)} ${b.windowType} ${fmtPctDirect(b.remainingPct, b.precisionStep ?? 0.01)}`)
+              .join(' · ')
+          : '';
+        const errHtml = cliErrored && cli.error
+          ? `<div class="muted-note" style="color:var(--bad);font-size:11px">${esc(cli.error)}</div>`
+          : st?.lastStatus === 'error' && (st.lastErrorCode || st.lastError)
+            ? `<div class="muted-note" style="color:var(--bad);font-size:11px">${esc(formatAutoQuotaError(st.lastErrorCode, st.lastError))}</div>`
+            : '';
+
+        cliStatusHtml = `
+          <div class="aq-ready-box">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+              <span class="aq-status-pill">
+                <span class="aq-dot ${cliOk ? 'ok' : cliErrored ? 'warn' : 'idle'}"></span>
+                <strong>${esc(cliOk ? t('autoQuota.cliReady') : cliErrored ? t('autoQuota.quotaBarWarn') : t('autoQuota.rechecking'))}</strong>
+                ${verStr ? `<span class="muted-note mono">${esc(verStr)}</span>` : ''}
+              </span>
+              <div style="display:flex;gap:6px;flex:none">
+                <button type="button" class="btn-sm" data-action="probe-auto-quota" ${aq.probing || ro ? 'disabled' : ''}>${esc(aq.probing ? t('autoQuota.rechecking') : t('autoQuota.recheckBtn'))}</button>
+                <button type="button" class="btn-sm primary" data-action="sync-auto-quota-now" ${aq.syncing || ro ? 'disabled' : ''}>${esc(aq.syncing ? t('autoQuota.syncingBtn') : t('autoQuota.syncNowBtn'))}</button>
+              </div>
+            </div>
+            <div class="muted-note num" style="font-size:11px">
+              ${esc(t('autoQuota.lastSyncedAt', { time: lastSyncStr }))}${summaryStr ? ` · <span class="mono">${esc(summaryStr)}</span>` : ''}
+            </div>
+            ${aq.msg ? `<div class="muted-note" style="font-size:11px;color:${aq.msgTone === 'bad' ? 'var(--bad)' : 'var(--ok)'}">${esc(aq.msg)}</div>` : ''}
+            ${errHtml}
+          </div>
+        `;
+      }
+
+      // 2. Live gate progress string
+      let gateLineHtml = '';
+      if (gate) {
+        const baseProg = t('autoQuota.progressLine', {
+          turns: gate.newTurns,
+          minTurns: gate.minTurns,
+          spend: fmtUsd(gate.newSpendUsd),
+          minSpend: fmtUsd(gate.minSpendUsd)
+        });
+        let tail = '';
+        if (gate.reason === 'near_switch') {
+          tail = ` · ${t('autoQuota.gateNearSwitch')}`;
+        } else if (gate.cooldownRemainingMs > 0) {
+          tail = ` · ${t('autoQuota.cooldownWait', { dur: fmtDurationMs(gate.cooldownRemainingMs) })}`;
+        } else if (gate.eligible) {
+          tail = ` · ${t('autoQuota.gateReady')}`;
+        }
+        gateLineHtml = `<div class="aq-progress-note num mono">${esc(baseProg + tail)}</div>`;
+      }
+
+      // 3. Multi-account CLI binding (only visible in multi-account mode)
+      let accountBindHtml = '';
+      if (isMultiAccountActive()) {
+        const activeAccs = getActiveAccountsList();
+        const accItems = [
+          { value: 'timeline', label: t('autoQuota.accountBindTimeline') },
+          ...activeAccs.map((a) => ({ value: `fixed:${a.id}`, label: a.name, dotColor: a.color }))
+        ];
+        if (cfg.accountMode === 'fixed' && cfg.accountId && !activeAccs.some((a) => a.id === cfg.accountId)) {
+          const archivedAcc = getAccountById(cfg.accountId);
+          if (archivedAcc) {
+            accItems.push({
+              value: `fixed:${archivedAcc.id}`,
+              label: `${archivedAcc.name} (${t('accounts.archivedTag')})`,
+              dotColor: archivedAcc.color
+            });
+          }
+        }
+        const curAccVal =
+          cfg.accountMode === 'fixed' && cfg.accountId ? `fixed:${cfg.accountId}` : 'timeline';
+        const curAccItem = accItems.find((it) => it.value === curAccVal) || accItems[0];
+        accountBindHtml = `
+          <div class="set-mod-row">
+            <div class="set-mod-meta">
+              <span class="set-mod-name">${esc(t('autoQuota.accountBindLabel'))}</span>
+            </div>
+            <div style="min-width:168px">
+              ${renderCustomDropdown({
+                id: 'set-aq-account',
+                label: curAccItem.label,
+                dotColor: curAccItem.dotColor || '',
+                items: accItems,
+                activeVal: curAccItem.value,
+                pickAction: 'pick-aq-account',
+                alignRight: true,
+                small: true,
+                fullWidth: true,
+                disabled: ro
+              })}
+            </div>
+          </div>
+        `;
+      }
+
+      bodyHtml = `
+        ${cliStatusHtml}
+
+        <div class="set-mod-row">
+          <div class="set-mod-meta">
+            <span class="set-mod-name">${esc(t('autoQuota.providerLabel'))}</span>
+          </div>
+          <div style="min-width:176px">
+            ${renderCustomDropdown({
+              id: 'set-aq-provider',
+              label: providerItems[0].label,
+              items: providerItems,
+              activeVal: cfg.provider || 'agy_cli',
+              pickAction: 'pick-aq-provider',
+              alignRight: true,
+              small: true,
+              fullWidth: true,
+              disabled: ro
+            })}
+          </div>
+        </div>
+
+        <div class="set-mod-row">
+          <div class="set-mod-meta">
+            <span class="set-mod-name">
+              <span>${esc(t('autoQuota.intervalLabel'))}</span>
+              ${helpTip(t('autoQuota.gateHelp'))}
+            </span>
+          </div>
+          <div style="min-width:96px">
+            ${renderCustomDropdown({
+              id: 'set-aq-interval',
+              label: curIntervalItem.label,
+              items: intervalItems,
+              activeVal: curIntervalItem.value,
+              pickAction: 'pick-aq-interval',
+              alignRight: true,
+              small: true,
+              fullWidth: true,
+              disabled: ro
+            })}
+          </div>
+        </div>
+
+        <div class="aq-thresh-grid">
+          <div class="field">
+            <label for="set-aq-min-turns">${esc(t('autoQuota.minTurnsLabel'))}</label>
+            <input id="set-aq-min-turns" type="number" min="0" max="10000" step="1" value="${esc(num(cfg.minTurns, 20))}" data-action="set-aq-min-turns" ${ro ? 'disabled' : ''}>
+          </div>
+          <div class="field">
+            <label for="set-aq-min-spend">${esc(t('autoQuota.minSpendLabel'))}</label>
+            <input id="set-aq-min-spend" type="number" min="0" max="10000" step="0.5" value="${esc(num(cfg.minSpendUsd, 3))}" data-action="set-aq-min-spend" ${ro ? 'disabled' : ''}>
+          </div>
+        </div>
+
+        ${gateLineHtml}
+        ${accountBindHtml}
+
+        <div class="set-mod-row">
+          <div class="set-mod-meta">
+            <span class="set-mod-name">${esc(t('autoQuota.include5hLabel'))}</span>
+            <span class="set-mod-desc">${esc(t('autoQuota.include5hDesc'))}</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" data-action="toggle-aq-include-5h" ${cfg.include5h ? 'checked' : ''} ${ro ? 'disabled' : ''}>
+            <span class="switch-track"></span>
+          </label>
+        </div>
+
+        <div class="field">
+          <label for="set-aq-cli-path">${esc(t('autoQuota.cliPathLabel'))}</label>
+          <input id="set-aq-cli-path" type="text" maxlength="320" placeholder="${esc(t('autoQuota.cliPathPlaceholder'))}" value="${esc(cfg.cliPath || '')}" data-action="set-aq-cli-path" ${ro ? 'disabled' : ''}>
+        </div>
+      `;
+    }
+
+    return `
+      <section class="set-section" id="set-section-auto-quota">
+        <div class="set-title-row">
+          <h3 class="set-title">${esc(t('autoQuota.sectionTitle'))}</h3>
+        </div>
+        <div class="set-card">
+          <div class="set-mod-row">
+            <div class="set-mod-meta">
+              <span class="set-mod-name">${esc(t('autoQuota.enableLabel'))}</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" data-action="toggle-aq-enabled" ${cfg.enabled ? 'checked' : ''} ${ro ? 'disabled' : ''}>
+              <span class="switch-track"></span>
+            </label>
+          </div>
+          <div class="aq-disclosure-box">
+            <button type="button" class="aq-disclosure-toggle ${aq.disclosureOpen ? 'open' : ''}" data-action="toggle-aq-disclosure" aria-expanded="${aq.disclosureOpen}">
+              <svg class="icon chevron" width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4l4 4-4 4"/></svg>
+              <span>${esc(t('autoQuota.disclosureTitle'))}</span>
+            </button>
+            ${aq.disclosureOpen ? `<div class="aq-disclosure-body muted-note">${esc(t('autoQuota.disclosure'))}</div>` : ''}
+          </div>
+          ${bodyHtml}
+        </div>
+      </section>
+    `;
+  }
+
   function renderSettingsUpdateSection() {
     const u = state.update.data;
     const ro = isReadOnlyMode();
@@ -9029,8 +9591,9 @@
     dom.settingsBackdrop.classList.remove('hidden');
     dom.settingsDrawer.classList.remove('hidden');
     renderSettings();
-    dom.settingsDrawer.focus();
+    dom.settingsDrawer.focus({ preventScroll: true });
     fetchUpdateStatus();
+    if (state.config.autoQuota?.enabled) fetchAutoQuotaStatus();
     if (!state.pricing.data && !state.pricing.loading && !state.pricing.prefetching) {
       state.pricing.prefetching = true;
       getJson('/api/pricing')
@@ -9757,6 +10320,24 @@
         e.stopPropagation();
         state.quotaNearSwitchWarn = null;
         renderGrid();
+        return;
+      }
+
+      if (action === 'open-settings-auto-quota') {
+        e.stopPropagation();
+        openSettings();
+        requestAnimationFrame(() => {
+          const sec = document.getElementById('set-section-auto-quota');
+          if (sec && typeof sec.scrollIntoView === 'function') {
+            sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        });
+        return;
+      }
+
+      if (action === 'sync-auto-quota-now') {
+        e.stopPropagation();
+        await triggerAutoQuotaSync();
         return;
       }
 
@@ -10649,6 +11230,79 @@
       return;
     }
 
+    if (action === 'toggle-aq-disclosure') {
+      e.stopPropagation();
+      state.autoQuota.disclosureOpen = !state.autoQuota.disclosureOpen;
+      renderSettings();
+      return;
+    }
+
+    if (action === 'pick-aq-provider') {
+      e.stopPropagation();
+      state.openDropdown = '';
+      if (isReadOnlyMode()) return;
+      const val = actionEl.dataset.value || 'agy_cli';
+      state.config.autoQuota = { ...DEFAULT_CONFIG.autoQuota, ...(state.config.autoQuota || {}), provider: val };
+      renderSettings();
+      await saveConfigPatch({ autoQuota: { provider: val } });
+      return;
+    }
+
+    if (action === 'pick-aq-interval') {
+      e.stopPropagation();
+      state.openDropdown = '';
+      if (isReadOnlyMode()) return;
+      const mins = Math.max(15, Math.min(1440, Math.round(Number(actionEl.dataset.value) || 120)));
+      state.config.autoQuota = { ...DEFAULT_CONFIG.autoQuota, ...(state.config.autoQuota || {}), intervalMinutes: mins };
+      renderSettings();
+      renderGrid();
+      await saveConfigPatch({ autoQuota: { intervalMinutes: mins } });
+      fetchAutoQuotaStatus();
+      return;
+    }
+
+    if (action === 'pick-aq-account') {
+      e.stopPropagation();
+      state.openDropdown = '';
+      if (isReadOnlyMode()) return;
+      const rawVal = actionEl.dataset.value || 'timeline';
+      const patch = rawVal.startsWith('fixed:')
+        ? { accountMode: 'fixed', accountId: rawVal.slice(6) }
+        : { accountMode: 'timeline', accountId: '' };
+      state.config.autoQuota = { ...DEFAULT_CONFIG.autoQuota, ...(state.config.autoQuota || {}), ...patch };
+      renderSettings();
+      await saveConfigPatch({ autoQuota: patch });
+      fetchAutoQuotaStatus();
+      return;
+    }
+
+    if (action === 'probe-auto-quota') {
+      e.stopPropagation();
+      state.autoQuota.msg = '';
+      await fetchAutoQuotaStatus({ forceProbe: true });
+      return;
+    }
+
+    if (action === 'sync-auto-quota-now') {
+      e.stopPropagation();
+      await triggerAutoQuotaSync();
+      return;
+    }
+
+    if (action === 'copy-aq-install-cmd') {
+      e.stopPropagation();
+      const cmd = actionEl.dataset.cmd || '';
+      if (!cmd) return;
+      const ok = await copyTextWithFallback(cmd);
+      state.autoQuota.copyStatus = ok ? t('common.copied') : t('common.copyFailed');
+      renderSettings();
+      setTimeout(() => {
+        state.autoQuota.copyStatus = '';
+        renderSettingsIfNotEditing();
+      }, 1800);
+      return;
+    }
+
     if (action === 'set-lang') {
       const nextLang = normalizeLang(actionEl.dataset.lang) || 'zh-CN';
       state.query.lang = null; // explicit user choice overrides query param in current view
@@ -11008,6 +11662,57 @@
       if (isReadOnlyMode()) return;
       state.config.pricingAutoSync = tgt.checked;
       await saveConfigPatch({ pricingAutoSync: tgt.checked });
+      return;
+    }
+
+    if (action === 'toggle-aq-enabled') {
+      if (isReadOnlyMode()) return;
+      const enabled = Boolean(tgt.checked);
+      state.config.autoQuota = { ...DEFAULT_CONFIG.autoQuota, ...(state.config.autoQuota || {}), enabled };
+      state.autoQuota.msg = '';
+      renderSettings();
+      renderGrid();
+      await saveConfigPatch({ autoQuota: { enabled } });
+      if (enabled) fetchAutoQuotaStatus({ forceProbe: true });
+      return;
+    }
+
+    if (action === 'toggle-aq-include-5h') {
+      if (isReadOnlyMode()) return;
+      const include5h = Boolean(tgt.checked);
+      state.config.autoQuota = { ...DEFAULT_CONFIG.autoQuota, ...(state.config.autoQuota || {}), include5h };
+      await saveConfigPatch({ autoQuota: { include5h } });
+      fetchAutoQuotaStatus();
+      return;
+    }
+
+    if (action === 'set-aq-min-turns') {
+      if (isReadOnlyMode()) return;
+      const v = Math.max(0, Math.min(10000, Math.round(Number(tgt.value) || 0)));
+      tgt.value = String(v);
+      state.config.autoQuota = { ...DEFAULT_CONFIG.autoQuota, ...(state.config.autoQuota || {}), minTurns: v };
+      await saveConfigPatch({ autoQuota: { minTurns: v } });
+      fetchAutoQuotaStatus();
+      return;
+    }
+
+    if (action === 'set-aq-min-spend') {
+      if (isReadOnlyMode()) return;
+      const raw = Number(tgt.value);
+      const v = Number.isFinite(raw) ? Math.max(0, Math.min(10000, Math.round(raw * 100) / 100)) : 0;
+      tgt.value = String(v);
+      state.config.autoQuota = { ...DEFAULT_CONFIG.autoQuota, ...(state.config.autoQuota || {}), minSpendUsd: v };
+      await saveConfigPatch({ autoQuota: { minSpendUsd: v } });
+      fetchAutoQuotaStatus();
+      return;
+    }
+
+    if (action === 'set-aq-cli-path') {
+      if (isReadOnlyMode()) return;
+      const cliPath = String(tgt.value || '').trim().slice(0, 320);
+      state.config.autoQuota = { ...DEFAULT_CONFIG.autoQuota, ...(state.config.autoQuota || {}), cliPath };
+      await saveConfigPatch({ autoQuota: { cliPath } });
+      fetchAutoQuotaStatus({ forceProbe: true });
       return;
     }
 

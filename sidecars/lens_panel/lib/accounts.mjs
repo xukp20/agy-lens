@@ -70,6 +70,7 @@ export function ensureAccountSchema(db, nowMs = Date.now()) {
       name TEXT NOT NULL,
       color TEXT NOT NULL DEFAULT '#5b9cf6',
       note TEXT NOT NULL DEFAULT '',
+      external_email TEXT NOT NULL DEFAULT '',
       sort_order INTEGER NOT NULL DEFAULT 0,
       created_at INTEGER NOT NULL,
       archived_at INTEGER
@@ -102,6 +103,12 @@ export function ensureAccountSchema(db, nowMs = Date.now()) {
       updated_at INTEGER NOT NULL
     );
   `);
+
+  // Safe migration for pre-v1.12.0 accounts missing external_email
+  const accCols = db.prepare('PRAGMA table_info(accounts)').all();
+  if (accCols.length > 0 && !accCols.some((c) => c.name === 'external_email')) {
+    db.exec("ALTER TABLE accounts ADD COLUMN external_email TEXT NOT NULL DEFAULT ''");
+  }
 
   // Safe migration for pre-v1.10.0 quota_anchors missing account_id
   const qaCols = db.prepare('PRAGMA table_info(quota_anchors)').all();

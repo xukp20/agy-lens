@@ -131,6 +131,7 @@ export function openTelemetryCacheDb(dataDir) {
       reset_at INTEGER,
       reset_source TEXT NOT NULL DEFAULT '',
       reset_precision_ms INTEGER,
+      anchor_source TEXT NOT NULL DEFAULT 'manual',
       note TEXT NOT NULL DEFAULT '',
       created_at INTEGER NOT NULL
     );
@@ -143,13 +144,16 @@ export function openTelemetryCacheDb(dataDir) {
     db.exec("ALTER TABLE turns ADD COLUMN provider_request_id TEXT NOT NULL DEFAULT ''");
   }
 
-  // Safe migration for pre-existing cache DBs missing quota reset provenance columns.
+  // Safe migration for pre-existing cache DBs missing quota reset provenance / anchor source columns.
   const quotaCols = db.prepare('PRAGMA table_info(quota_anchors)').all();
   if (!quotaCols.some((c) => c.name === 'reset_source')) {
     db.exec("ALTER TABLE quota_anchors ADD COLUMN reset_source TEXT NOT NULL DEFAULT ''");
   }
   if (!quotaCols.some((c) => c.name === 'reset_precision_ms')) {
     db.exec('ALTER TABLE quota_anchors ADD COLUMN reset_precision_ms INTEGER');
+  }
+  if (!quotaCols.some((c) => c.name === 'anchor_source')) {
+    db.exec("ALTER TABLE quota_anchors ADD COLUMN anchor_source TEXT NOT NULL DEFAULT 'manual'");
   }
 
   // Migrate legacy turns tagged pool='argon' into the unified 'gemini' pool.

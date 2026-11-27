@@ -61,6 +61,11 @@ import {
   prepareApplyNow,
   prepareRollback,
 } from './updater.mjs';
+import {
+  DEFAULT_AUTO_QUOTA_CONFIG,
+  createAutoQuotaManager,
+  sanitizeAutoQuotaConfig,
+} from './auto_quota.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_PLUGIN_ROOT = resolve(__dirname, '..', '..', '..');
@@ -124,6 +129,7 @@ export const DEFAULT_CONFIG = {
   dismissedUpdateVersion: '',
   defaultRange: '7d',
   defaultAccountId: 'all',
+  autoQuota: { ...DEFAULT_AUTO_QUOTA_CONFIG },
 };
 
 const POOL_ANCHOR_KEY_RE = /^(?:(?:default|acc_[0-9a-f]{4,16}):)?(?:gemini|3p)$/;
@@ -288,6 +294,7 @@ export function deepMergeConfig(base, patch) {
       typeof patch.defaultAccountId === 'string' && patch.defaultAccountId.trim()
         ? patch.defaultAccountId.trim().slice(0, 48)
         : base.defaultAccountId || 'all',
+    autoQuota: sanitizeAutoQuotaConfig(base.autoQuota, patch.autoQuota),
   };
   for (const key of base.moduleOrder) {
     if (!out.moduleOrder.includes(key)) out.moduleOrder.push(key);
@@ -353,6 +360,7 @@ export function createLensRuntime({
   getDefaultConversationId = () => '',
   onActivity = null,
   onRestartRequested = null,
+  autoQuotaOptions = null,
 } = {}) {
   const isStandalone = mode === 'standalone';
   const resolvedDataDir = dataDir ? resolve(dataDir) : resolveDataDir();
@@ -361,6 +369,11 @@ export function createLensRuntime({
   const logoPath = join(pluginRoot, 'assets', 'logo.svg');
   const runningVersion = getRunningVersion(pluginRoot);
   const { db: cacheDb, dbPath: cacheDbPath } = openTelemetryCacheDb(resolvedDataDir);
+  const autoQuotaMgr = createAutoQuotaManager({
+    dataDir: resolvedDataDir,
+    readOnly,
+    ...(autoQuotaOptions && typeof autoQuotaOptions === 'object' ? autoQuotaOptions : {}),
+  });
 
   const normalizedSourcesOverride =
     Array.isArray(sourcesOverride) && sourcesOverride.length > 0
@@ -781,6 +794,7 @@ export function createLensRuntime({
       const sources = enabledSourcesList(config, null);
       runIncrementalIndex(cacheDb, { sources });
       const pricingState = loadPricingState(resolvedDataDir);
+      autoQuotaMgr.maybeTriggerBackgroundSync(cacheDb, pricingState, config.autoQuota);
       const accountId = normalizeAccountIdFilter(data?.account);
       return getQuotaStatus(cacheDb, pricingState, {
         pool: data?.pool || null,
@@ -797,6 +811,58 @@ export function createLensRuntime({
         accountId,
       });
     });
+
+    register('GET', '/api/auto-quota/status', async (data) => {
+      touchActivity();
+      const config = loadConfig();
+      const sources = enabledSourcesList(config, null);
+      runIncrementalIndex(cacheDb, { sources });
+      const pricingState = loadPricingState(resolvedDataDir);
+      const forceProbe = data?.forceProbe === '1' || data?.forceProbe === 'true';
+      return autoQuotaMgr.getStatus(cacheDb, pricingState, config.autoQuota, { forceProbe });
+    });
+
+    register(
+      'POST',
+      '/api/auto-quota/probe',
+      guardWrite(async () => {
+        touchActivity();
+        const config = loadConfig();
+        const sources = enabledSourcesList(config, null);
+        runIncrementalIndex(cacheDb, { sources });
+        const pricingState = loadPricingState(resolvedDataDir);
+        return autoQuotaMgr.getStatus(cacheDb, pricingState, config.autoQuota, { forceProbe: true });
+      })
+    );
+
+    register(
+      'POST',
+      '/api/auto-quota/sync',
+      guardWrite(async (data) => {
+        touchActivity();
+        const config = loadConfig();
+        const sources = enabledSourcesList(config, null);
+        runIncrementalIndex(cacheDb, { sources });
+        const pricingState = loadPricingState(resolvedDataDir);
+        const rawAcc = typeof data?.accountId === 'string' ? data.accountId.trim() : '';
+        const forceAcc = rawAcc && rawAcc !== 'all' ? rawAcc : '';
+        const syncResult = await autoQuotaMgr.syncNow(cacheDb, pricingState, config.autoQuota, {
+          trigger: 'manual',
+          accountId: forceAcc,
+        });
+        const autoQuota = await autoQuotaMgr.getStatus(cacheDb, pricingState, config.autoQuota);
+        const viewAcc = normalizeAccountIdFilter(data?.viewAccountId ?? forceAcc);
+        const quota = getQuotaStatus(cacheDb, pricingState, {
+          pool: null,
+          windowType: null,
+          quotaAnchorsByPool: config.quotaAnchorsByPool || {},
+          quotaCalibMode: config.quotaCalibMode || 'auto',
+          quotaManualFactors: config.quotaManualFactors || { M: false, C: false, O: false },
+          accountId: viewAcc,
+        });
+        return { syncResult, autoQuota, quota };
+      })
+    );
 
     register(
       'POST',

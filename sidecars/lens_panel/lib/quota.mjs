@@ -149,6 +149,13 @@ export function validateResetAtForWindow(capturedAt, resetAt, windowType) {
   }
 }
 
+const VALID_ANCHOR_SOURCES = new Set(['manual', 'auto_agy_cli', 'auto_statusline']);
+
+function normalizeAnchorSource(raw) {
+  const s = String(raw || '').trim().toLowerCase();
+  return VALID_ANCHOR_SOURCES.has(s) ? s : 'manual';
+}
+
 export function addQuotaAnchor(cacheDb, payload, nowMs = Date.now()) {
   const pool = normalizePool(payload?.pool);
   if (!pool) throw new Error('Invalid pool (expected gemini or 3p)');
@@ -161,7 +168,11 @@ export function addQuotaAnchor(cacheDb, payload, nowMs = Date.now()) {
     throw new Error('remainingPct must be a number in [0, 100]');
   }
   const remainingPct = Math.round(num * 100) / 100;
-  const precisionStep = detectPrecisionStep(remainingPct, payload?.rawInput);
+  const rawPrecision = Number(payload?.precisionStep);
+  const precisionStep =
+    Number.isFinite(rawPrecision) && rawPrecision >= 0.001 && rawPrecision <= 10
+      ? Math.round(rawPrecision * 1000) / 1000
+      : detectPrecisionStep(remainingPct, payload?.rawInput);
 
   const rawCapturedAt =
     payload?.capturedAt !== undefined && payload?.capturedAt !== null && payload?.capturedAt !== ''
@@ -189,9 +200,11 @@ export function addQuotaAnchor(cacheDb, payload, nowMs = Date.now()) {
   }
 
   const note = typeof payload?.note === 'string' ? payload.note.trim().slice(0, 240) : '';
+  const anchorSource = normalizeAnchorSource(payload?.anchorSource);
 
   const qaCols = cacheDb.prepare('PRAGMA table_info(quota_anchors)').all();
   const hasAccCol = qaCols.some((c) => c.name === 'account_id');
+  const hasSourceCol = qaCols.some((c) => c.name === 'anchor_source');
   let accountId = DEFAULT_ACCOUNT_ID;
 
   if (hasAccCol && hasAccountSchema(cacheDb)) {
@@ -213,48 +226,25 @@ export function addQuotaAnchor(cacheDb, payload, nowMs = Date.now()) {
     accountId = String(payload.accountId).trim() || DEFAULT_ACCOUNT_ID;
   }
 
-  const info = hasAccCol
-    ? cacheDb
-        .prepare(
-          `INSERT INTO quota_anchors (
-             account_id, pool, window_type, remaining_pct, precision_step, captured_at,
-             reset_at, reset_source, reset_precision_ms, note, created_at
-           )
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-        )
-        .run(
-          accountId,
-          pool,
-          windowType,
-          remainingPct,
-          precisionStep,
-          capturedAt,
-          resetAt,
-          resetSource,
-          resetPrecisionMs,
-          note,
-          nowMs
-        )
-    : cacheDb
-        .prepare(
-          `INSERT INTO quota_anchors (
-             pool, window_type, remaining_pct, precision_step, captured_at,
-             reset_at, reset_source, reset_precision_ms, note, created_at
-           )
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-        )
-        .run(
-          pool,
-          windowType,
-          remainingPct,
-          precisionStep,
-          capturedAt,
-          resetAt,
-          resetSource,
-          resetPrecisionMs,
-          note,
-          nowMs
-        );
+  const cols = [];
+  const vals = [];
+  if (hasAccCol) {
+    cols.push('account_id');
+    vals.push(accountId);
+  }
+  cols.push('pool', 'window_type', 'remaining_pct', 'precision_step', 'captured_at', 'reset_at', 'reset_source', 'reset_precision_ms');
+  vals.push(pool, windowType, remainingPct, precisionStep, capturedAt, resetAt, resetSource, resetPrecisionMs);
+  if (hasSourceCol) {
+    cols.push('anchor_source');
+    vals.push(anchorSource);
+  }
+  cols.push('note', 'created_at');
+  vals.push(note, nowMs);
+
+  const placeholders = cols.map(() => '?').join(', ');
+  const info = cacheDb
+    .prepare(`INSERT INTO quota_anchors (${cols.join(', ')}) VALUES (${placeholders})`)
+    .run(...vals);
 
   return Number(info.lastInsertRowid);
 }
@@ -369,6 +359,7 @@ function extractAuthoritativeReset(row) {
   return {
     resetAt: Math.round(ts),
     source,
+    isManual: normalizeAnchorSource(row.anchor_source ?? row.anchorSource) === 'manual',
     precisionMs: interval.precisionMs,
     lo: interval.lo,
     hi: interval.hi,
@@ -384,6 +375,9 @@ function isNewerOrHigherPriorityReset(candidate, current) {
   if (candidate.source !== 'explicit' && current.source === 'explicit') return false;
   if (candidate.precisionMs !== current.precisionMs) {
     return candidate.precisionMs < current.precisionMs;
+  }
+  if (candidate.isManual !== current.isManual) {
+    return Boolean(candidate.isManual);
   }
   if (candidate.createdAt !== current.createdAt) return candidate.createdAt > current.createdAt;
   return candidate.id >= current.id;
@@ -849,6 +843,7 @@ function formatAnchor(row, effectiveResetAt = null) {
     effectiveResetAt: explicitReset ?? effectiveResetAt ?? null,
     resetSource,
     resetPrecisionMs: row.reset_precision_ms != null ? Number(row.reset_precision_ms) : null,
+    anchorSource: normalizeAnchorSource(row.anchor_source),
     note: row.note || '',
     createdAt: row.created_at,
   };

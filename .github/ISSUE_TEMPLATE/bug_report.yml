@@ -1,0 +1,48 @@
+name: Bug Report / 问题反馈
+description: Report a bug, UI glitch, or unexpected behavior in AGY Lens / 反馈 Bug、界面异常或数据计算问题
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened? / 问题描述
+      description: Briefly describe the bug and what you expected to happen.
+      placeholder: e.g. Clicking Sync Now in Auto Quota Alignment shows ...
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce / 复现步骤
+      placeholder: |
+        1. Open Settings → ...
+        2. Click ...
+        3. Observe ...
+    validations:
+      required: false
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Runtime Mode / 运行模式
+      options:
+        - Antigravity Desktop Sidecar
+        - Standalone Web Server (`agy-lens serve`)
+        - Headless CLI (`agy-lens status`)
+        - Remote SSH / Container
+    validations:
+      required: false
+  - type: input
+    id: env
+    attributes:
+      label: OS & Version / 系统与版本
+      description: OS, AGY Lens version, Node.js version, and agy CLI version (if relevant).
+      placeholder: e.g. macOS 15 / AGY Lens v1.12.0 / Node 24 / agy 1.5.18
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Screenshots or Logs / 截图或日志（可选，注意脱敏）
+      description: Feel free to paste sanitized error messages or screenshots.
+    validations:
+      required: false

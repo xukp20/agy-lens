@@ -1,0 +1,26 @@
+name: Feature Request / 功能与扩展建议
+description: Suggest a new feature, analytics view, model support, or UX improvement / 提新功能想法、扩展能力或体验优化
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Use Case / 使用场景与痛点
+      description: What workflow or problem are you trying to solve?
+      placeholder: e.g. When switching between multiple workspaces, I'd like to ...
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed Capability / 期望的能力或方案
+      description: Describe how you envision it working (mockups or examples welcome).
+    validations:
+      required: false
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context / 补充信息（可选）
+      description: Any relevant OS, CLI/IDE setup, or constraints.
+    validations:
+      required: false
