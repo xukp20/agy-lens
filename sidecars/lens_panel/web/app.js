@@ -2244,6 +2244,11 @@
     return Boolean(state.accountsState?.multiAccountActive);
   }
 
+  function getActiveAccountsList() {
+    const list = state.accountsState?.activeAccounts;
+    return Array.isArray(list) ? list : [];
+  }
+
   function getAccountById(id) {
     const list = state.accountsState?.accounts;
     if (!Array.isArray(list)) return null;

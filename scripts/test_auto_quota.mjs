@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { openTelemetryCacheDb } from '../sidecars/lens_panel/lib/indexer.mjs';
@@ -480,4 +480,28 @@ test('HTTP routes serve auto-quota status, probe, sync and enforce read-only gua
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('web/app.js defines all helper functions referenced by multi-account auto-quota settings UI', () => {
+  const appPath = path.resolve(import.meta.dirname, '../sidecars/lens_panel/web/app.js');
+  const src = readFileSync(appPath, 'utf8');
+  const definedFns = new Set([...src.matchAll(/\bfunction\s+([A-Za-z0-9_$]+)\s*\(/g)].map((m) => m[1]));
+  assert.ok(definedFns.has('getActiveAccountsList'), 'getActiveAccountsList must be defined in web/app.js');
+
+  const sectionStart = src.indexOf('function renderSettingsAutoQuotaSection()');
+  const sectionEnd = src.indexOf('function renderSettingsUpdateSection()');
+  assert.ok(sectionStart > 0 && sectionEnd > sectionStart, 'renderSettingsAutoQuotaSection bounds found');
+  const sectionSrc = src.slice(sectionStart, sectionEnd);
+
+  const helperCalls = new Set();
+  for (const line of sectionSrc.split('\n')) {
+    if (/^\s*\/\//.test(line)) continue;
+    for (const m of line.matchAll(
+      /(?<![.\w$])((?:get|set|render|fmt|is|has|format|helpTip|poolLabel|esc|num|t)[A-Z0-9_a-z$]*)\s*\(/g
+    )) {
+      helperCalls.add(m[1]);
+    }
+  }
+  const missing = [...helperCalls].filter((fn) => !definedFns.has(fn));
+  assert.deepEqual(missing, [], `undefined helpers called in renderSettingsAutoQuotaSection: ${missing.join(', ')}`);
 });
